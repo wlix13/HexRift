@@ -1,0 +1,95 @@
+# Core Labels
+- name: "bug"
+  description: "Something is not working"
+  color: "d73a4a"
+
+- name: "feature"
+  description: "New feature or request"
+  color: "a2eeef"
+
+- name: "enhancement"
+  description: "Improvement to existing functionality"
+  color: "a2eeef"
+
+- name: "docs"
+  description: "Documentation updates"
+  color: "0075ca"
+
+- name: "breaking-change"
+  description: "Breaking changes"
+  color: "b60205"
+
+- name: "core"
+  description: "Core & Architecture changes"
+  color: "006b75"
+
+- name: "security"
+  description: "Security-related changes"
+  color: "ee0701"
+
+- name: "refactor"
+  description: "Code refactoring"
+  color: "cccccc"
+
+- name: "cli"
+  description: "CLI & Commands"
+  color: "f9d0c4"
+
+- name: "templates"
+  description: "Templates updates"
+  color: "c2e0c6"
+
+- name: "tests"
+  description: "Testing"
+  color: "e99695"
+
+- name: "ci-cd"
+  description: "CI/CD and automation"
+  color: "0052cc"
+
+- name: "dependencies"
+  description: "Changes to dependencies"
+  color: "a569bd"
+
+# PR Labels
+- name: "duplicate"
+  description: "This issue or PR already exists"
+  color: "cfd3d7"
+
+- name: "invalid"
+  description: "This doesn't seem right"
+  color: "e4e669"
+
+- name: "wontfix"
+  description: "This will not be worked on"
+  color: "ffffff"
+
+- name: "skip-changelog"
+  description: "Exclude from changelog"
+  color: "d4c5f9"
+
+# Status Labels
+- name: "needs review"
+  description: "Pull request needs code review"
+  color: "fbca04"
+
+- name: "ready to merge"
+  description: "Pull request is approved and ready to merge"
+  color: "0e8a16"
+
+- name: "in progress"
+  description: "Work is currently in progress"
+  color: "ededed"
+
+# Priority Labels
+- name: "priority: high"
+  description: "High priority issue or PR"
+  color: "d93f0b"
+
+- name: "priority: medium"
+  description: "Medium priority issue or PR"
+  color: "fbca04"
+
+- name: "priority: low"
+  description: "Low priority issue or PR"
+  color: "0e8a16"
