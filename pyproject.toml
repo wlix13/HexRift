@@ -1,0 +1,42 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling" ]
+
+[project]
+name = "hexrift"
+version = "0.1.0"
+description = "Rift Hex"
+maintainers = [ { name = "wlix13", email = "github@wlix13.dev" } ]
+authors = [ { name = "wlix13", email = "github@wlix13.dev" } ]
+requires-python = ">=3.13"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "cryptography",
+  "jinja2",
+  "kyber-py",
+  "orjson",
+  "pydantic",
+  "pyyaml",
+  "rich",
+  "rich-click",
+]
+scripts.hexrift = "hexrift.__main__:main"
+
+[dependency-groups]
+dev = [ "prek", "ruff", "ty" ]
+
+[tool.hatch]
+build.targets.wheel.packages = [ "hexrift" ]
+metadata.allow-direct-references = true
+
+[tool.ruff]
+line-length = 120
+lint.select = [ "E", "F", "I", "N", "S", "UP", "W", "YTT" ]
+lint.isort.lines-after-imports = 2
+
+[tool.ty]
+environment.root = [ "." ]
