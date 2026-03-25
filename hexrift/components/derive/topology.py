@@ -3,6 +3,7 @@
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
+from hexrift.components.schema.models.routing import HubRoute
 from hexrift.components.schema.models.users import User
 from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, SpecialDestination, TagPrefix, TagSuffix
 
@@ -198,6 +199,15 @@ def _balancer_key(region: Region) -> str:
     return "balancerTag" if region.lb_strategy is not None else "outboundTag"
 
 
+def _route_user_filter(route: HubRoute, ns: Namespace) -> dict:
+    emails = []
+    if route.users:
+        emails.extend(ns.user_email(u) for u in route.users)
+    if route.proxy_users:
+        emails.extend(route.proxy_users)
+    return {"user": emails} if emails else {}
+
+
 def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     """Build ordered routing rule list for hub node."""
 
@@ -241,10 +251,21 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
 
     # 4. Blocked domain rules
     for route in routing.hub_routes:
-        if route.destination == SpecialDestination.BLOCKED and route.domains:
+        if route.destination != SpecialDestination.BLOCKED:
+            continue
+        uf = _route_user_filter(route, ns)
+        if route.domains:
             rules.append(
                 {
                     "domain": route.domains,
+                    **uf,
+                    "outboundTag": SpecialDestination.BLOCKED,
+                }
+            )
+        if not route.domains and not route.ips and uf:
+            rules.append(
+                {
+                    **uf,
                     "outboundTag": SpecialDestination.BLOCKED,
                 }
             )
@@ -254,13 +275,14 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
         if not user.portals:
             continue
         u_email = ns.user_email(user.username)
+        uf = {"user": [u_email]}
         for portal in user.portals:
             portal_tag = f"{portal.label}{TagSuffix.PORTAL}"
             if portal.routes.domains:
                 rules.append(
                     {
                         "domain": portal.routes.domains,
-                        "user": [u_email],
+                        **uf,
                         "outboundTag": portal_tag,
                     }
                 )
@@ -268,7 +290,7 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
                 rules.append(
                     {
                         "ip": portal.routes.ips,
-                        "user": [u_email],
+                        **uf,
                         "outboundTag": portal_tag,
                     }
                 )
@@ -290,10 +312,12 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             out_key = "outboundTag"
         else:
             continue  # Validated earlier; shouldn't happen
+        uf = _route_user_filter(route, ns)
         if route.domains:
             rules.append(
                 {
                     "domain": route.domains,
+                    **uf,
                     out_key: out_tag,
                 }
             )
@@ -301,6 +325,14 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             rules.append(
                 {
                     "ip": route.ips,
+                    **uf,
+                    out_key: out_tag,
+                }
+            )
+        if not route.domains and not route.ips and uf:
+            rules.append(
+                {
+                    **uf,
                     out_key: out_tag,
                 }
             )
@@ -309,10 +341,12 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     for route in routing.hub_routes:
         if route.destination != SpecialDestination.DIRECT:
             continue
+        uf = _route_user_filter(route, ns)
         if route.domains:
             rules.append(
                 {
                     "domain": route.domains,
+                    **uf,
                     "outboundTag": SpecialDestination.DIRECT,
                 }
             )
@@ -320,19 +354,30 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             rules.append(
                 {
                     "ip": route.ips,
+                    **uf,
+                    "outboundTag": SpecialDestination.DIRECT,
+                }
+            )
+        if not route.domains and not route.ips and uf:
+            rules.append(
+                {
+                    **uf,
                     "outboundTag": SpecialDestination.DIRECT,
                 }
             )
 
     # 10. Blocked IP rules
     for route in routing.hub_routes:
-        if route.destination == SpecialDestination.BLOCKED and route.ips:
-            rules.append(
-                {
-                    "ip": route.ips,
-                    "outboundTag": SpecialDestination.BLOCKED,
-                }
-            )
+        if route.destination != SpecialDestination.BLOCKED or not route.ips:
+            continue
+        uf = _route_user_filter(route, ns)
+        rules.append(
+            {
+                "ip": route.ips,
+                **uf,
+                "outboundTag": SpecialDestination.BLOCKED,
+            }
+        )
 
     # 11. Portal catch-all (user → portal outbound)
     for user in users:

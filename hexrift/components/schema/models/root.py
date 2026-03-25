@@ -93,5 +93,11 @@ class ConglomerateConfig(BaseModel):
         for route in self.routing.hub_routes:
             if route.destination not in valid_destinations:
                 raise ValueError(f"hub_route destination {route.destination!r} is unknown")
+            for u in route.users or []:
+                if u not in usernames:
+                    raise ValueError(f"hub_route user {u!r} is not a known user")
+            for u in route.proxy_users or []:
+                if u not in usernames:
+                    raise ValueError(f"hub_route proxy_user {u!r} is not a known user")
 
         return self

@@ -5,6 +5,8 @@ class HubRoute(BaseModel):
     destination: str
     domains: list[str] | None = None
     ips: list[str] | None = None
+    users: list[str] | None = None
+    proxy_users: list[str] | None = None
 
 
 class RoutingConfig(BaseModel):
