@@ -32,15 +32,15 @@ body:
       label: "List the steps that must be taken to reproduce this issue"
       description: "Provide exact steps to recreate this bug. Include any code snippets, configuration files, or commands used. The easier it is to reproduce, the quicker it can be fixed!"
       placeholder: |
-        1. Start the application
-        2. Navigate to localhost:8080/metrics
-        3. No metrics are displayed
+        1. Run `uv run hexrift --yaml topology.yaml build --xray --haproxy --all`
+        2. Inspect the generated config at `output/...`
+        3. Observe unexpected output or error
 
   - id: version
     type: input
     attributes:
       label: "Version"
-      description: "Which version of the project are you using? (check package.json, tags, or release notes if unsure)"
+      description: "Which version of HexRift are you using? (check the release tags or pyproject.toml if unsure)"
 
   - id: additional-information
     type: textarea
