@@ -35,7 +35,8 @@ jobs:
 
       - id: diff
         run: |
-          git diff --quiet hexrift/components/schema/schema.json || echo "changed=true" >> "$GITHUB_OUTPUT"
+          git add hexrift/components/schema/schema.json
+          git diff --cached --quiet hexrift/components/schema/schema.json || echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push
         if: steps.diff.outputs.changed == 'true'
