@@ -1,0 +1,125 @@
+#---------------------------------------------------------------------
+#  GLOBAL
+#---------------------------------------------------------------------
+global
+  log /dev/log local0
+  stats socket /run/haproxy/admin.sock mode 660 expose-fd listeners
+  daemon
+
+  nbthread 1
+  # cpu-map auto:1/1-2 0-1
+  maxconn 20000
+  tune.bufsize 32768
+  tune.maxrewrite 8192
+  tune.maxaccept 32
+  tune.idletimer 60000
+  tune.comp.maxlevel 3
+  tune.http.cookielen 4096
+  tune.h2.header-table-size 16384
+  tune.h2.initial-window-size 131072
+  tune.h2.max-concurrent-streams 256
+  tune.ssl.default-dh-param 2048
+  tune.ssl.cachesize 100000
+  tune.ssl.lifetime 600
+
+defaults
+  option tcpka
+  timeout http-request    20s
+  timeout http-keep-alive 120s
+  timeout connect 5s
+  timeout client  3600s
+  timeout server  3600s
+
+{% if cdn_enabled %}
+#---------------------------------------------------------------------
+#  CRT STORE
+#---------------------------------------------------------------------
+crt-store certs
+  crt-base /usr/local/etc/haproxy/pki
+  key-base /usr/local/etc/haproxy/pki
+  load crt "{{ cert_alias }}.pem" key "{{ cert_alias }}.key" alias "{{ cert_alias }}"
+
+{% endif %}
+#---------------------------------------------------------------------
+#  FRONTEND (Edge TCP)
+#---------------------------------------------------------------------
+frontend fe_edge_tcp
+  mode tcp
+  bind *:443 tfo
+{% if ipv6 %}
+  bind [::]:443 tfo
+{% endif %}
+
+{% if cdn_enabled %}
+  tcp-request inspect-delay 5s
+  tcp-request content accept if { req.ssl_hello_type 1 }
+
+{% if node_type == "exit" %}
+  acl sni_cdn req.ssl_sni -i -m end .{{ cdn_domain }}
+{% else %}
+  acl sni_cdn req.ssl_sni -i {{ cdn_domain }}
+{% endif %}
+
+  use_backend bk_local_tls_front if sni_cdn
+{% endif %}
+  default_backend bk_reality
+
+{% if cdn_enabled %}
+#---------------------------------------------------------------------
+#  FRONTEND (TLS pass-through)
+#---------------------------------------------------------------------
+frontend fe_cdn_https_local
+  mode http
+  bind unix@{{ socket.HAPROXY_CDN }} ssl crt "@certs/{{ cert_alias }}" ssl-min-ver TLSv1.2 accept-proxy alpn h2,http/1.1
+  option http-keep-alive
+
+  # Restore client info
+  http-request set-header X-Forwarded-Proto https
+  http-request set-header X-Real-IP %[src]
+  http-request del-header X-Forwarded-For
+  http-request set-header X-Forwarded-For %[src]
+  http-request del-header Proxy
+  http-request del-header Forwarded
+
+  default_backend bk_cdn_xhttp
+
+{% endif %}
+#---------------------------------------------------------------------
+#  BACKEND (XRAY sockets)
+#---------------------------------------------------------------------
+backend bk_reality
+  mode tcp
+  server xh1 unix@{{ socket.VLESS_REALITY }} check inter 15s fall 2 rise 1
+
+{% if cdn_enabled %}
+backend bk_cdn_xhttp
+  mode http
+  option http-keep-alive
+  http-reuse always
+  timeout server  3700s
+  timeout connect 5s
+  http-response add-header X-Accel-Buffering no
+  http-response add-header Cache-Control no-store
+  server xcdn unix@{{ socket.VLESS_TLS }} check inter 15s fall 2 rise 1
+
+backend bk_local_tls_front
+  mode tcp
+  server localtls unix@{{ socket.HAPROXY_CDN }} send-proxy-v2
+
+{% endif %}
+{% if proxy_inbound %}
+#---------------------------------------------------------------------
+#  FRONTEND (Mixed proxy)
+#---------------------------------------------------------------------
+frontend fe_mixed_proxy
+  mode tcp
+  bind *:80 tfo
+{% if ipv6 %}
+  bind [::]:80 tfo
+{% endif %}
+  default_backend bk_mixed_proxy
+
+backend bk_mixed_proxy
+  mode tcp
+  server xmixed {{ socket.MIXED }} check inter 15s fall 2 rise 1
+{% endif %}

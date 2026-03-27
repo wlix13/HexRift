@@ -1,0 +1,16 @@
+name: 🔒 Schema not manually modified
+
+on:
+  pull_request:
+    paths:
+      - "hexrift/components/schema/schema.json"
+
+jobs:
+  check:
+    name: 🚫 Block manual schema.json edits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail — schema.json must not be edited manually
+        run: |
+          echo "::error file=hexrift/components/schema/schema.json::schema.json is auto-generated. Do not edit it manually — it is updated automatically on push to main."
+          exit 1
