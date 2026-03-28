@@ -1,6 +1,7 @@
 import pydantic
 from pydantic import BaseModel
 
+from hexrift.components.schema.models.regions import MtprotoConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod
 
@@ -37,6 +38,7 @@ class HubDefaults(BaseModel):
     keys: KeysConfig
     exit_connections: ExitConnectionsConfig
     reality: RealityConfig
+    mtproto: MtprotoConfig | None = None
 
 
 class DefaultsConfig(BaseModel):

@@ -50,17 +50,27 @@ frontend fe_edge_tcp
   bind [::]:443 tfo
 {% endif %}
 
-{% if cdn_enabled %}
+{% if cdn_enabled or mtproto_domain %}
   tcp-request inspect-delay 5s
   tcp-request content accept if { req.ssl_hello_type 1 }
 
+{% if cdn_enabled %}
 {% if node_type == "exit" %}
   acl sni_cdn req.ssl_sni -i -m end .{{ cdn_domain }}
 {% else %}
   acl sni_cdn req.ssl_sni -i {{ cdn_domain }}
 {% endif %}
+{% endif %}
+{% if mtproto_domain %}
+  acl sni_mtprox req.ssl_sni -i {{ mtproto_domain }}
+{% endif %}
 
+{% if cdn_enabled %}
   use_backend bk_local_tls_front if sni_cdn
+{% endif %}
+{% if mtproto_domain %}
+  use_backend bk_mtproto if sni_mtprox
+{% endif %}
 {% endif %}
   default_backend bk_reality
 
@@ -85,13 +95,25 @@ frontend fe_cdn_https_local
 
 {% endif %}
 #---------------------------------------------------------------------
-#  BACKEND (XRAY sockets)
+#  BACKEND (Reality)
 #---------------------------------------------------------------------
 backend bk_reality
   mode tcp
   server xh1 unix@{{ socket.VLESS_REALITY }} check inter 15s fall 2 rise 1
 
+{% if mtproto_domain %}
+#---------------------------------------------------------------------
+#  BACKEND (MTProto)
+#---------------------------------------------------------------------
+backend bk_mtproto
+  mode tcp
+  server mtg 127.0.0.1:{{ mtproto_port }}
+
+{% endif %}
 {% if cdn_enabled %}
+#---------------------------------------------------------------------
+#  BACKEND (CDN sockets)
+#---------------------------------------------------------------------
 backend bk_cdn_xhttp
   mode http
   option http-keep-alive
