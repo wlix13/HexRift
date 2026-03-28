@@ -30,6 +30,21 @@ class WarpConfig(BaseModel):
     vless_route: int
 
 
+class MtprotoConfig(BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    domain: str = pydantic.Field(min_length=1)
+    port: int = pydantic.Field(default=1234, ge=1, le=65535)
+
+
+class NodeMtprotoOverride(BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    domain: str | None = pydantic.Field(default=None, min_length=1)
+    port: int | None = pydantic.Field(default=None, ge=1, le=65535)
+
+
 class Node(BaseModel):
     id: str
     hostname: str
@@ -39,6 +54,7 @@ class Node(BaseModel):
     keys: NodeKeysOverride | None = None
     exit_connections: NodeExitConnectionsOverride | None = None
     proxy_inbound: bool | None = None
+    mtproto: NodeMtprotoOverride | None = None
 
 
 class Region(BaseModel):
