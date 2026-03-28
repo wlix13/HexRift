@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "hexrift"
-version = "0.1.0"
+version = "0.2.0"
 description = "Rift Hex"
 maintainers = [ { name = "wlix13", email = "github@wlix13.dev" } ]
 authors = [ { name = "wlix13", email = "github@wlix13.dev" } ]
