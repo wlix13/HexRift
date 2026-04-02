@@ -108,7 +108,6 @@ backend bk_reality
 backend bk_mtproto
   mode tcp
   server mtg 127.0.0.1:{{ mtproto_port }}
-
 {% endif %}
 {% if cdn_enabled %}
 #---------------------------------------------------------------------
@@ -127,7 +126,6 @@ backend bk_cdn_xhttp
 backend bk_local_tls_front
   mode tcp
   server localtls unix@{{ socket.HAPROXY_CDN }} send-proxy-v2
-
 {% endif %}
 {% if proxy_inbound %}
 #---------------------------------------------------------------------
