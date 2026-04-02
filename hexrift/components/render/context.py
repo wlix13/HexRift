@@ -7,6 +7,7 @@ from hexrift.components.derive.defaults import (
     derive_xhttp_host,
     resolve_exit_connections,
     resolve_node_ipv6,
+    resolve_node_mtproto,
     resolve_node_proxy_inbound,
     resolve_node_reality,
 )
@@ -60,6 +61,10 @@ class ExitContext:
     cdn_xhttp_path: str | None = None
     cdn_cert_alias: str | None = None
     cdn_clients: list[dict] = field(default_factory=list)
+
+    # MTProto (None when not configured)
+    mtproto_domain: str | None = None
+    mtproto_port: int | None = None
 
 
 @dataclass
@@ -125,6 +130,10 @@ class HubContext:
     cdn_xhttp_path: str | None = None
     cdn_cert_alias: str | None = None
     cdn_clients: list[dict] = field(default_factory=list)
+
+    # MTProto (None when not configured)
+    mtproto_domain: str | None = None
+    mtproto_port: int | None = None
 
 
 def build_exit_context(
@@ -291,6 +300,7 @@ def build_hub_context(
                 }
             )
 
+    mtproto = resolve_node_mtproto(node, config.defaults)
     return HubContext(
         node_id=node.id,
         hostname=node.hostname,
@@ -315,4 +325,6 @@ def build_hub_context(
         observatory_selectors=build_burst_observatory_selectors(exit_regions),
         proxy_inbound=(proxy_enabled := resolve_node_proxy_inbound(node, config.defaults)),
         proxy_inbound_accounts=proxy_accounts if proxy_enabled else [],
+        mtproto_domain=mtproto.domain if mtproto else None,
+        mtproto_port=mtproto.port if mtproto else None,
     )
