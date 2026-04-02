@@ -99,7 +99,7 @@ frontend fe_cdn_https_local
 #---------------------------------------------------------------------
 backend bk_reality
   mode tcp
-  server xh1 unix@{{ socket.VLESS_REALITY }} check inter 15s fall 2 rise 1
+  server xh1 unix@{{ socket.VLESS_REALITY }}
 
 {% if mtproto_domain %}
 #---------------------------------------------------------------------
@@ -121,7 +121,7 @@ backend bk_cdn_xhttp
   timeout connect 5s
   http-response add-header X-Accel-Buffering no
   http-response add-header Cache-Control no-store
-  server xcdn unix@{{ socket.VLESS_TLS }} check inter 15s fall 2 rise 1
+  server xcdn unix@{{ socket.VLESS_TLS }}
 
 backend bk_local_tls_front
   mode tcp
@@ -141,5 +141,5 @@ frontend fe_mixed_proxy
 
 backend bk_mixed_proxy
   mode tcp
-  server xmixed {{ socket.MIXED }} check inter 15s fall 2 rise 1
+  server xmixed {{ socket.MIXED }}
 {% endif %}
