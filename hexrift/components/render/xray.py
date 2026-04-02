@@ -41,12 +41,13 @@ _SOCKOPT = {
 
 _SNIFFING = {
     "enabled": True,
-    "destOverride": ["http", "tls", "quic", "fakedns"],
+    "destOverride": ["http", "tls", "quic"],
 }
 
 _XHTTP_EXTRA = {
     "scStreamUpServerSecs": "30-60",
     "xPaddingBytes": "80-1400",
+    "noGRPCHeader": True,
     "scMaxEachPostBytes": "500000-1000000",
     "scMinPostsIntervalMs": "10-50",
     "scMaxBufferedPosts": 45,
@@ -349,9 +350,9 @@ def build_hub_config(ctx: HubContext) -> dict:
             "subjectSelector": ctx.observatory_selectors,
             "pingConfig": {
                 "destination": "http://www.apple.com/library/test/success.html",
-                "interval": "15s",
-                "connectivity": "http://connectivitycheck.platform.hicloud.com/generate_204",
-                "timeout": "2s",
+                "interval": "30s",
+                "connectivity": "http://connectivitycheck.gstatic.com/generate_204",
+                "timeout": "5s",
                 "sampling": 2,
             },
         }
