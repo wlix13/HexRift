@@ -8,6 +8,7 @@ on:
 jobs:
   check:
     name: 🚫 Block manual schema.json edits
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Fail — schema.json must not be edited manually
