@@ -4,7 +4,6 @@ requires = [ "hatchling" ]
 
 [project]
 name = "hexrift"
-version = "0.2.1"
 description = "Rift Hex"
 maintainers = [ { name = "wlix13", email = "github@wlix13.dev" } ]
 authors = [ { name = "wlix13", email = "github@wlix13.dev" } ]
@@ -14,6 +13,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
+dynamic = [ "version" ]
 dependencies = [
   "cryptography",
   "jinja2",
@@ -32,6 +32,7 @@ dev = [ "prek", "ruff", "ty" ]
 [tool.hatch]
 build.targets.wheel.packages = [ "hexrift" ]
 metadata.allow-direct-references = true
+version.path = "hexrift/__init__.py"
 
 [tool.ruff]
 line-length = 120
