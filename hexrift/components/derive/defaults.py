@@ -29,6 +29,7 @@ def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -
             server_names=dr.server_names,
             xhttp_host=dr.xhttp_host,
             xhttp_path=dr.xhttp_path,
+            fallback_limits=dr.fallback_limits,
         )
     raise ValueError(f"Exit node {node.id!r} must have a reality config")
 

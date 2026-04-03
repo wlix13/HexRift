@@ -1,5 +1,5 @@
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, LbRole, RegionType
@@ -24,6 +24,24 @@ class NodeExitConnectionsOverride(BaseModel):
 
 class RegionRouting(BaseModel):
     warp_extra: list[str] | None = None
+
+
+class LeastLoadSettings(BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    baselines: list[str] = ["30ms", "100ms", "250ms"]
+    expected: int = Field(default=1, ge=1)
+    max_rtt: str = Field(default="750ms", pattern=r"^\d+(ms|s)$")
+    tolerance: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @property
+    def xray_settings(self) -> dict:
+        return {
+            "baselines": self.baselines,
+            "expected": self.expected,
+            "maxRTT": self.max_rtt,
+            "tolerance": self.tolerance,
+        }
 
 
 class WarpConfig(BaseModel):
@@ -64,6 +82,7 @@ class Region(BaseModel):
     cdn_xhttp_path: str | None = None
     lb_strategy: str | None = None
     lb_fallback: str | None = None
+    lb_least_load: LeastLoadSettings | None = None
     routing: RegionRouting | None = None
     warp: WarpConfig | None = None
     nodes: list[Node]

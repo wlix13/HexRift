@@ -25,19 +25,22 @@ _LOG = {
     "dnsLog": False,
 }
 
-_SOCKOPT = {
-    "tproxy": "off",
-    "happyEyeballs": {
-        "tryDelayMs": 250,
-        "maxConcurrentTry": 2,
-        "prioritizeIPv6": True,
-    },
-    "tcpFastOpen": True,
-    "tcpKeepAliveInterval": 45,
-    "tcpKeepAliveIdle": 45,
-    "tcpWindowClamp": 0,
-    "tcpcongestion": "bbr",
-}
+
+def _make_sockopt(ipv6: bool) -> dict:
+    return {
+        "tproxy": "off",
+        "happyEyeballs": {
+            "tryDelayMs": 250,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": ipv6,
+        },
+        "tcpFastOpen": True,
+        "tcpKeepAliveInterval": 45,
+        "tcpKeepAliveIdle": 45,
+        "tcpWindowClamp": 0,
+        "tcpcongestion": "bbr",
+    }
+
 
 _SNIFFING = {
     "enabled": True,
@@ -73,16 +76,18 @@ _DNS = {
     "useSystemHosts": True,
 }
 
-_WARP_OUTBOUND = {
-    "tag": SpecialDestination.WARP,
-    "protocol": XrayProtocol.FREEDOM,
-    "streamSettings": {
-        "sockopt": {
-            **_SOCKOPT,
-            "interface": "warp",
-        }
-    },
-}
+
+def _warp_outbound(ipv6: bool) -> dict:
+    return {
+        "tag": SpecialDestination.WARP,
+        "protocol": XrayProtocol.FREEDOM,
+        "streamSettings": {
+            "sockopt": {
+                **_make_sockopt(ipv6),
+                "interface": "warp",
+            }
+        },
+    }
 
 
 def _xhttp_settings(host: str, path: str, mode: str = "auto") -> dict:
@@ -116,8 +121,10 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "serverNames": ctx.reality_server_names,
                 "privateKey": ctx.reality_private_key,
                 "shortIds": [ctx.reality_short_id],
+                "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
+                "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
             },
-            "sockopt": _SOCKOPT,
+            "sockopt": _make_sockopt(ctx.ipv6),
         },
         "sniffing": _SNIFFING,
     }
@@ -154,7 +161,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _WARP_OUTBOUND,
+            _warp_outbound(ctx.ipv6),
         ]
     )
 
@@ -173,7 +180,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
                     "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path),
-                    "sockopt": _SOCKOPT,
+                    "sockopt": _make_sockopt(ctx.ipv6),
                 },
                 "sniffing": _SNIFFING,
             }
@@ -218,8 +225,10 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "serverNames": ctx.reality_server_names,
                 "privateKey": ctx.reality_private_key,
                 "shortIds": ctx.reality_short_ids,
+                "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
+                "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
             },
-            "sockopt": _SOCKOPT,
+            "sockopt": _make_sockopt(ctx.ipv6),
         },
         "sniffing": _SNIFFING,
     }
@@ -280,7 +289,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                     "serverName": ob.server_name,
                     "shortId": ob.short_id,
                 },
-                "sockopt": _SOCKOPT,
+                "sockopt": _make_sockopt(ctx.ipv6),
             },
         }
 
@@ -299,7 +308,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _WARP_OUTBOUND,
+            _warp_outbound(ctx.ipv6),
         ]
     )
 
@@ -318,7 +327,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
                     "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path),
-                    "sockopt": _SOCKOPT,
+                    "sockopt": _make_sockopt(ctx.ipv6),
                 },
                 "sniffing": _SNIFFING,
             }
@@ -350,10 +359,11 @@ def build_hub_config(ctx: HubContext) -> dict:
             "subjectSelector": ctx.observatory_selectors,
             "pingConfig": {
                 "destination": "http://www.apple.com/library/test/success.html",
-                "interval": "30s",
                 "connectivity": "http://connectivitycheck.gstatic.com/generate_204",
-                "timeout": "5s",
-                "sampling": 2,
+                "interval": ctx.observatory.interval,
+                "timeout": ctx.observatory.timeout,
+                "sampling": ctx.observatory.sampling,
+                "enableConcurrency": ctx.observatory.concurrency,
             },
         }
 

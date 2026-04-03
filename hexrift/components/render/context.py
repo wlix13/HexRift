@@ -23,8 +23,10 @@ from hexrift.components.derive.topology import (
     get_hub_vless_clients,
 )
 from hexrift.components.keys.store import NodeKeys
+from hexrift.components.schema.models.defaults import ObservatoryConfig
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
+from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
 
 
@@ -49,6 +51,9 @@ class ExitContext:
     reality_xhttp_path: str
     reality_short_id: str
     decryption: str
+
+    # Reality fallback rate limits
+    reality_fallback_limits: RealityFallbackLimits
 
     # Client lists
     direct_clients: list[dict]  # hub-exit UUIDs
@@ -121,6 +126,12 @@ class HubContext:
     routing_rules: list[dict]
     observatory_selectors: list[str]
 
+    # Reality fallback rate limits
+    reality_fallback_limits: RealityFallbackLimits
+
+    # Observatory config
+    observatory: ObservatoryConfig
+
     # Proxy inbound
     proxy_inbound: bool
     proxy_inbound_accounts: list[dict]  # [{"user": username, "pass": user_uuid_str}]
@@ -176,6 +187,7 @@ def build_exit_context(
         reality_xhttp_host=xhttp_host,
         reality_xhttp_path=reality.xhttp_path,
         reality_short_id=ns.exit_short_id(node.id),
+        reality_fallback_limits=reality.fallback_limits,
         decryption=node_keys.decryption,
         direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys)),
         cdn_xhttp_host=cdn_host,
@@ -311,6 +323,8 @@ def build_hub_context(
         reality_xhttp_host=xhttp_host,
         reality_xhttp_path=reality.xhttp_path,
         reality_short_ids=short_ids,
+        reality_fallback_limits=reality.fallback_limits,
+        observatory=config.defaults.hub.observatory,
         decryption=node_keys.decryption,
         vless_clients=get_hub_vless_clients(config.users, ns, flow=_flow_for_keys(node_keys)),
         cdn_xhttp_host=cdn_hub_domain,
