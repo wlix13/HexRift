@@ -15,10 +15,6 @@
 
 ## Description
 
-### What does this PR do?
-
-<!-- Provide a clear and concise description of what this PR accomplishes -->
-
 ### Why is this change needed?
 
 <!-- Explain the motivation and context for this change -->
@@ -26,12 +22,6 @@
 ### Related Issues
 
 <!-- Link to related issues using "Fixes #123", "Closes #123", or "Relates to #123" -->
-
-## Changes Made
-
-<!-- Describe the changes you made. Use bullet points for clarity -->
-
--
 
 ## Testing
 
@@ -54,5 +44,3 @@
 
 <!-- If changing generation behavior or CLI behavior don't forget to bump all version -->
 - [ ] Version bumped in `__init__.py`
-- [ ] Version bumped in `pyproject.toml`
-- [ ] Version bumped in `uv.lock`

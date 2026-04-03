@@ -4,6 +4,7 @@ from pathlib import Path
 
 import rich_click as click
 
+from hexrift import __version__
 from hexrift.components.derive.component import DeriveComponent
 from hexrift.components.derive.controller import DeriveController
 from hexrift.components.keys.component import KeysComponent
@@ -52,6 +53,7 @@ class HexRiftApp(BaseApplication["HexRiftApp"]):
 
 
 @click.group()
+@click.version_option(__version__, "-V", "--version")
 @click.option(
     "--yaml",
     "yaml_path",
