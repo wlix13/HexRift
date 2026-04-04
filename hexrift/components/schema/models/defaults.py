@@ -1,9 +1,18 @@
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hexrift.components.schema.models.regions import MtprotoConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod
+
+
+class ObservatoryConfig(BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    sampling: int = Field(default=8, ge=1, le=24)
+    interval: str = Field(default="15s", pattern=r"^\d+(ms|s|m|h)$")
+    timeout: str = Field(default="5s", pattern=r"^\d+(ms|s|m|h)$")
+    concurrency: bool = True
 
 
 class KeysConfig(BaseModel):
@@ -39,6 +48,7 @@ class HubDefaults(BaseModel):
     exit_connections: ExitConnectionsConfig
     reality: RealityConfig
     mtproto: MtprotoConfig | None = None
+    observatory: ObservatoryConfig = Field(default_factory=ObservatoryConfig)
 
 
 class DefaultsConfig(BaseModel):

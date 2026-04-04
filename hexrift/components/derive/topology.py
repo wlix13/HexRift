@@ -1,7 +1,7 @@
 """Topology resolution — build client lists, outbounds, balancers, routing rules."""
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
 from hexrift.components.schema.models.users import User
@@ -145,6 +145,16 @@ def _resolve_fallback_tag(region: Region) -> str:
     return region.lb_fallback
 
 
+def _build_strategy(region: Region) -> dict:
+    """Build strategy for balancer with leastLoad settings when applicable."""
+
+    strategy: dict = {"type": region.lb_strategy}
+    if region.lb_strategy == "leastLoad":
+        s = region.lb_least_load or LeastLoadSettings()
+        strategy["settings"] = s.xray_settings
+    return strategy
+
+
 def build_balancers(exit_regions: list[Region]) -> list[dict]:
     """Build lb-{region} balancers (and lb-warp-{region} for warp-enabled regions) with lb_strategy."""
 
@@ -153,12 +163,13 @@ def build_balancers(exit_regions: list[Region]) -> list[dict]:
         if region.lb_strategy is None:
             continue
         fb_tag = _resolve_fallback_tag(region)
+        strategy = _build_strategy(region)
         balancers.append(
             {
                 "tag": f"{TagPrefix.LB}{region.id}",
                 "selector": [region.id],
                 "fallbackTag": fb_tag,
-                "strategy": {"type": region.lb_strategy},
+                "strategy": strategy,
             }
         )
         if region.warp is not None:
@@ -168,7 +179,7 @@ def build_balancers(exit_regions: list[Region]) -> list[dict]:
                     "tag": f"{TagPrefix.LB_WARP}{region.id}",
                     "selector": [f"{TagPrefix.WARP}{region.id}"],
                     "fallbackTag": warp_fb,
-                    "strategy": {"type": region.lb_strategy},
+                    "strategy": strategy,
                 }
             )
     return balancers

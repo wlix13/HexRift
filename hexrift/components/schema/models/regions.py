@@ -1,5 +1,5 @@
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, LbRole, RegionType
@@ -26,6 +26,24 @@ class RegionRouting(BaseModel):
     warp_extra: list[str] | None = None
 
 
+class LeastLoadSettings(BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    baselines: list[str] = ["30ms", "100ms", "250ms"]
+    expected: int = Field(default=1, ge=1)
+    max_rtt: str = Field(default="750ms", pattern=r"^\d+(ms|s)$")
+    tolerance: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @property
+    def xray_settings(self) -> dict:
+        return {
+            "baselines": self.baselines,
+            "expected": self.expected,
+            "maxRTT": self.max_rtt,
+            "tolerance": self.tolerance,
+        }
+
+
 class WarpConfig(BaseModel):
     vless_route: int
 
@@ -33,16 +51,16 @@ class WarpConfig(BaseModel):
 class MtprotoConfig(BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
 
-    domain: str = pydantic.Field(min_length=1)
-    port: int = pydantic.Field(default=1234, ge=1, le=65535)
+    domain: str = Field(min_length=1)
+    port: int = Field(default=1234, ge=1, le=65535)
 
 
 class NodeMtprotoOverride(BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
 
     enabled: bool | None = None
-    domain: str | None = pydantic.Field(default=None, min_length=1)
-    port: int | None = pydantic.Field(default=None, ge=1, le=65535)
+    domain: str | None = Field(default=None, min_length=1)
+    port: int | None = Field(default=None, ge=1, le=65535)
 
 
 class Node(BaseModel):
@@ -64,6 +82,7 @@ class Region(BaseModel):
     cdn_xhttp_path: str | None = None
     lb_strategy: str | None = None
     lb_fallback: str | None = None
+    lb_least_load: LeastLoadSettings | None = None
     routing: RegionRouting | None = None
     warp: WarpConfig | None = None
     nodes: list[Node]
