@@ -30,7 +30,7 @@ def _make_sockopt(ipv6: bool) -> dict:
     return {
         "tproxy": "off",
         "happyEyeballs": {
-            "tryDelayMs": 250,
+            "tryDelayMs": 150,
             "maxConcurrentTry": 2,
             "prioritizeIPv6": ipv6,
         },
@@ -117,6 +117,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
             "realitySettings": {
                 "xver": 0,
                 "show": False,
+                "maxTimeDiff": 60000,
                 "dest": ctx.reality_dest,
                 "serverNames": ctx.reality_server_names,
                 "privateKey": ctx.reality_private_key,
@@ -221,6 +222,7 @@ def build_hub_config(ctx: HubContext) -> dict:
             "realitySettings": {
                 "xver": 0,
                 "show": False,
+                "maxTimeDiff": 60000,
                 "dest": ctx.reality_dest,
                 "serverNames": ctx.reality_server_names,
                 "privateKey": ctx.reality_private_key,
