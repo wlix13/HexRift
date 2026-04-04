@@ -1,0 +1,1049 @@
+{
+  "$defs": {
+    "AccessType": {
+      "description": "User access types (used in users[].access).",
+      "enum": [
+        "xhttp",
+        "server",
+        "cdn",
+        "proxy"
+      ],
+      "title": "AccessType",
+      "type": "string"
+    },
+    "AuthMethod": {
+      "description": "Encryption keys.",
+      "enum": [
+        "mlkem768",
+        "x25519"
+      ],
+      "title": "AuthMethod",
+      "type": "string"
+    },
+    "CdnConfig": {
+      "properties": {
+        "exit_domain": {
+          "title": "Exit Domain",
+          "type": "string"
+        },
+        "hub_domain": {
+          "title": "Hub Domain",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exit_domain",
+        "hub_domain"
+      ],
+      "title": "CdnConfig",
+      "type": "object"
+    },
+    "DefaultsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "exit": {
+          "$ref": "#/$defs/ExitDefaults"
+        },
+        "hub": {
+          "$ref": "#/$defs/HubDefaults"
+        }
+      },
+      "required": [
+        "exit",
+        "hub"
+      ],
+      "title": "DefaultsConfig",
+      "type": "object"
+    },
+    "ExitConnectionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "fingerprint": {
+          "default": "edge",
+          "title": "Fingerprint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "ExitConnectionsConfig",
+      "type": "object"
+    },
+    "ExitDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "ipv6": {
+          "title": "Ipv6",
+          "type": "boolean"
+        },
+        "keys": {
+          "$ref": "#/$defs/KeysConfig"
+        }
+      },
+      "required": [
+        "ipv6",
+        "keys"
+      ],
+      "title": "ExitDefaults",
+      "type": "object"
+    },
+    "GlobalConfig": {
+      "properties": {
+        "namespace": {
+          "title": "Namespace",
+          "type": "string"
+        },
+        "aphelion_domain": {
+          "title": "Aphelion Domain",
+          "type": "string"
+        },
+        "bridge_domain": {
+          "title": "Bridge Domain",
+          "type": "string"
+        },
+        "cdn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CdnConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "namespace",
+        "aphelion_domain",
+        "bridge_domain"
+      ],
+      "title": "GlobalConfig",
+      "type": "object"
+    },
+    "Group": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "short_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Group",
+      "type": "object"
+    },
+    "HubDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "proxy_inbound": {
+          "default": false,
+          "title": "Proxy Inbound",
+          "type": "boolean"
+        },
+        "ipv6": {
+          "title": "Ipv6",
+          "type": "boolean"
+        },
+        "keys": {
+          "$ref": "#/$defs/KeysConfig"
+        },
+        "exit_connections": {
+          "$ref": "#/$defs/ExitConnectionsConfig"
+        },
+        "reality": {
+          "$ref": "#/$defs/RealityConfig"
+        },
+        "mtproto": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MtprotoConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observatory": {
+          "$ref": "#/$defs/ObservatoryConfig"
+        }
+      },
+      "required": [
+        "ipv6",
+        "keys",
+        "exit_connections",
+        "reality"
+      ],
+      "title": "HubDefaults",
+      "type": "object"
+    },
+    "HubRoute": {
+      "properties": {
+        "destination": {
+          "title": "Destination",
+          "type": "string"
+        },
+        "domains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domains"
+        },
+        "ips": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ips"
+        },
+        "users": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Users"
+        },
+        "proxy_users": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proxy Users"
+        }
+      },
+      "required": [
+        "destination"
+      ],
+      "title": "HubRoute",
+      "type": "object"
+    },
+    "KeysConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "session_time": {
+          "title": "Session Time",
+          "type": "string"
+        },
+        "auth": {
+          "$ref": "#/$defs/AuthMethod",
+          "default": "mlkem768"
+        },
+        "padding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Padding"
+        }
+      },
+      "required": [
+        "mode",
+        "session_time"
+      ],
+      "title": "KeysConfig",
+      "type": "object"
+    },
+    "LbRole": {
+      "description": "Load balancer node roles.",
+      "enum": [
+        "backup"
+      ],
+      "title": "LbRole",
+      "type": "string"
+    },
+    "LeastLoadSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "baselines": {
+          "default": [
+            "30ms",
+            "100ms",
+            "250ms"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Baselines",
+          "type": "array"
+        },
+        "expected": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Expected",
+          "type": "integer"
+        },
+        "max_rtt": {
+          "default": "750ms",
+          "pattern": "^\\d+(ms|s)$",
+          "title": "Max Rtt",
+          "type": "string"
+        },
+        "tolerance": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tolerance",
+          "type": "number"
+        }
+      },
+      "title": "LeastLoadSettings",
+      "type": "object"
+    },
+    "MtprotoConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "port": {
+          "default": 1234,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "domain"
+      ],
+      "title": "MtprotoConfig",
+      "type": "object"
+    },
+    "Node": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "hostname": {
+          "title": "Hostname",
+          "type": "string"
+        },
+        "ipv6": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ipv6"
+        },
+        "lb_role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LbRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeKeysOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "exit_connections": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeExitConnectionsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "proxy_inbound": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proxy Inbound"
+        },
+        "mtproto": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeMtprotoOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "hostname"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "NodeExitConnectionsOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fingerprint"
+        }
+      },
+      "title": "NodeExitConnectionsOverride",
+      "type": "object"
+    },
+    "NodeKeysOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "session_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Time"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "padding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Padding"
+        }
+      },
+      "title": "NodeKeysOverride",
+      "type": "object"
+    },
+    "NodeMtprotoOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        }
+      },
+      "title": "NodeMtprotoOverride",
+      "type": "object"
+    },
+    "ObservatoryConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sampling": {
+          "default": 8,
+          "maximum": 24,
+          "minimum": 1,
+          "title": "Sampling",
+          "type": "integer"
+        },
+        "interval": {
+          "default": "15s",
+          "pattern": "^\\d+(ms|s|m|h)$",
+          "title": "Interval",
+          "type": "string"
+        },
+        "timeout": {
+          "default": "5s",
+          "pattern": "^\\d+(ms|s|m|h)$",
+          "title": "Timeout",
+          "type": "string"
+        },
+        "concurrency": {
+          "default": true,
+          "title": "Concurrency",
+          "type": "boolean"
+        }
+      },
+      "title": "ObservatoryConfig",
+      "type": "object"
+    },
+    "Portal": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "routes": {
+          "$ref": "#/$defs/PortalRoutes"
+        }
+      },
+      "required": [
+        "label",
+        "routes"
+      ],
+      "title": "Portal",
+      "type": "object"
+    },
+    "PortalRoutes": {
+      "properties": {
+        "domains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domains"
+        },
+        "ips": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ips"
+        }
+      },
+      "title": "PortalRoutes",
+      "type": "object"
+    },
+    "RealityConfig": {
+      "properties": {
+        "dest": {
+          "title": "Dest",
+          "type": "string"
+        },
+        "server_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Server Names"
+        },
+        "xhttp_host": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Xhttp Host"
+        },
+        "xhttp_path": {
+          "title": "Xhttp Path",
+          "type": "string"
+        },
+        "fallback_limits": {
+          "$ref": "#/$defs/RealityFallbackLimits"
+        }
+      },
+      "required": [
+        "dest",
+        "xhttp_path"
+      ],
+      "title": "RealityConfig",
+      "type": "object"
+    },
+    "RealityFallbackLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "after_bytes": {
+          "default": 16384,
+          "title": "After Bytes",
+          "type": "integer"
+        },
+        "bytes_per_sec": {
+          "default": 50000,
+          "title": "Bytes Per Sec",
+          "type": "integer"
+        },
+        "burst_bytes_per_sec": {
+          "default": 100000,
+          "title": "Burst Bytes Per Sec",
+          "type": "integer"
+        }
+      },
+      "title": "RealityFallbackLimits",
+      "type": "object"
+    },
+    "Region": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/RegionType"
+        },
+        "vless_route": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vless Route"
+        },
+        "cdn_xhttp_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cdn Xhttp Path"
+        },
+        "lb_strategy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lb Strategy"
+        },
+        "lb_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lb Fallback"
+        },
+        "lb_least_load": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeastLoadSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "routing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionRouting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "warp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WarpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "nodes"
+      ],
+      "title": "Region",
+      "type": "object"
+    },
+    "RegionRouting": {
+      "properties": {
+        "warp_extra": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Warp Extra"
+        }
+      },
+      "title": "RegionRouting",
+      "type": "object"
+    },
+    "RegionType": {
+      "enum": [
+        "exit",
+        "hub"
+      ],
+      "title": "RegionType",
+      "type": "string"
+    },
+    "RoutingConfig": {
+      "properties": {
+        "exit_warp_global": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exit Warp Global",
+          "type": "array"
+        },
+        "hub_routes": {
+          "items": {
+            "$ref": "#/$defs/HubRoute"
+          },
+          "title": "Hub Routes",
+          "type": "array"
+        },
+        "hub_default": {
+          "title": "Hub Default",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exit_warp_global",
+        "hub_routes",
+        "hub_default"
+      ],
+      "title": "RoutingConfig",
+      "type": "object"
+    },
+    "User": {
+      "properties": {
+        "username": {
+          "title": "Username",
+          "type": "string"
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "access": {
+          "items": {
+            "$ref": "#/$defs/AccessType"
+          },
+          "title": "Access",
+          "type": "array"
+        },
+        "uuid": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uuid"
+        },
+        "portals": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Portal"
+          },
+          "title": "Portals",
+          "type": "array"
+        },
+        "guests": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Guests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "username",
+        "group",
+        "access"
+      ],
+      "title": "User",
+      "type": "object"
+    },
+    "WarpConfig": {
+      "properties": {
+        "vless_route": {
+          "title": "Vless Route",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "vless_route"
+      ],
+      "title": "WarpConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "global": {
+      "$ref": "#/$defs/GlobalConfig"
+    },
+    "defaults": {
+      "$ref": "#/$defs/DefaultsConfig"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/Group"
+      },
+      "title": "Groups",
+      "type": "array"
+    },
+    "users": {
+      "items": {
+        "$ref": "#/$defs/User"
+      },
+      "title": "Users",
+      "type": "array"
+    },
+    "routing": {
+      "$ref": "#/$defs/RoutingConfig"
+    },
+    "regions": {
+      "items": {
+        "$ref": "#/$defs/Region"
+      },
+      "title": "Regions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "global",
+    "defaults",
+    "groups",
+    "users",
+    "routing",
+    "regions"
+  ],
+  "title": "ConglomerateConfig",
+  "type": "object"
+}
