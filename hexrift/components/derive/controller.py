@@ -9,6 +9,7 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.constants import VLESS_FLOW, AccessType, RegionType, UplinkHttpMethod
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
+from hexrift.shared.xhttp import XHTTP_EXTRA_CDN
 
 
 if TYPE_CHECKING:
@@ -130,6 +131,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                 flow = VLESS_FLOW if hub_keys.encryption != "none" else ""
                 extra = orjson.dumps(
                     {
+                        **XHTTP_EXTRA_CDN,
                         "uplinkHTTPMethod": UplinkHttpMethod.PATCH,
                     }
                 ).decode()

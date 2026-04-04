@@ -12,6 +12,15 @@ XHTTP_EXTRA = {
     "scMaxBufferedPosts": 45,
 }
 
+XHTTP_EXTRA_CDN = {
+    "noSSEHeader": True,
+    "xPaddingMethod": "tokenish",
+    "xPaddingObfsMode": True,
+    "xPaddingPlacement": "header",
+    "xPaddingHeader": "X-Request-Id",
+    **XHTTP_EXTRA,
+}
+
 XMUX = {
     "maxConcurrency": "16-32",
     "maxConnections": 0,

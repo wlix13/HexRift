@@ -16,7 +16,7 @@ from hexrift.constants import (
     XrayProtocol,
     XraySecurity,
 )
-from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
+from hexrift.shared.xhttp import XHTTP_EXTRA, XHTTP_EXTRA_CDN, XMUX
 from hexrift.shared.xray import DNS, LOG, SNIFFING, make_sockopt
 
 
@@ -33,12 +33,12 @@ def _warp_outbound(ipv6: bool) -> dict:
     }
 
 
-def _xhttp_settings(host: str, path: str, mode: str = "auto") -> dict:
+def _xhttp_settings(host: str, path: str, mode: str = "auto", cdn: bool = False) -> dict:
     return {
         "host": host,
         "path": path,
         "mode": mode,
-        "extra": XHTTP_EXTRA,
+        "extra": XHTTP_EXTRA_CDN if cdn else XHTTP_EXTRA,
         "xmux": XMUX,
     }
 
@@ -123,7 +123,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "streamSettings": {
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
-                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path),
+                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
                     "sockopt": make_sockopt(ctx.ipv6),
                 },
                 "sniffing": SNIFFING,
@@ -271,7 +271,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "streamSettings": {
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
-                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path),
+                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
                     "sockopt": make_sockopt(ctx.ipv6),
                 },
                 "sniffing": SNIFFING,
