@@ -33,16 +33,16 @@ class WarpConfig(BaseModel):
 class MtprotoConfig(BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
 
-    domain: str = pydantic.Field(min_length=1)
-    port: int = pydantic.Field(default=1234, ge=1, le=65535)
+    domain: str = Field(min_length=1)
+    port: int = Field(default=1234, ge=1, le=65535)
 
 
 class NodeMtprotoOverride(BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
 
     enabled: bool | None = None
-    domain: str | None = pydantic.Field(default=None, min_length=1)
-    port: int | None = pydantic.Field(default=None, ge=1, le=65535)
+    domain: str | None = Field(default=None, min_length=1)
+    port: int | None = Field(default=None, ge=1, le=65535)
 
 
 class Node(BaseModel):
