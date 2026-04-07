@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from hexrift.components.schema.models.routing import ExitRoute
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, LbRole, RegionType
 
@@ -25,6 +26,7 @@ class RegionRouting(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     warp_extra: list[str] | None = None
+    routes: list[ExitRoute] | None = None
 
 
 class LeastLoadSettings(BaseModel):
