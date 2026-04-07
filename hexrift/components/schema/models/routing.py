@@ -14,6 +14,6 @@ class HubRoute(BaseModel):
 class RoutingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    exit_warp_global: list[str]
-    hub_routes: list[HubRoute]
+    exit_warp_global: list[str] = []
+    hub_routes: list[HubRoute] = []
     hub_default: str
