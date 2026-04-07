@@ -1,9 +1,8 @@
-import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RealityFallbackLimits(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     after_bytes: int = 16_384
     bytes_per_sec: int = 50_000
@@ -19,6 +18,8 @@ class RealityFallbackLimits(BaseModel):
 
 
 class RealityConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     dest: str
     server_names: list[str] | None = None
     xhttp_host: str | None = None

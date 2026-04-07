@@ -1,12 +1,11 @@
-import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, LbRole, RegionType
 
 
 class NodeKeysOverride(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     enabled: bool | None = None
     mode: str | None = None
@@ -16,18 +15,20 @@ class NodeKeysOverride(BaseModel):
 
 
 class NodeExitConnectionsOverride(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     method: str | None = None
     fingerprint: str | None = None
 
 
 class RegionRouting(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     warp_extra: list[str] | None = None
 
 
 class LeastLoadSettings(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     baselines: list[str] = ["30ms", "100ms", "250ms"]
     expected: int = Field(default=1, ge=1)
@@ -45,18 +46,20 @@ class LeastLoadSettings(BaseModel):
 
 
 class WarpConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     vless_route: int
 
 
 class MtprotoConfig(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     domain: str = Field(min_length=1)
     port: int = Field(default=1234, ge=1, le=65535)
 
 
 class NodeMtprotoOverride(BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     enabled: bool | None = None
     domain: str | None = Field(default=None, min_length=1)
@@ -64,6 +67,8 @@ class NodeMtprotoOverride(BaseModel):
 
 
 class Node(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     hostname: str
     ipv6: bool | None = None
@@ -76,6 +81,8 @@ class Node(BaseModel):
 
 
 class Region(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     type: RegionType
     vless_route: int | None = None

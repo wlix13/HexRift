@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
@@ -17,7 +17,7 @@ class ConglomerateConfig(BaseModel):
     routing: RoutingConfig
     regions: list[Region]
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     @model_validator(mode="after")
     def _validate_references(self) -> "ConglomerateConfig":
