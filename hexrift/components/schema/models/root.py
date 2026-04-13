@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
@@ -17,7 +17,7 @@ class ConglomerateConfig(BaseModel):
     routing: RoutingConfig
     regions: list[Region]
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     @model_validator(mode="after")
     def _validate_references(self) -> "ConglomerateConfig":
@@ -59,6 +59,15 @@ class ConglomerateConfig(BaseModel):
                 for node in region.nodes:
                     if node.reality is None:
                         raise ValueError(f"Exit node {node.id!r} in region {region.id!r} must have reality config")
+                if region.routing and region.routing.routes:
+                    for route in region.routing.routes:
+                        if route.destination not in SPECIAL_DESTINATIONS:
+                            raise ValueError(
+                                f"exit route destination {route.destination!r} in region {region.id!r}"
+                                " must be a special destination"
+                            )
+            elif region.routing and region.routing.routes:
+                raise ValueError(f"Non-exit region {region.id!r} must not define routing.routes")
             if region.lb_fallback is not None:
                 region_node_ids = {n.id for n in region.nodes}
                 if region.lb_fallback not in region_node_ids:
@@ -87,6 +96,11 @@ class ConglomerateConfig(BaseModel):
         hub_default = self.routing.hub_default
         if hub_default not in region_ids:
             raise ValueError(f"hub_default {hub_default!r} is not a known region")
+
+        # exit_routes_global destinations
+        for route in self.routing.exit_routes_global:
+            if route.destination not in SPECIAL_DESTINATIONS:
+                raise ValueError(f"exit_routes_global destination {route.destination!r} must be a special destination")
 
         # hub_routes destinations
         valid_destinations = SPECIAL_DESTINATIONS | region_ids | node_ids

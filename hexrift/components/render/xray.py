@@ -79,11 +79,14 @@ def build_exit_config(ctx: ExitContext) -> dict:
             "port": 53,
             "outboundTag": SpecialDestination.DIRECT,
         },
+    ]
+    routing_rules.extend(ctx.extra_routes)
+    routing_rules.append(
         {
             "vlessRoute": str(WARP_VLESS_ROUTE),
             "outboundTag": SpecialDestination.WARP,
         },
-    ]
+    )
     if ctx.warp_domains:
         routing_rules.append(
             {

@@ -13,6 +13,7 @@ LOG = {
 SNIFFING = {
     "enabled": True,
     "destOverride": ["http", "tls", "quic"],
+    "routeOnly": True,
 }
 
 DNS = {

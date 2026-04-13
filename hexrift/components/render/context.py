@@ -60,6 +60,7 @@ class ExitContext:
 
     # Routing
     warp_domains: list[str]  # region warp_extra + exit_warp_global (domain-based warp routing)
+    extra_routes: list[dict]  # from region routes + global_exit_routes
 
     # CDN inbound (None when CDN is not configured)
     cdn_xhttp_host: str | None = None
@@ -176,6 +177,15 @@ def build_exit_context(
         warp_domains.extend(region.routing.warp_extra)
     warp_domains.extend(config.routing.exit_warp_global)
 
+    # extra_routes: region-specific routes first, then global exit routes (both applied additively)
+    extra_routes: list[dict] = []
+    all_exit_routes = (region.routing.routes or [] if region.routing else []) + config.routing.exit_routes_global
+    for route in all_exit_routes:
+        if route.domains:
+            extra_routes.append({"domain": route.domains, "outboundTag": route.destination})
+        if route.ips:
+            extra_routes.append({"ip": route.ips, "outboundTag": route.destination})
+
     return ExitContext(
         node_id=node.id,
         hostname=node.hostname,
@@ -195,6 +205,7 @@ def build_exit_context(
         cdn_cert_alias=cert_alias,
         cdn_clients=cdn_clients,
         warp_domains=warp_domains,
+        extra_routes=extra_routes,
     )
 
 
