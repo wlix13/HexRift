@@ -67,6 +67,9 @@ class Namespace:
     def exit_short_id(self, node_id: str) -> str:
         return self._gen_short_id(f"{node_id}.exit.{self.name}")
 
+    def user_short_id(self, username: str) -> str:
+        return self._gen_short_id(f"{username}.user.{self.name}")
+
     def _gen_group_short_id(self, group_id: str) -> str:
         return self._gen_short_id(f"{group_id}.{self.name}")
 

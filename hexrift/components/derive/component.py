@@ -240,13 +240,23 @@ def _print_users(app: HexRiftApp) -> None:
     table.add_column("UUID")
     table.add_column("Email")
     table.add_column("Server UUID")
+    table.add_column("ShortId")
     for row in rows:
         table.add_row(
             row["username"],
             row["uuid"],
             row["email"],
             row.get("server_uuid", "—"),
+            "—",
         )
+        for guest in row.get("guests", []):
+            table.add_row(
+                f"[dim]  {guest['label']}[/dim]",
+                f"[dim]{guest['uuid']}[/dim]",
+                f"[dim]{guest['email']}[/dim]",
+                "—",
+                f"[dim]{guest['short_id']}[/dim]",
+            )
     app.console.print(table)
 
 

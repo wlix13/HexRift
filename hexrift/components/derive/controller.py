@@ -39,6 +39,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                         "label": label,
                         "uuid": str(ns.guest_uuid(label, user.username, user_base=user_base)),
                         "email": ns.guest_email(label, user.username),
+                        "short_id": ns.user_short_id(user.username),
                     }
                     for label in user.guests
                 ]
@@ -102,7 +103,7 @@ class DeriveController(BaseController["HexRiftApp"]):
         group = next((g for g in cfg.groups if g.id == user.group), None)
         if group is None:
             raise DeriveError(f"Group not found for user {username!r}: {user.group!r}")
-        g_short_id = ns.group_short_id(group)
+        g_short_id = ns.user_short_id(username) if guest is not None else ns.group_short_id(group)
 
         if hub_id is not None:
             hub_region, hub_node = self.app.schema.get_node(hub_id)
