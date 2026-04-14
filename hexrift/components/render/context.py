@@ -20,6 +20,7 @@ from hexrift.components.derive.topology import (
     get_exit_direct_clients,
     get_hub_cdn_clients,
     get_hub_short_ids,
+    get_hub_user_short_ids,
     get_hub_vless_clients,
 )
 from hexrift.components.keys.store import NodeKeys
@@ -231,7 +232,7 @@ def build_hub_context(
         cert_alias = cdn_hub_domain.split(".")[0]
 
     # Short IDs
-    short_ids = get_hub_short_ids(config.groups, ns)
+    short_ids = get_hub_short_ids(config.groups, ns) + get_hub_user_short_ids(config.users, ns)
 
     # Portals
     portals: list[PortalContext] = []

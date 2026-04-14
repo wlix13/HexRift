@@ -125,6 +125,23 @@ def get_hub_short_ids(groups: list, ns: Namespace) -> list[str]:
     return [ns.group_short_id(group) for group in groups]
 
 
+def get_hub_user_short_ids(users: list[User], ns: Namespace) -> list[str]:
+    """One shortId per user that has guests."""
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for user in users:
+        if not user.guests:
+            continue
+        if AccessType.XHTTP not in user.access and AccessType.CDN not in user.access:
+            continue
+        sid = ns.user_short_id(user.username)
+        if sid not in seen:
+            seen.add(sid)
+            result.append(sid)
+    return result
+
+
 def get_exit_short_id(node: Node, ns: Namespace) -> str:
     """Exit node gets a single shortId."""
 
