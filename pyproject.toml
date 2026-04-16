@@ -28,6 +28,7 @@ scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
 dev = [ "prek", "ruff", "ty" ]
+docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
 
 [tool.hatch]
 build.targets.wheel.packages = [ "hexrift" ]
