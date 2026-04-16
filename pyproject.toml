@@ -49,3 +49,4 @@ tasks.check-format = "uv run ruff format --check ."
 tasks.lint = "uv run ruff check ."
 tasks.typecheck = "uv run ty check"
 tasks.check = [ "check-format", "lint", "typecheck" ]
+tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
