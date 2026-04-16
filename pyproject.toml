@@ -27,7 +27,7 @@ dependencies = [
 scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
-dev = [ "prek", "ruff", "ty" ]
+dev = [ "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
 
 [tool.hatch]
@@ -42,3 +42,10 @@ lint.isort.lines-after-imports = 2
 
 [tool.ty]
 environment.root = [ "." ]
+
+[tool.poe]
+tasks.format = "uv run ruff format ."
+tasks.check-format = "uv run ruff format --check ."
+tasks.lint = "uv run ruff check ."
+tasks.typecheck = "uv run ty check"
+tasks.check = [ "check-format", "lint", "typecheck" ]
