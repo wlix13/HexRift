@@ -1,0 +1,37 @@
+name: 📚 Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "mkdocs.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: 📚 Deploy Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@8.0.0
+        with:
+          enable-cache: true
+
+      - run: uv sync --only-group docs
+
+      - name: Configure git
+        run: git config user.name 'github-actions[bot]' && git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Build documentation
+        run: uv run mkdocs build --strict
+
+      - name: Deploy documentation
+        run: uv run mkdocs gh-deploy --force
