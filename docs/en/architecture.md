@@ -101,8 +101,8 @@ Source: `hexrift/components/keys/store.py`, `reality.py`, `decryption.py`.
 ```yaml
 reality_private_key: "<base64url-no-padding>"   # x25519 private key (32 bytes)
 reality_public_key:  "<base64url-no-padding>"   # x25519 public key (32 bytes)
-decryption: "mlkem768x25519plus.rprx_vision.12h.{PRIVATE_KEY}"   # server inbound
-encryption: "mlkem768x25519plus.rprx_vision.0rtt.{PUBLIC_KEY}"   # client outbound
+decryption: "mlkem768x25519plus.rprx_vision.12h.{private_key_b64}"   # server inbound
+encryption: "mlkem768x25519plus.rprx_vision.0rtt.{public_key_b64}"   # client outbound
 ```
 
 ### Key string format

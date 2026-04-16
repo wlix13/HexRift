@@ -67,3 +67,11 @@ plugins:
             - CLI Reference: cli-reference.md
             - Topology Schema: topology-schema.md
             - Architecture: architecture.md
+        - locale: ru
+          name: Русский
+          nav:
+            - Главная: index.md
+            - Начало работы: getting-started.md
+            - Справочник CLI: cli-reference.md
+            - Схема топологии: topology-schema.md
+            - Архитектура: architecture.md
