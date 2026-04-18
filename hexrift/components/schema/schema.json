@@ -21,6 +21,7 @@
       "type": "string"
     },
     "CdnConfig": {
+      "additionalProperties": false,
       "properties": {
         "exit_domain": {
           "title": "Exit Domain",
@@ -92,7 +93,52 @@
       "title": "ExitDefaults",
       "type": "object"
     },
+    "ExitRoute": {
+      "additionalProperties": false,
+      "properties": {
+        "destination": {
+          "title": "Destination",
+          "type": "string"
+        },
+        "domains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domains"
+        },
+        "ips": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ips"
+        }
+      },
+      "required": [
+        "destination"
+      ],
+      "title": "ExitRoute",
+      "type": "object"
+    },
     "GlobalConfig": {
+      "additionalProperties": false,
       "properties": {
         "namespace": {
           "title": "Namespace",
@@ -127,6 +173,7 @@
       "type": "object"
     },
     "Group": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "title": "Id",
@@ -197,6 +244,7 @@
       "type": "object"
     },
     "HubRoute": {
+      "additionalProperties": false,
       "properties": {
         "destination": {
           "title": "Destination",
@@ -378,6 +426,7 @@
       "type": "object"
     },
     "Node": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "title": "Id",
@@ -649,6 +698,7 @@
       "type": "object"
     },
     "Portal": {
+      "additionalProperties": false,
       "properties": {
         "label": {
           "title": "Label",
@@ -666,6 +716,7 @@
       "type": "object"
     },
     "PortalRoutes": {
+      "additionalProperties": false,
       "properties": {
         "domains": {
           "anyOf": [
@@ -702,6 +753,7 @@
       "type": "object"
     },
     "RealityConfig": {
+      "additionalProperties": false,
       "properties": {
         "dest": {
           "title": "Dest",
@@ -772,6 +824,7 @@
       "type": "object"
     },
     "Region": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "title": "Id",
@@ -878,6 +931,7 @@
       "type": "object"
     },
     "RegionRouting": {
+      "additionalProperties": false,
       "properties": {
         "warp_extra": {
           "anyOf": [
@@ -893,6 +947,21 @@
           ],
           "default": null,
           "title": "Warp Extra"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExitRoute"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
         }
       },
       "title": "RegionRouting",
@@ -907,15 +976,26 @@
       "type": "string"
     },
     "RoutingConfig": {
+      "additionalProperties": false,
       "properties": {
         "exit_warp_global": {
+          "default": [],
           "items": {
             "type": "string"
           },
           "title": "Exit Warp Global",
           "type": "array"
         },
+        "exit_routes_global": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExitRoute"
+          },
+          "title": "Exit Routes Global",
+          "type": "array"
+        },
         "hub_routes": {
+          "default": [],
           "items": {
             "$ref": "#/$defs/HubRoute"
           },
@@ -928,14 +1008,13 @@
         }
       },
       "required": [
-        "exit_warp_global",
-        "hub_routes",
         "hub_default"
       ],
       "title": "RoutingConfig",
       "type": "object"
     },
     "User": {
+      "additionalProperties": false,
       "properties": {
         "username": {
           "title": "Username",
@@ -991,6 +1070,7 @@
       "type": "object"
     },
     "WarpConfig": {
+      "additionalProperties": false,
       "properties": {
         "vless_route": {
           "title": "Vless Route",
@@ -1004,6 +1084,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "global": {
       "$ref": "#/$defs/GlobalConfig"
