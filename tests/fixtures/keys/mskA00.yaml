@@ -1,0 +1,5 @@
+# TEST-ONLY: synthetic keys for unit tests — do not use in production
+decryption: mlkem768x25519plus.native.600s.wLmsbRtl20XcOo_xDOE7Zs-UBey6ZwSqRtWaw55MWmE
+encryption: mlkem768x25519plus.native.0rtt.u-5whFoa5HSl8vqWLbyXN2gh8MG9JwY431bW4YiBtnc
+reality_private_key: UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf-3GDy6nCUQ
+reality_public_key: mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk

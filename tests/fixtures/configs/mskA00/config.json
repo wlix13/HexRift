@@ -1,0 +1,324 @@
+{
+  "log": {
+    "loglevel": "none",
+    "access": "none",
+    "error": "none",
+    "dnsLog": false
+  },
+  "reverse": {
+    "portals": [
+      {
+        "tag": "home-portal",
+        "domain": "home.br.test.hexrift"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "tag": "direct-xhttp",
+      "listen": "/dev/shm/xhttp_vless_reality.sock",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "alice@test.hexrift",
+            "id": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "alice-server@alice",
+            "id": "57391a98-59cb-56ae-aa8e-e3f7a166e09e",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "bob@test.hexrift",
+            "id": "a5f242a8-5b2f-5415-bc2a-1ef107ce93cd",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "laptop@bob",
+            "id": "34b1975b-5059-5875-9c97-4acf78b1e35f",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "phone@bob",
+            "id": "6f416c36-94e2-5562-9a2e-86eca9847f59",
+            "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "home-portal@alice",
+            "id": "d2374034-7576-5dc0-9205-338fa2b75c0d",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.wLmsbRtl20XcOo_xDOE7Zs-UBey6ZwSqRtWaw55MWmE"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "realitySettings": {
+          "xver": 0,
+          "show": false,
+          "maxTimeDiff": 60000,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["www.microsoft.com"],
+          "privateKey": "UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf-3GDy6nCUQ",
+          "shortIds": [
+            "aabbccddeeff0011",
+            "1122334455667788",
+            "7a46bb2b6f215317"
+          ],
+          "limitFallbackUpload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          },
+          "limitFallbackDownload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
+      "tag": "cdn-xhttp",
+      "listen": "/dev/shm/xhttp_vless_tls.sock",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6",
+            "email": "alice@test.hexrift",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.wLmsbRtl20XcOo_xDOE7Zs-UBey6ZwSqRtWaw55MWmE"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "none",
+        "xhttpSettings": {
+          "host": "cdn-hub.test.hexrift",
+          "path": "/cdn/",
+          "mode": "auto",
+          "extra": {
+            "noSSEHeader": true,
+            "xPaddingMethod": "tokenish",
+            "xPaddingObfsMode": true,
+            "xPaddingPlacement": "header",
+            "xPaddingHeader": "X-Request-Id",
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "nlA00",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "nlA00.ap.test.hexrift",
+            "port": 443,
+            "users": [
+              {
+                "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
+                "encryption": "mlkem768x25519plus.native.0rtt.E_SlGIh58bB_JreuKsqo4QuW9qQvEGgICzBBIQCxKmonXZSxMcJYNOQ_Hmap4VMVIau-gsFWUGs0CTnEwctXDjggq9vAaOV0eoEjPcFNDRc0UeJwfzi5symz-kyZONpBkGM8izR4SRITWMwQICg-M9Nqv-tndtK0P6IUbZtG3CLJkjGORgQhz6QFrPdPHHyKsNfPufwNgyo7ZKF6k-ksGulo3Aqt5WW8tOwirlqx8KkZcoJOwZZ1Z2QphcXDTvurbzBsRbsWYCxsaFlvzgYvwYuj9AsOaYd7A5bMz6GVhIalz8eBS7g5A2tipFC369g3aPRad9pEsvmfjTC53SA2dyC7EHMClWs3dpVsihCiOyWb2lUgx5GXxUkBHmxg-nRfvGyTghJKRJNsAnSDnMyg7bpYF9o9X7aZ1wBufNczklJJUvCXsIdDk3uDoLVIF8tcj1tuq3Bur9y7-auxRjF_dsxVHfZdg-RbFAQUzcXDuARVSfkoOuii7uGZ8_hr5zcTDcI1mtgDJQJ3NZuMx_tuuQA798aj5Od8C9onyWQTigqDVAK0Odkc12XEheM2-DoIdGRUK0jJR3KAE8pqN9G8fnOX1jRK7NSeTdBN2uqgMEdKvGVdbJshhcVYkjchypWW6HZ50ia2RKalcwycM6ASjAGJY7SNlpkMb0dUTYgmhfi5SJCes6J38HiCeKAfaPdZ28a3lPKf2Xm2f5dBB3B2nhpzSBCsMvcvWEkbb_t-lTMGWBhsMjypYnQ40dB0XhmldqzO-4eHgzWyEvK-kVCwatZuGLMw1GAWnTAsOyYmeHw5uZMmYQZ-HEx6ywOEGlJ6nhMT_9xlyne3bbFRCnxvWfzPtXdz7va8twuOSMJb8bCvKWyyivBZqOpp4MMx1eax7kHH5LnHH1qBZqp39fkpkEAB_uEHT7Z31bI5tMWzfFgFnntXlPKxQIBZmBRfuNWoC6oQpYhqL3UGeFS5xkyLH7ou19lPv6qaENhMP1IP4aeJ_LGR3OdUkXjDiQt73xhK_wPBCAQm-pxV5tOy0zvMrUUAamlP07qWX9YrzZsKsAuRRUQwb2N9GBqe9_dMP8ViD8CKkCGpsosVMoGDIlTPiamjl3W2sxzPv7FvPsIDvuxVl-gNFxumxfYfK1aKiQKpnQsg7yu2oXqjq7bPy1XN4cfPogVwOvND-4IQ5CSgVVs8OOYbGnZ4nPOw-Zl1ZjvGd8ScxgwEQAIwUDR2oAMcWsWBEBBHFgcQ6KctSnmSN5RCLFNvLvS1EixUCWICAoh5KlptxOxnf8QV7IclrPtKNFqfPKRSRUuGJ9OEHgoPmfSpa_xkfWtgKtlt6GWfTJzKMptXccwaz_U2J9Qa3mhQDYgl-IuppZFlU1pbhSCuzik5OsBrdLB1_II9jtJLGtmwNrJH3CEFM_qeFAXE7Igj_SkTCPtXq7dOaZYdnkqjh7EZHtBWtuAgnElQf6ocvkxQtFV1qpRcLZGD1BlevuKUL6t3I4SZ1YTAlZZnf8sny0cKjIOkKEtxnalaz0hu8uUxkzjVsYstuhhB_K_yRSZ56aviF06bG9NFSfug--joK_s",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "realitySettings": {
+          "publicKey": "2SPCC3V_diQ97Pl6CYnFp52St-k7Mof9PNDPS9D4yRU",
+          "fingerprint": "chrome",
+          "serverName": "www.microsoft.com",
+          "shortId": "27d522d2eda51e5b"
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
+    },
+    {
+      "tag": "warp",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr",
+          "interface": "warp"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "balancers": [],
+    "rules": [
+      {
+        "ip": ["127.0.0.1", "::1"],
+        "port": 53,
+        "outboundTag": "direct"
+      },
+      {
+        "vlessRoute": "1000",
+        "outboundTag": "nlA00"
+      },
+      {
+        "domain": ["home.alice.example.com"],
+        "user": ["alice@test.hexrift"],
+        "outboundTag": "home-portal"
+      },
+      {
+        "domain": ["internal.example.com"],
+        "outboundTag": "direct"
+      },
+      {
+        "user": ["home-portal@alice"],
+        "outboundTag": "home-portal"
+      },
+      {
+        "network": "TCP,UDP",
+        "outboundTag": "nlA00"
+      }
+    ]
+  },
+  "dns": {
+    "servers": [
+      {
+        "address": "127.0.0.1",
+        "port": 53
+      }
+    ],
+    "enableParallelQuery": true,
+    "useSystemHosts": true
+  }
+}

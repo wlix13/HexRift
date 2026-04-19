@@ -1,0 +1,206 @@
+{
+  "log": {
+    "loglevel": "none",
+    "access": "none",
+    "error": "none",
+    "dnsLog": false
+  },
+  "inbounds": [
+    {
+      "tag": "direct-xhttp",
+      "listen": "/dev/shm/xhttp_vless_reality.sock",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "mskA00-nlA00@test.hexrift",
+            "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.7hyY0QXmAnhSh5YLX0S57wzhQTgOGjchWxCYDiJEh4gMrNjOmJHvnYRWTzGZwkyJrwAnFJ42ixBvMnR2s5hB0w"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "realitySettings": {
+          "xver": 0,
+          "show": false,
+          "maxTimeDiff": 60000,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["www.microsoft.com"],
+          "privateKey": "2M_KKW_6GTmT87r70vuDeqFFmHKy9wmoaADNqUFueGI",
+          "shortIds": ["27d522d2eda51e5b"],
+          "limitFallbackUpload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          },
+          "limitFallbackDownload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
+      "tag": "cdn-xhttp",
+      "listen": "/dev/shm/xhttp_vless_tls.sock",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "mskA00-nlA00@test.hexrift",
+            "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.7hyY0QXmAnhSh5YLX0S57wzhQTgOGjchWxCYDiJEh4gMrNjOmJHvnYRWTzGZwkyJrwAnFJ42ixBvMnR2s5hB0w"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "none",
+        "xhttpSettings": {
+          "host": "nlA00.cdn-exit.test.hexrift",
+          "path": "/cdn/",
+          "mode": "auto",
+          "extra": {
+            "noSSEHeader": true,
+            "xPaddingMethod": "tokenish",
+            "xPaddingObfsMode": true,
+            "xPaddingPlacement": "header",
+            "xPaddingHeader": "X-Request-Id",
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
+    },
+    {
+      "tag": "warp",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr",
+          "interface": "warp"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "ip": ["127.0.0.1", "::1"],
+        "port": 53,
+        "outboundTag": "direct"
+      },
+      {
+        "vlessRoute": "65535",
+        "outboundTag": "warp"
+      }
+    ]
+  },
+  "dns": {
+    "servers": [
+      {
+        "address": "127.0.0.1",
+        "port": 53
+      }
+    ],
+    "enableParallelQuery": true,
+    "useSystemHosts": true
+  }
+}
