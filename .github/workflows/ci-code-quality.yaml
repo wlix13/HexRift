@@ -20,7 +20,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      - run: uv sync --group dev
+      - run: uv sync --group dev --group tests
 
       - name: Check formatting
         run: uv run ruff format --check .
