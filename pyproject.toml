@@ -29,6 +29,7 @@ scripts.hexrift = "hexrift.__main__:main"
 [dependency-groups]
 dev = [ "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
+tests = [ "pytest", "pytest-cov", "pytest-sugar" ]
 
 [tool.hatch]
 build.targets.wheel.packages = [ "hexrift" ]
@@ -38,15 +39,28 @@ version.path = "hexrift/__init__.py"
 [tool.ruff]
 line-length = 120
 lint.select = [ "E", "F", "I", "N", "S", "UP", "W", "YTT" ]
+lint.per-file-ignores."tests/*" = [
+  "S101", # Use of `assert` detected
+]
 lint.isort.lines-after-imports = 2
 
 [tool.ty]
 environment.root = [ "." ]
 
+[tool.pytest]
+ini_options.testpaths = [ "tests" ]
+ini_options.addopts = "-ra -q --tb=short --cov=hexrift"
+ini_options.markers = [
+  "unit: pure unit tests, no I/O",
+  "component: controller-level tests with tmp_path",
+  "integration: full pipeline against real topology",
+]
+
 [tool.poe]
 tasks.format = "uv run ruff format ."
 tasks.check-format = "uv run ruff format --check ."
 tasks.lint = "uv run ruff check ."
-tasks.typecheck = "uv run ty check"
+tasks.typecheck = "uv run --group dev --group tests ty check"
 tasks.check = [ "check-format", "lint", "typecheck" ]
 tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
+tasks.tests = "uv run --group tests pytest"

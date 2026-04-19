@@ -1,0 +1,71 @@
+global:
+  namespace: test.hexrift
+  aphelion_domain: ap.test.hexrift
+  bridge_domain: br.test.hexrift
+  cdn:
+    exit_domain: cdn-exit.test.hexrift
+    hub_domain: cdn-hub.test.hexrift
+
+defaults:
+  exit:
+    ipv6: true
+    keys:
+      auth: mlkem768
+      mode: native
+      session_time: 600s
+  hub:
+    ipv6: true
+    proxy_inbound: false
+    keys:
+      auth: x25519
+      mode: native
+      session_time: 600s
+    exit_connections:
+      method: mlkem768x25519plus
+      fingerprint: chrome
+    reality:
+      dest: www.microsoft.com:443
+      xhttp_path: /update/
+
+groups:
+  - id: main
+    short_id: "aabbccddeeff0011"
+  - id: guest
+    short_id: "1122334455667788"
+
+users:
+  - username: alice
+    group: main
+    access: [xhttp, cdn, server, proxy]
+    portals:
+      - label: home
+        routes:
+          domains: [home.alice.example.com]
+  - username: bob
+    group: guest
+    access: [xhttp]
+    guests: [laptop, phone]
+
+routing:
+  hub_default: nl
+  hub_routes:
+    - destination: direct
+      domains: [internal.example.com]
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    cdn_xhttp_path: /cdn/
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+          xhttp_path: /update/
+  - id: msk
+    type: hub
+    cdn_xhttp_path: /cdn/
+    nodes:
+      - id: mskA00
+        hostname: mskA00.ap.test.hexrift
