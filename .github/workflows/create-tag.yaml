@@ -20,6 +20,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
+      - name: Compile translation catalogs
+        run: uv run --group dev pybabel compile --domain hexrift --directory hexrift/locales
+
       - run: uv build
 
       - name: Upload distribution artifacts
