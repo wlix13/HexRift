@@ -1,0 +1,419 @@
+# Russian translation for HexRift
+# This file is distributed under the same license as the hexrift package.
+msgid ""
+msgstr ""
+"Project-Id-Version: hexrift 0.3.0\n"
+"Report-Msgid-Bugs-To: github@wlix13.dev\n"
+"POT-Creation-Date: 2026-04-22 11:56+0300\n"
+"PO-Revision-Date: 2026-04-09 17:14+0300\n"
+"Last-Translator: wlix13 <github@wlix13.dev>\n"
+"Language: ru\n"
+"Language-Team: Russian\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: hexrift/app.py:30
+msgid "Generate"
+msgstr "Генерация"
+
+#: hexrift/app.py:33
+msgid "Visualize"
+msgstr "Визуализация"
+
+#: hexrift/app.py:35
+msgid "Validate"
+msgstr "Валидация"
+
+#: hexrift/app.py:57
+msgid "HexRift — config generator for the Conglomerate proxy network."
+msgstr "HexRift — генератор конфигурации для прокси-сети Conglomerate."
+
+#: hexrift/app.py:65
+msgid "Path to topology yaml"
+msgstr "Путь к YAML-файлу топологии"
+
+#: hexrift/errors.py:24
+msgid "Schema validation failed"
+msgstr "Ошибка валидации схемы"
+
+#: hexrift/i18n.py:123 hexrift/i18n.py:189
+msgid "Error"
+msgstr "Ошибка"
+
+#: hexrift/i18n.py:124 hexrift/i18n.py:190
+msgid "Options"
+msgstr "Опции"
+
+#: hexrift/i18n.py:125 hexrift/i18n.py:191
+msgid "Commands"
+msgstr "Команды"
+
+#: hexrift/i18n.py:126 hexrift/i18n.py:192
+msgid "Arguments"
+msgstr "Аргументы"
+
+#: hexrift/i18n.py:140 hexrift/i18n.py:166
+#, python-brace-format
+msgid "Try '{command} {option}' for help."
+msgstr "Введите '{command} {option}' для справки."
+
+#: hexrift/i18n.py:161
+#, python-brace-format
+msgid "No such command {name!r}."
+msgstr "Нет такой команды {name!r}."
+
+#: hexrift/i18n.py:162
+msgid "Missing command."
+msgstr "Не указана команда."
+
+#: hexrift/i18n.py:163
+msgid "Aborted!"
+msgstr "Прервано!"
+
+#: hexrift/i18n.py:164
+#, python-brace-format
+msgid "Error: {message}"
+msgstr "Ошибка: {message}"
+
+#: hexrift/i18n.py:167
+#, python-brace-format
+msgid "Invalid value: {message}"
+msgstr "Некорректное значение: {message}"
+
+#: hexrift/i18n.py:168
+#, python-brace-format
+msgid "Invalid value for {param_hint}: {message}"
+msgstr "Некорректное значение для {param_hint}: {message}"
+
+#: hexrift/i18n.py:169
+msgid "Missing argument"
+msgstr "Отсутствует аргумент"
+
+#: hexrift/i18n.py:170
+msgid "Missing option"
+msgstr "Отсутствует опция"
+
+#: hexrift/i18n.py:171
+msgid "Missing parameter"
+msgstr "Отсутствует параметр"
+
+#: hexrift/i18n.py:172
+#, python-brace-format
+msgid "Missing {param_type}"
+msgstr "Отсутствует {param_type}"
+
+#: hexrift/i18n.py:173
+#, python-brace-format
+msgid "Missing parameter: {param_name}"
+msgstr "Отсутствует параметр: {param_name}"
+
+#: hexrift/i18n.py:174
+#, python-brace-format
+msgid "No such option: {name}"
+msgstr "Нет такой опции: {name}"
+
+#: hexrift/i18n.py:175
+msgid "unknown error"
+msgstr "неизвестная ошибка"
+
+#: hexrift/i18n.py:176
+#, python-brace-format
+msgid "Could not open file {filename!r}: {message}"
+msgstr "Не удалось открыть файл {filename!r}: {message}"
+
+#: hexrift/i18n.py:177
+#, python-brace-format
+msgid "Did you mean {possibility}?"
+msgid_plural "(Possible options: {possibilities})"
+msgstr[0] "Возможно, вы имели в виду {possibility}?"
+msgstr[1] "(Возможные варианты: {possibilities})"
+msgstr[2] "(Возможные варианты: {possibilities})"
+
+#: hexrift/i18n.py:179
+#, python-brace-format
+msgid "Got unexpected extra argument ({args})"
+msgid_plural "Got unexpected extra arguments ({args})"
+msgstr[0] "Неожиданный дополнительный аргумент ({args})"
+msgstr[1] "Неожиданные дополнительные аргументы ({args})"
+msgstr[2] "Неожиданных дополнительных аргументов ({args})"
+
+#: hexrift/i18n.py:184
+#, python-brace-format
+msgid "Takes {nargs} values but 1 was given."
+msgid_plural "Takes {nargs} values but {len} were given."
+msgstr[0] "Ожидается {nargs} значений, передано 1."
+msgstr[1] "Ожидается {nargs} значений, передано {len}."
+msgstr[2] "Ожидается {nargs} значений, передано {len}."
+
+#: hexrift/components/derive/component.py:36
+msgid "Show derived identifiers (UUIDs, shortIds, emails)."
+msgstr "Показать производные идентификаторы (UUID, shortId, email)."
+
+#: hexrift/components/derive/component.py:47
+msgid "Generate VLESS share URL for user on hub node."
+msgstr "Сгенерировать VLESS ссылку для пользователя на хаб-узле."
+
+#: hexrift/components/derive/component.py:53
+msgid "Hub node ID (default: all hub nodes)."
+msgstr "ID хаб-узла (по умолчанию: все хаб-узлы)."
+
+#: hexrift/components/derive/component.py:59
+msgid "Client TLS fingerprint."
+msgstr "TLS-отпечаток клиента."
+
+#: hexrift/components/derive/component.py:65
+msgid "Generate CDN URL instead of direct Reality URL."
+msgstr "Сгенерировать CDN-ссылку вместо прямой Reality-ссылки."
+
+#: hexrift/components/derive/component.py:71
+msgid "Generate URL for a specific guest identity (label)."
+msgstr "Сгенерировать ссылку для конкретного гостевого удостоверения (метки)."
+
+#: hexrift/components/derive/component.py:78
+msgid "Generate URLs for all guests of the user."
+msgstr "Сгенерировать ссылки для всех гостей пользователя."
+
+#: hexrift/components/derive/component.py:84
+msgid "Output raw URLs only (no formatting). Useful for piping: | clip"
+msgstr "Вывести только URL без форматирования. Удобно для передачи: | clip"
+
+#: hexrift/components/derive/component.py:105
+msgid "--guest and --all-guests are mutually exclusive."
+msgstr "--guest и --all-guests взаимно исключают друг друга."
+
+#: hexrift/components/derive/component.py:110
+#, python-brace-format
+msgid "User not found: {}"
+msgstr "Пользователь не найден: {}"
+
+#: hexrift/components/derive/component.py:112
+#, python-brace-format
+msgid "User {} has no guests configured."
+msgstr "У пользователя {} нет настроенных гостей."
+
+#: hexrift/components/derive/component.py:123
+msgid "List all nodes with their hostnames (can be used in automation scripts)."
+msgstr "Вывести список всех узлов с хостнеймами (можно использовать в скриптах)."
+
+#: hexrift/components/derive/component.py:125
+msgid "Output node IDs only."
+msgstr "Вывести только ID узлов."
+
+#: hexrift/components/derive/component.py:126
+msgid "Output hostnames only."
+msgstr "Вывести только хостнеймы."
+
+#: hexrift/components/derive/component.py:132
+msgid "Filter by region type."
+msgstr "Фильтровать по типу региона."
+
+#: hexrift/components/derive/component.py:148
+msgid "Visualize the network topology."
+msgstr "Визуализировать топологию сети."
+
+#: hexrift/components/derive/component.py:154
+msgid "Namespace"
+msgstr "Пространство"
+
+#: hexrift/components/derive/component.py:155
+msgid "Aphelion"
+msgstr "Aphelion"
+
+#: hexrift/components/derive/component.py:156
+msgid "Bridge"
+msgstr "Bridge"
+
+#: hexrift/components/derive/component.py:161
+msgid "CDN exit"
+msgstr "CDN выход"
+
+#: hexrift/components/derive/component.py:162
+msgid "CDN hub"
+msgstr "CDN хаб"
+
+#: hexrift/components/derive/component.py:169
+msgid "Regions"
+msgstr "Регионы"
+
+#: hexrift/components/derive/component.py:201
+#: hexrift/components/derive/component.py:234
+msgid "Users"
+msgstr "Пользователи"
+
+#: hexrift/components/derive/component.py:209
+msgid "portals"
+msgstr "порталы"
+
+#: hexrift/components/derive/component.py:212
+msgid "guests"
+msgstr "гости"
+
+#: hexrift/components/derive/component.py:235
+msgid "Username"
+msgstr "Имя пользователя"
+
+#: hexrift/components/derive/component.py:236
+msgid "UUID"
+msgstr "UUID"
+
+#: hexrift/components/derive/component.py:237
+msgid "Email"
+msgstr "Email"
+
+#: hexrift/components/derive/component.py:238
+msgid "Server UUID"
+msgstr "UUID сервера"
+
+#: hexrift/components/derive/component.py:239
+#: hexrift/components/derive/component.py:263
+msgid "ShortId"
+msgstr "ShortId"
+
+#: hexrift/components/derive/component.py:261
+msgid "Groups"
+msgstr "Группы"
+
+#: hexrift/components/derive/component.py:262
+#: hexrift/components/derive/component.py:272
+msgid "ID"
+msgstr "ID"
+
+#: hexrift/components/derive/component.py:271
+msgid "Nodes"
+msgstr "Узлы"
+
+#: hexrift/components/derive/component.py:273
+msgid "Region"
+msgstr "Регион"
+
+#: hexrift/components/derive/component.py:274
+msgid "Type"
+msgstr "Тип"
+
+#: hexrift/components/derive/component.py:275
+msgid "ShortId / Hub-Exit UUIDs"
+msgstr "ShortId / UUID хаб-выход"
+
+#: hexrift/components/keys/component.py:27
+msgid "Generate x25519 Reality keypairs and decryption keys for node(s)."
+msgstr "Сгенерировать ключи x25519 Reality и ключи дешифрования для узла(-ов)."
+
+#: hexrift/components/keys/component.py:34
+msgid "Generate keys for all nodes."
+msgstr "Сгенерировать ключи для всех узлов."
+
+#: hexrift/components/keys/component.py:39
+msgid "Overwrite existing key files."
+msgstr "Перезаписать существующие файлы ключей."
+
+#: hexrift/components/keys/component.py:46
+msgid "Directory to store key files."
+msgstr "Директория для хранения файлов ключей."
+
+#: hexrift/components/keys/component.py:51
+#: hexrift/components/render/component.py:71
+msgid "Provide either NODE_ID or --all, not both."
+msgstr "Укажите NODE_ID или --all, но не оба вместе."
+
+#: hexrift/components/keys/component.py:53
+#: hexrift/components/render/component.py:69
+msgid "Provide NODE_ID or --all."
+msgstr "Укажите NODE_ID или --all."
+
+#: hexrift/components/keys/component.py:62
+msgid "generated"
+msgstr "сгенерирован"
+
+#: hexrift/components/keys/component.py:65
+#, python-brace-format
+msgid "  [dim]skipped[/dim]   {}  (use --force to overwrite)"
+msgstr "  [dim]пропущен[/dim]  {}  (используйте --force для перезаписи)"
+
+#: hexrift/components/keys/component.py:68
+#: hexrift/components/render/component.py:91
+msgid "error"
+msgstr "ошибка"
+
+#: hexrift/components/keys/component.py:72
+#, python-brace-format
+msgid ""
+"\n"
+"[bold]Done[/bold] — {generated} generated, {skipped} skipped, {errors} errors  ([dim]{keys_dir}/[/dim])"
+msgstr ""
+"\n"
+"[bold]Готово[/bold] — {generated} сгенерировано, {skipped} пропущено, {errors} ошибок  ([dim]{keys_dir}/[/dim])"
+
+#: hexrift/components/render/component.py:26
+msgid "Generate Xray config.json and HAProxy .cfg for node(s)."
+msgstr "Сгенерировать config.json (Xray) и .cfg (HAProxy) для узла(-ов)."
+
+#: hexrift/components/render/component.py:32
+msgid "Render config.json for xray."
+msgstr "Сформировать config.json для xray."
+
+#: hexrift/components/render/component.py:38
+msgid "Render haproxy.cfg for haproxy."
+msgstr "Сформировать haproxy.cfg для haproxy."
+
+#: hexrift/components/render/component.py:44
+msgid "Build configs for all nodes."
+msgstr "Собрать конфигурации для всех узлов."
+
+#: hexrift/components/render/component.py:74
+msgid "Render at least one of: --xray or --haproxy."
+msgstr "Укажите хотя бы один из: --xray или --haproxy."
+
+#: hexrift/components/render/component.py:82
+#, python-brace-format
+msgid "Node not found: {}"
+msgstr "Узел не найден: {}"
+
+#: hexrift/components/render/component.py:88
+msgid "built"
+msgstr "готово"
+
+#: hexrift/components/render/component.py:95
+#, python-brace-format
+msgid ""
+"\n"
+"[bold]Done[/bold] — {ok} built, {failed} failed  ([dim]{out_dir}/[/dim])"
+msgstr ""
+"\n"
+"[bold]Готово[/bold] — {ok} построено, {failed} с ошибкой  ([dim]{out_dir}/[/dim])"
+
+#: hexrift/components/render/component.py:100
+#, python-brace-format
+msgid "{} node(s) failed to build"
+msgstr "{} узел(-ов) завершился с ошибкой"
+
+#: hexrift/components/render/component.py:102
+msgid "Show diff between generated and currently deployed config.json."
+msgstr "Показать diff между сгенерированным и текущим config.json."
+
+#: hexrift/components/render/component.py:109
+msgid "Directory containing currently deployed configs."
+msgstr "Директория с текущими задеплоенными конфигурациями."
+
+#: hexrift/components/render/component.py:121
+msgid "No differences."
+msgstr "Различий нет."
+
+#: hexrift/components/schema/component.py:23
+msgid "Validate YAML configuration and report any errors."
+msgstr "Проверить YAML-конфигурацию и вывести ошибки."
+
+#: hexrift/components/schema/component.py:31
+msgid "Valid"
+msgstr "Верно"
+
+#: hexrift/components/schema/component.py:33
+#, python-brace-format
+msgid "  {groups} groups, {users} users, {exit} exit regions, {hub} hub regions, {total} nodes"
+msgstr "  {groups} групп, {users} пользователей, {exit} выходных регионов, {hub} хаб-регионов, {total} узлов"
+
+#: hexrift/components/schema/component.py:42
+msgid "Validation error:"
+msgstr "Ошибка валидации:"
