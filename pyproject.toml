@@ -27,12 +27,13 @@ dependencies = [
 scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
-dev = [ "poethepoet", "prek", "ruff", "ty" ]
+dev = [ "babel", "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
 tests = [ "pytest", "pytest-cov", "pytest-sugar" ]
 
 [tool.hatch]
 build.targets.wheel.packages = [ "hexrift" ]
+build.artifacts = [ "hexrift/locales/**/*.mo" ]
 metadata.allow-direct-references = true
 version.path = "hexrift/__init__.py"
 
@@ -64,3 +65,16 @@ tasks.typecheck = "uv run --group dev --group tests ty check"
 tasks.check = [ "check-format", "lint", "typecheck" ]
 tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
 tasks.tests = "uv run --group tests pytest"
+tasks.i18n.help = "Full cycle: extract -> update -> compile"
+tasks.i18n.sequence = [ "i18n-extract", "i18n-update", "i18n-fix-eol", "i18n-compile" ]
+tasks.i18n-compile.help = "Compile .po files to binary .mo"
+tasks.i18n-compile.cmd = "pybabel compile --domain hexrift --directory hexrift/locales --statistics"
+tasks.i18n-extract.help = "Extract translatable strings to hexrift/locales/hexrift.pot"
+tasks.i18n-extract.cmd = "pybabel extract --mapping babel.cfg --output hexrift/locales/hexrift.pot --project hexrift hexrift/"
+tasks.i18n-fix-eol.help = "Normalise trailing newline in .po files (pybabel update adds a blank line)"
+tasks.i18n-fix-eol.cmd = """\
+  python -c \"import glob, pathlib; [p.write_text(p.read_text(encoding='utf-8').rstrip() + '\\n', encoding='utf-8') \
+  for p in map(pathlib.Path, glob.glob('hexrift/locales/**/*.po', recursive=True))]\"\
+  """
+tasks.i18n-update.help = "Merge .pot into existing .po files"
+tasks.i18n-update.cmd = "pybabel update --domain hexrift --input-file hexrift/locales/hexrift.pot --output-dir hexrift/locales --no-wrap"

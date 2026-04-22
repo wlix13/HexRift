@@ -2,6 +2,7 @@ import sys
 
 import rich
 
+import hexrift.i18n  # must be first hexrift import — initializes translation  # noqa: F401
 from hexrift.app import cli
 from hexrift.errors import Error
 

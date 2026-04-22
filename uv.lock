@@ -316,6 +316,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "babel" },
     { name = "poethepoet" },
     { name = "prek" },
     { name = "ruff" },
@@ -345,6 +346,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "babel" },
     { name = "poethepoet" },
     { name = "prek" },
     { name = "ruff" },
