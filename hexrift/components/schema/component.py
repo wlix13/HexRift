@@ -6,7 +6,6 @@ import rich_click as click
 
 from hexrift.components.schema.controller import SchemaController
 from hexrift.core.component import BaseComponent
-from hexrift.i18n import LazyString, _
 
 
 if TYPE_CHECKING:
@@ -20,24 +19,22 @@ class SchemaComponent(BaseComponent["HexRiftApp", SchemaController]):
 
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
-        @base.command(help=LazyString("Validate YAML configuration and report any errors."))
+        @base.command()
         @click.pass_obj
         def validate(app: HexRiftApp) -> None:
+            """Validate YAML configuration and report any errors."""
+
             try:
                 cfg = app.schema.load(app.yaml_path)
                 exit_regions = app.schema.get_exit_regions()
                 hub_regions = app.schema.get_hub_regions()
                 total_nodes = sum(len(r.nodes) for r in cfg.regions)
-                app.console.print(f"[bold green]{_('Valid')}[/bold green] — {app.yaml_path}")
+                app.console.print(f"[bold green]Valid[/bold green] — {app.yaml_path}")
                 app.console.print(
-                    _("  {groups} groups, {users} users, {exit} exit regions, {hub} hub regions, {total} nodes").format(
-                        groups=len(cfg.groups),
-                        users=len(cfg.users),
-                        exit=len(exit_regions),
-                        hub=len(hub_regions),
-                        total=total_nodes,
-                    )
+                    f"  {len(cfg.groups)} groups, {len(cfg.users)} users, "
+                    f"{len(exit_regions)} exit regions, {len(hub_regions)} hub regions, "
+                    f"{total_nodes} nodes"
                 )
             except Exception as e:
-                app.console.print(f"[bold red]{_('Validation error:')}[/bold red] {e}")
+                app.console.print(f"[bold red]Validation error:[/bold red] {e}")
                 raise click.Abort() from e
