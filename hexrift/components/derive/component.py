@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import rich_click as click
 from rich.rule import Rule
@@ -11,6 +11,7 @@ from rich.tree import Tree
 from hexrift.components.derive.controller import DeriveController
 from hexrift.constants import RegionType
 from hexrift.core.component import BaseComponent
+from hexrift.i18n import LazyString, _
 
 
 if TYPE_CHECKING:
@@ -32,12 +33,10 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
 
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
-        @base.command()
+        @base.command(help=cast(str, LazyString("Show derived identifiers (UUIDs, shortIds, emails).")))
         @click.argument("entity", type=click.Choice(["users", "groups", "nodes", "all"]))
         @click.pass_obj
         def derive(app: HexRiftApp, entity: str) -> None:
-            """Show derived identifiers (UUIDs, shortIds, emails)."""
-
             if entity in ("users", "all"):
                 _print_users(app)
             if entity in ("groups", "all"):
@@ -45,44 +44,44 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             if entity in ("nodes", "all"):
                 _print_nodes(app)
 
-        @base.command()
+        @base.command(help=cast(str, LazyString("Generate VLESS share URL for user on hub node.")))
         @click.argument("username")
         @click.option(
             "--hub",
             "hub_id",
             default=None,
-            help="Hub node ID (default: all hub nodes).",
+            help=cast(str, LazyString("Hub node ID (default: all hub nodes).")),
         )
         @click.option(
             "--fp",
             default="edge",
             show_default=True,
-            help="Client TLS fingerprint.",
+            help=cast(str, LazyString("Client TLS fingerprint.")),
         )
         @click.option(
             "--cdn",
             is_flag=True,
             default=False,
-            help="Generate CDN URL instead of direct Reality URL.",
+            help=cast(str, LazyString("Generate CDN URL instead of direct Reality URL.")),
         )
         @click.option(
             "--guest",
             "guest",
             default=None,
-            help="Generate URL for a specific guest identity (label).",
+            help=cast(str, LazyString("Generate URL for a specific guest identity (label).")),
         )
         @click.option(
             "--all-guests",
             "all_guests",
             is_flag=True,
             default=False,
-            help="Generate URLs for all guests of the user.",
+            help=cast(str, LazyString("Generate URLs for all guests of the user.")),
         )
         @click.option(
             "--bare",
             is_flag=True,
             default=False,
-            help="Output raw URLs only (no formatting). Useful for piping: | clip",
+            help=cast(str, LazyString("Output raw URLs only (no formatting). Useful for piping: | clip")),
         )
         @click.option(
             "--keys-dir",
@@ -102,17 +101,15 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             bare: bool,
             keys_dir: Path,
         ) -> None:
-            """Generate VLESS share URL for user on hub node."""
-
             if guest and all_guests:
-                raise click.UsageError("--guest and --all-guests are mutually exclusive.")
+                raise click.UsageError(_("--guest and --all-guests are mutually exclusive."))
 
             if all_guests:
                 user = next((u for u in app.schema.config.users if u.username == username), None)
                 if user is None:
-                    raise click.UsageError(f"User not found: {username!r}")
+                    raise click.UsageError(_("User not found: {}").format(repr(username)))
                 if not user.guests:
-                    raise click.UsageError(f"User {username!r} has no guests configured.")
+                    raise click.UsageError(_("User {} has no guests configured.").format(repr(username)))
                 all_pairs = []
                 for label in user.guests:
                     all_pairs += app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=label)
@@ -121,25 +118,26 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                 pairs = app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=guest)
                 _print_share_urls(app, pairs, bare=bare)
 
-        @base.command("nodes")
-        @click.option("--names", "output", flag_value="names", help="Output node IDs only.")
-        @click.option("--domains", "output", flag_value="domains", help="Output hostnames only.")
+        @base.command(
+            "nodes",
+            help=cast(str, LazyString("List all nodes with their hostnames (can be used in automation scripts).")),
+        )
+        @click.option("--names", "output", flag_value="names", help=cast(str, LazyString("Output node IDs only.")))
+        @click.option("--domains", "output", flag_value="domains", help=cast(str, LazyString("Output hostnames only.")))
         @click.option(
             "--type",
             "region_type",
             type=click.Choice(["exit", "hub"]),
             default=None,
-            help="Filter by region type.",
+            help=cast(str, LazyString("Filter by region type.")),
         )
         @click.pass_obj
         def nodes(app: HexRiftApp, output: str | None, region_type: str | None) -> None:
-            """List all nodes with their hostnames (can be used in automation scripts)."""
-
             pairs = app.schema.get_all_nodes()
             if region_type:
                 pairs = [(r, n) for r, n in pairs if r.type.value.lower() == region_type]
 
-            for _, node in pairs:
+            for _region, node in pairs:
                 if output == "names":
                     click.echo(node.id)
                 elif output == "domains":
@@ -147,30 +145,28 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                 else:
                     click.echo(f"{node.id}\t{node.hostname}")
 
-        @base.command()
+        @base.command(help=cast(str, LazyString("Visualize the network topology.")))
         @click.pass_obj
         def show(app: HexRiftApp) -> None:
-            """Visualize the network topology."""
-
             cfg = app.schema.config
             g = cfg.global_
             kv = [
-                ("Namespace", g.namespace),
-                ("Aphelion", g.aphelion_domain),
-                ("Bridge", g.bridge_domain),
+                (_("Namespace"), g.namespace),
+                (_("Aphelion"), g.aphelion_domain),
+                (_("Bridge"), g.bridge_domain),
             ]
             if g.cdn:
                 kv.extend(
                     [
-                        ("CDN exit", g.cdn.exit_domain),
-                        ("CDN hub", g.cdn.hub_domain),
+                        (_("CDN exit"), g.cdn.exit_domain),
+                        (_("CDN hub"), g.cdn.hub_domain),
                     ]
                 )
             for key, val in kv:
                 app.console.print(f"[bold dim]{key:<10}[/bold dim] [white]{val}[/white]")
             app.console.print()
 
-            tree = Tree("[bold cyan]Regions[/bold cyan]")
+            tree = Tree(f"[bold cyan]{_('Regions')}[/bold cyan]")
             for region in cfg.regions:
                 if region.type == RegionType.EXIT:
                     extras = []
@@ -202,7 +198,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                     groups_map[user.group] = []
                 groups_map[user.group].append(user)
 
-            user_tree = Tree("[bold cyan]Users[/bold cyan]")
+            user_tree = Tree(f"[bold cyan]{_('Users')}[/bold cyan]")
             for group_id in groups_order:
                 g_branch = user_tree.add(f"[bold magenta]{group_id}[/bold magenta]")
                 for user in groups_map[group_id]:
@@ -210,10 +206,10 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                     u_node = g_branch.add(f"[bold]{user.username}[/bold]  {badges}")
                     if user.portals:
                         labels = ", ".join(p.label for p in user.portals)
-                        u_node.add(f"[bold yellow]portals[/bold yellow] {labels}")
+                        u_node.add(f"[bold yellow]{_('portals')}[/bold yellow] {labels}")
                     if user.guests:
                         labels = ", ".join(user.guests)
-                        u_node.add(f"[bold green]guests[/bold green] {labels}")
+                        u_node.add(f"[bold green]{_('guests')}[/bold green] {labels}")
             app.console.print(user_tree)
 
 
@@ -235,12 +231,12 @@ def _print_share_urls(
 
 def _print_users(app: HexRiftApp) -> None:
     rows = app.derive.derive_users()
-    table = Table(title="Users", show_header=True, header_style="bold cyan")
-    table.add_column("Username", style="bold")
-    table.add_column("UUID")
-    table.add_column("Email")
-    table.add_column("Server UUID")
-    table.add_column("ShortId")
+    table = Table(title=_("Users"), show_header=True, header_style="bold cyan")
+    table.add_column(_("Username"), style="bold")
+    table.add_column(_("UUID"))
+    table.add_column(_("Email"))
+    table.add_column(_("Server UUID"))
+    table.add_column(_("ShortId"))
     for row in rows:
         table.add_row(
             row["username"],
@@ -262,9 +258,9 @@ def _print_users(app: HexRiftApp) -> None:
 
 def _print_groups(app: HexRiftApp) -> None:
     rows = app.derive.derive_groups()
-    table = Table(title="Groups", show_header=True, header_style="bold cyan")
-    table.add_column("ID", style="bold")
-    table.add_column("ShortId")
+    table = Table(title=_("Groups"), show_header=True, header_style="bold cyan")
+    table.add_column(_("ID"), style="bold")
+    table.add_column(_("ShortId"))
     for row in rows:
         table.add_row(row["id"], row["short_id"])
     app.console.print(table)
@@ -272,11 +268,11 @@ def _print_groups(app: HexRiftApp) -> None:
 
 def _print_nodes(app: HexRiftApp) -> None:
     rows = app.derive.derive_nodes()
-    table = Table(title="Nodes", show_header=True, header_style="bold cyan")
-    table.add_column("ID", style="bold")
-    table.add_column("Region")
-    table.add_column("Type")
-    table.add_column("ShortId / Hub-Exit UUIDs")
+    table = Table(title=_("Nodes"), show_header=True, header_style="bold cyan")
+    table.add_column(_("ID"), style="bold")
+    table.add_column(_("Region"))
+    table.add_column(_("Type"))
+    table.add_column(_("ShortId / Hub-Exit UUIDs"))
     for row in rows:
         if row["type"] == RegionType.EXIT:
             detail = f"shortId: {row['short_id']}"
