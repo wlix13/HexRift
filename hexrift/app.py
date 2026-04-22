@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 import rich_click as click
 
@@ -15,7 +14,6 @@ from hexrift.components.render.controller import RenderController
 from hexrift.components.schema.component import SchemaComponent
 from hexrift.components.schema.controller import SchemaController
 from hexrift.core.application import BaseApplication
-from hexrift.i18n import LazyString
 
 
 click.rich_click.USE_RICH_MARKUP = True
@@ -27,12 +25,12 @@ click.rich_click.MAX_WIDTH = 100
 click.rich_click.COMMAND_GROUPS = {
     "hexrift": [
         {
-            "name": LazyString("Generate"),
+            "name": "Generate",
             "commands": ["gen-keys", "build"],
         },
-        {"name": LazyString("Visualize"), "commands": ["show", "derive", "share"]},
+        {"name": "Visualize", "commands": ["show", "derive", "share"]},
         {
-            "name": LazyString("Validate"),
+            "name": "Validate",
             "commands": ["validate", "diff"],
         },
     ],
@@ -54,7 +52,7 @@ class HexRiftApp(BaseApplication["HexRiftApp"]):
         super().__init__()
 
 
-@click.group(help=cast(str, LazyString("HexRift — config generator for the Conglomerate proxy network.")))
+@click.group()
 @click.version_option(__version__, "-V", "--version")
 @click.option(
     "--yaml",
@@ -62,10 +60,12 @@ class HexRiftApp(BaseApplication["HexRiftApp"]):
     type=click.Path(path_type=Path),
     default="conglomerate.yaml",
     show_default=True,
-    help=cast(str, LazyString("Path to topology yaml")),
+    help="Path to topology yaml",
 )
 @click.pass_context
 def cli(ctx: click.Context, yaml_path: Path) -> None:
+    """HexRift — config generator for the Conglomerate proxy network."""
+
     ctx.obj = HexRiftApp(yaml_path=yaml_path)
 
 
