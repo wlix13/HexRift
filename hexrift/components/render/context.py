@@ -165,7 +165,7 @@ def build_exit_context(
         cdn_host = f"{node.id}.{cdn.exit_domain}"
         cdn_path = region.cdn_xhttp_path
         cert_alias = cdn.exit_domain.split(".")[0]
-        cdn_clients = get_exit_cdn_clients(hub_nodes, node, ns, flow=_client_flow_for_keys(node_keys))
+        cdn_clients = get_exit_cdn_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys))
 
     # warp_domains: domain-based warp routing on exit
     warp_domains: list[str] = []
@@ -195,7 +195,7 @@ def build_exit_context(
         reality_short_id=ns.exit_short_id(node.id),
         reality_fallback_limits=reality.fallback_limits,
         decryption=node_keys.decryption,
-        direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_client_flow_for_keys(node_keys)),
+        direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys)),
         cdn_xhttp_host=cdn_host,
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
