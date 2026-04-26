@@ -44,7 +44,6 @@ def _hub_ctx(**overrides: Any) -> HubContext:
         "reality_fallback_limits": RealityFallbackLimits(),
         "observatory": ObservatoryConfig(),
         "vless_clients": [],
-        "portals": [],
         "outbounds": [],
         "warp_outbounds": [],
         "balancers": [],

@@ -158,12 +158,10 @@ def test_hub_config_structure():
     generated, _ = _build_for_node("mskA00")
     cfg = orjson.loads(generated)
 
-    # Reverse portals present (alice has "home" portal)
-    assert "reverse" in cfg
-    portal_tags = [p["tag"] for p in cfg["reverse"]["portals"]]
-    assert "home-portal" in portal_tags
+    # No top-level reverse block (reverse is embedded per portal client)
+    assert "reverse" not in cfg
 
-    # Hub inbound has clients for all users + server + guests
+    # Hub inbound has clients for all users + server + guests + portal clients
     direct_ib = next(ib for ib in cfg["inbounds"] if ib["tag"] == "direct-xhttp")
     client_emails = [c["email"] for c in direct_ib["settings"]["clients"]]
     assert "alice@test.hexrift" in client_emails
@@ -171,6 +169,13 @@ def test_hub_config_structure():
     assert "bob@test.hexrift" in client_emails
     assert "laptop@bob" in client_emails
     assert "phone@bob" in client_emails
+    assert "home-portal@alice" in client_emails
+
+    # Portal client carries the reverse tag; no catch-all routing rule for it
+    portal_client = next(c for c in direct_ib["settings"]["clients"] if c["email"] == "home-portal@alice")
+    assert portal_client.get("reverse") == {"tag": "home-portal"}
+    rules = cfg["routing"]["rules"]
+    assert not any(r.get("user") == ["home-portal@alice"] for r in rules)
 
     # CDN inbound only has cdn-access users (alice has cdn, bob does not)
     cdn_ib = next(ib for ib in cfg["inbounds"] if ib["tag"] == "cdn-xhttp")
