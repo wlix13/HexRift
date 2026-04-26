@@ -28,13 +28,19 @@ from hexrift.components.schema.models.defaults import ObservatoryConfig
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityFallbackLimits
-from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
+from hexrift.constants import VLESS_CLIENT_FLOW, VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
 
 
 def _flow_for_keys(keys: NodeKeys) -> str:
-    """Return VLESS flow string, or empty when encryption is disabled."""
+    """Return inbound VLESS flow, or empty when encryption is disabled."""
 
     return VLESS_FLOW if keys.encryption != "none" else ""
+
+
+def _client_flow_for_keys(keys: NodeKeys) -> str:
+    """Return outbound VLESS flow (udp443), or empty when encryption is disabled."""
+
+    return VLESS_CLIENT_FLOW if keys.encryption != "none" else ""
 
 
 @dataclass
@@ -237,7 +243,7 @@ def build_hub_context(
             ex_server_names = derive_server_names(ex_reality)
             ex_xhttp_host = derive_xhttp_host(ex_reality)
             ex_keys = exit_node_keys[exit_node.id]
-            ex_flow = _flow_for_keys(ex_keys)
+            ex_flow = _client_flow_for_keys(ex_keys)
             uid = ns.hub_exit_uuid(node.id, exit_node.id)
             short = ns.exit_short_id(exit_node.id)
             address = f"{exit_node.id}.{config.global_.aphelion_domain}"

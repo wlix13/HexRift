@@ -7,7 +7,7 @@ import orjson
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
-from hexrift.constants import VLESS_FLOW, AccessType, RegionType, UplinkHttpMethod
+from hexrift.constants import VLESS_CLIENT_FLOW, AccessType, RegionType, UplinkHttpMethod
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
 from hexrift.shared.xhttp import XHTTP_EXTRA_CDN
@@ -131,7 +131,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                 if not hub_region.cdn_xhttp_path:
                     continue
                 hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                flow = VLESS_FLOW if hub_keys.encryption != "none" else ""
+                flow = VLESS_CLIENT_FLOW if hub_keys.encryption != "none" else ""
                 extra = orjson.dumps(
                     {
                         **XHTTP_EXTRA_CDN,
@@ -175,7 +175,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                     label = f"{hub_node.id}  Reality  {identity_label}"
 
                 hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                flow = VLESS_FLOW if hub_keys.encryption != "none" else ""
+                flow = VLESS_CLIENT_FLOW if hub_keys.encryption != "none" else ""
                 reality = resolve_node_reality(hub_node, hub_region, cfg.defaults)
                 server_names = derive_server_names(reality)
                 xhttp_host = derive_xhttp_host(reality)
