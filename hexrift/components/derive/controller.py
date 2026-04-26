@@ -6,6 +6,7 @@ import orjson
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.derive.identity import Namespace
+from hexrift.components.derive.topology import portal_tag
 from hexrift.constants import VLESS_FLOW, AccessType, RegionType, UplinkHttpMethod
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
@@ -47,6 +48,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                 row["portals"] = [
                     {
                         "label": p.label,
+                        "tag": portal_tag(p.label),
                         "uuid": str(ns.portal_uuid(p.label, user.username, user_base=user_base)),
                         "email": ns.portal_email(p.label, user.username),
                     }

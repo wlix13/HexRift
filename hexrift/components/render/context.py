@@ -75,14 +75,6 @@ class ExitContext:
 
 
 @dataclass
-class PortalContext:
-    label: str
-    domain: str  # {label}.{bridge_domain}
-    user_email: str  # {username}@{namespace}
-    portal_email: str  # {label}-portal@{username}
-
-
-@dataclass
 class HubOutboundContext:
     exit_id: str
     address: str  # {exitId}.{aphelion_domain}
@@ -115,9 +107,6 @@ class HubContext:
 
     # Client lists
     vless_clients: list[dict]
-
-    # Portals
-    portals: list[PortalContext]
 
     # Outbounds
     outbounds: list[HubOutboundContext]  # one per exit node (normal)
@@ -170,7 +159,7 @@ def build_exit_context(
         cdn_host = f"{node.id}.{cdn.exit_domain}"
         cdn_path = region.cdn_xhttp_path
         cert_alias = cdn.exit_domain.split(".")[0]
-        cdn_clients = get_exit_cdn_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys))
+        cdn_clients = get_exit_cdn_clients(hub_nodes, node, ns, flow=_client_flow_for_keys(node_keys))
 
     # warp_domains: domain-based warp routing on exit
     warp_domains: list[str] = []
@@ -200,7 +189,7 @@ def build_exit_context(
         reality_short_id=ns.exit_short_id(node.id),
         reality_fallback_limits=reality.fallback_limits,
         decryption=node_keys.decryption,
-        direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys)),
+        direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_client_flow_for_keys(node_keys)),
         cdn_xhttp_host=cdn_host,
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
@@ -233,21 +222,6 @@ def build_hub_context(
 
     # Short IDs
     short_ids = get_hub_short_ids(config.groups, ns) + get_hub_user_short_ids(config.users, ns)
-
-    # Portals
-    portals: list[PortalContext] = []
-    for user in config.users:
-        if not user.portals:
-            continue
-        for portal in user.portals:
-            portals.append(
-                PortalContext(
-                    label=portal.label,
-                    domain=f"{portal.label}.{config.global_.bridge_domain}",
-                    user_email=ns.user_email(user.username),
-                    portal_email=ns.portal_email(portal.label, user.username),
-                )
-            )
 
     # Build exit outbounds
     exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
@@ -343,7 +317,6 @@ def build_hub_context(
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
         cdn_clients=get_hub_cdn_clients(config.users, ns, flow=_flow_for_keys(node_keys)) if cdn_hub_domain else [],
-        portals=portals,
         outbounds=outbounds,
         warp_outbounds=warp_outbounds,
         balancers=build_balancers(exit_regions),

@@ -11,7 +11,6 @@ from hexrift.constants import (
     WARP_VLESS_ROUTE,
     Socket,
     SpecialDestination,
-    TagSuffix,
     XrayNetwork,
     XrayProtocol,
     XraySecurity,
@@ -195,15 +194,6 @@ def build_hub_config(ctx: HubContext) -> dict:
         },
         "sniffing": SNIFFING,
     }
-    # Build reverse.portals
-    portals_section = [
-        {
-            "tag": f"{p.label}{TagSuffix.PORTAL}",
-            "domain": p.domain,
-        }
-        for p in ctx.portals
-    ]
-
     # Build outbounds list
     outbounds: list[dict] = []
 
@@ -286,9 +276,6 @@ def build_hub_config(ctx: HubContext) -> dict:
     config: dict = {
         "log": LOG,
     }
-    if portals_section:
-        config["reverse"] = {"portals": portals_section}
-
     config.update(
         {
             "inbounds": inbounds,
