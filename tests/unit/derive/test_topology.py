@@ -5,12 +5,13 @@ from hexrift.components.derive.topology import (
     build_hub_routing_rules,
     get_hub_cdn_clients,
     get_hub_user_short_ids,
+    get_hub_vless_clients,
     region_outbound_tag,
     region_warp_outbound_tag,
 )
 from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
-from hexrift.components.schema.models.users import Portal, User
+from hexrift.components.schema.models.users import Portal, PortalRoutes, User
 from hexrift.constants import AccessType, LbRole, RegionType
 
 
@@ -19,7 +20,6 @@ def _minimal_cfg_dict(**overrides) -> dict:
         "global": {
             "namespace": "t.ns",
             "aphelion_domain": "ap.t.ns",
-            "bridge_domain": "br.t.ns",
         },
         "defaults": {
             "exit": {
@@ -300,23 +300,23 @@ class TestBuildHubRoutingRules:
         assert direct_ip is not None
         assert "10.0.0.0/8" in direct_ip["ip"]
 
-    def test_portal_catchall_rule(self):
+    def test_no_portal_catchall_rule(self):
         d = _minimal_cfg_dict()
         d["users"] = [
             {
                 "username": "alice",
                 "group": "grp1",
-                "access": ["xhttp"],
+                "access": ["xhttp", "server"],
                 "portals": [{"label": "home", "routes": {"domains": ["home.alice.com"]}}],
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
         rules = build_hub_routing_rules(cfg)
         catchall = next(
-            (r for r in rules if r.get("user") == ["home-portal@alice"] and r.get("outboundTag") == "home-portal"),
+            (r for r in rules if r.get("user") == ["home-portal@alice"]),
             None,
         )
-        assert catchall is not None
+        assert catchall is None
 
     def test_default_rule_is_last(self):
         cfg = _make_cfg()
@@ -377,6 +377,46 @@ class TestBuildBalancers:
         r.lb_least_load = LeastLoadSettings()
         result = build_balancers([r])
         assert "settings" in result[0]["strategy"]
+
+
+class TestGetHubVlessClients:
+    def test_portal_client_has_reverse_field(self):
+        ns = Namespace("t.ns")
+        u = _make_user("alice", access=["xhttp"], portals=[Portal(label="home", routes=PortalRoutes())])
+        clients = get_hub_vless_clients([u], ns)
+        portal_client = next((c for c in clients if c["email"] == "home-portal@alice"), None)
+        assert portal_client is not None
+        assert portal_client.get("reverse") == {"tag": "home-portal"}
+
+    def test_portal_client_present_per_portal(self):
+        ns = Namespace("t.ns")
+        u = _make_user(
+            "alice",
+            access=["xhttp"],
+            portals=[
+                Portal(label="home", routes=PortalRoutes()),
+                Portal(label="k2", routes=PortalRoutes()),
+            ],
+        )
+        clients = get_hub_vless_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "home-portal@alice" in emails
+        assert "k2-portal@alice" in emails
+
+    def test_portal_client_reverse_tag_matches_label(self):
+        ns = Namespace("t.ns")
+        u = _make_user("alice", access=["xhttp"], portals=[Portal(label="k2", routes=PortalRoutes())])
+        clients = get_hub_vless_clients([u], ns)
+        k2_client = next(c for c in clients if c["email"] == "k2-portal@alice")
+        assert k2_client["reverse"] == {"tag": "k2-portal"}
+
+    def test_non_portal_clients_have_no_reverse_field(self):
+        ns = Namespace("t.ns")
+        u = _make_user("alice", access=["xhttp", "server"])
+        clients = get_hub_vless_clients([u], ns)
+        assert clients
+        for c in clients:
+            assert "reverse" not in c
 
 
 class TestGetHubCdnClients:

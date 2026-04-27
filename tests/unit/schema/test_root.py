@@ -13,7 +13,6 @@ def _valid_config() -> dict:
         "global": {
             "namespace": "test.ns",
             "aphelion_domain": "ap.test.ns",
-            "bridge_domain": "br.test.ns",
         },
         "defaults": {
             "exit": {

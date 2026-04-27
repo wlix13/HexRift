@@ -8,6 +8,12 @@ from hexrift.components.schema.models.users import User
 from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, SpecialDestination, TagPrefix, TagSuffix
 
 
+def portal_tag(label: str) -> str:
+    """Get tag for portal."""
+
+    return f"{label}{TagSuffix.PORTAL}"
+
+
 def _build_exit_clients(
     hub_nodes: list[Node],
     exit_node: Node,
@@ -85,11 +91,13 @@ def get_hub_vless_clients(
         if user.portals:
             user_base = ns.user_uuid(user.username, override=user.uuid)
             for portal in user.portals:
+                pt = portal_tag(portal.label)
                 clients.append(
                     {
                         "email": ns.portal_email(portal.label, user.username),
                         "id": str(ns.portal_uuid(portal.label, user.username, user_base=user_base)),
                         "flow": flow,
+                        "reverse": {"tag": pt},
                     }
                 )
     return clients
@@ -305,13 +313,13 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
         u_email = ns.user_email(user.username)
         uf = {"user": [u_email]}
         for portal in user.portals:
-            portal_tag = f"{portal.label}{TagSuffix.PORTAL}"
+            pt = portal_tag(portal.label)
             if portal.routes.domains:
                 rules.append(
                     {
                         "domain": portal.routes.domains,
                         **uf,
-                        "outboundTag": portal_tag,
+                        "outboundTag": pt,
                     }
                 )
             if portal.routes.ips:
@@ -319,7 +327,7 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
                     {
                         "ip": portal.routes.ips,
                         **uf,
-                        "outboundTag": portal_tag,
+                        "outboundTag": pt,
                     }
                 )
 
@@ -407,19 +415,7 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             }
         )
 
-    # 11. Portal catch-all (user → portal outbound)
-    for user in users:
-        if not user.portals:
-            continue
-        for portal in user.portals:
-            rules.append(
-                {
-                    "user": [ns.portal_email(portal.label, user.username)],
-                    "outboundTag": f"{portal.label}{TagSuffix.PORTAL}",
-                }
-            )
-
-    # 12. Default fallthrough
+    # 11. Default fallthrough
     def_tag = region_outbound_tag(default_region)
     def_key = _balancer_key(default_region)
     rules.append(

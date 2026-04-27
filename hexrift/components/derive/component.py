@@ -157,7 +157,6 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             kv = [
                 ("Namespace", g.namespace),
                 ("Aphelion", g.aphelion_domain),
-                ("Bridge", g.bridge_domain),
             ]
             if g.cdn:
                 kv.extend(

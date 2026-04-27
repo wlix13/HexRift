@@ -124,7 +124,10 @@ SHORT_ID_LENGTH = 16
 """Derivation for shortId"""
 
 VLESS_FLOW = XtlsFlow.RPRX_VISION
-"""Main vless flow."""
+"""Inbound client flow."""
+
+VLESS_CLIENT_FLOW = XtlsFlow.RPRX_VISION_UDP443
+"""Outbound client flow."""
 
 HANDSHAKE_METHOD = HandshakeMethod.MLKEM768
 """Main handshake method"""

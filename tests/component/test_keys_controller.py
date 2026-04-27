@@ -64,7 +64,7 @@ class TestHubKeyReuse:
         """Two hub nodes with identical key configs should reuse the same keys."""
 
         topology = {
-            "global": {"namespace": "test.ns", "aphelion_domain": "ap.test.ns", "bridge_domain": "br.test.ns"},
+            "global": {"namespace": "test.ns", "aphelion_domain": "ap.test.ns"},
             "defaults": {
                 "exit": {"ipv6": True, "keys": {"auth": "mlkem768", "mode": "native", "session_time": "600s"}},
                 "hub": {

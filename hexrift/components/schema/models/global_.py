@@ -13,5 +13,4 @@ class GlobalConfig(BaseModel):
 
     namespace: str
     aphelion_domain: str
-    bridge_domain: str
     cdn: CdnConfig | None = None

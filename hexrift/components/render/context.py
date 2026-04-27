@@ -28,13 +28,19 @@ from hexrift.components.schema.models.defaults import ObservatoryConfig
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityFallbackLimits
-from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
+from hexrift.constants import VLESS_CLIENT_FLOW, VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
 
 
 def _flow_for_keys(keys: NodeKeys) -> str:
-    """Return VLESS flow string, or empty when encryption is disabled."""
+    """Return inbound VLESS flow, or empty when encryption is disabled."""
 
     return VLESS_FLOW if keys.encryption != "none" else ""
+
+
+def _client_flow_for_keys(keys: NodeKeys) -> str:
+    """Return outbound VLESS flow (udp443), or empty when encryption is disabled."""
+
+    return VLESS_CLIENT_FLOW if keys.encryption != "none" else ""
 
 
 @dataclass
@@ -75,14 +81,6 @@ class ExitContext:
 
 
 @dataclass
-class PortalContext:
-    label: str
-    domain: str  # {label}.{bridge_domain}
-    user_email: str  # {username}@{namespace}
-    portal_email: str  # {label}-portal@{username}
-
-
-@dataclass
 class HubOutboundContext:
     exit_id: str
     address: str  # {exitId}.{aphelion_domain}
@@ -115,9 +113,6 @@ class HubContext:
 
     # Client lists
     vless_clients: list[dict]
-
-    # Portals
-    portals: list[PortalContext]
 
     # Outbounds
     outbounds: list[HubOutboundContext]  # one per exit node (normal)
@@ -234,21 +229,6 @@ def build_hub_context(
     # Short IDs
     short_ids = get_hub_short_ids(config.groups, ns) + get_hub_user_short_ids(config.users, ns)
 
-    # Portals
-    portals: list[PortalContext] = []
-    for user in config.users:
-        if not user.portals:
-            continue
-        for portal in user.portals:
-            portals.append(
-                PortalContext(
-                    label=portal.label,
-                    domain=f"{portal.label}.{config.global_.bridge_domain}",
-                    user_email=ns.user_email(user.username),
-                    portal_email=ns.portal_email(portal.label, user.username),
-                )
-            )
-
     # Build exit outbounds
     exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
 
@@ -263,7 +243,7 @@ def build_hub_context(
             ex_server_names = derive_server_names(ex_reality)
             ex_xhttp_host = derive_xhttp_host(ex_reality)
             ex_keys = exit_node_keys[exit_node.id]
-            ex_flow = _flow_for_keys(ex_keys)
+            ex_flow = _client_flow_for_keys(ex_keys)
             uid = ns.hub_exit_uuid(node.id, exit_node.id)
             short = ns.exit_short_id(exit_node.id)
             address = f"{exit_node.id}.{config.global_.aphelion_domain}"
@@ -343,7 +323,6 @@ def build_hub_context(
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
         cdn_clients=get_hub_cdn_clients(config.users, ns, flow=_flow_for_keys(node_keys)) if cdn_hub_domain else [],
-        portals=portals,
         outbounds=outbounds,
         warp_outbounds=warp_outbounds,
         balancers=build_balancers(exit_regions),

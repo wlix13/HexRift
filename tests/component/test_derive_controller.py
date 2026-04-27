@@ -73,9 +73,11 @@ class TestDeriveUsers:
         rows = app.derive.derive_users()
         alice = next(r for r in rows if r["username"] == "alice")
         portal = alice["portals"][0]
+        assert "label" in portal
+        assert "tag" in portal
+        assert portal["tag"] == "home-portal"
         assert "uuid" in portal
         assert "email" in portal
-        assert portal["email"] == "home-portal@alice"
 
     def test_uuid_is_deterministic(self, app: HexRiftApp):
         rows1 = app.derive.derive_users()
@@ -197,7 +199,6 @@ class TestBuildShareUrls:
             "global": {
                 "namespace": "t.ns",
                 "aphelion_domain": "ap.t.ns",
-                "bridge_domain": "br.t.ns",
             },
             "defaults": {
                 "exit": {
@@ -272,7 +273,6 @@ class TestBuildShareUrls:
             "global": {
                 "namespace": "t.ns",
                 "aphelion_domain": "ap.t.ns",
-                "bridge_domain": "br.t.ns",
                 # no cdn key
             },
             "defaults": {
@@ -368,7 +368,6 @@ class TestBuildShareUrls:
             "global": {
                 "namespace": "t.ns",
                 "aphelion_domain": "ap.t.ns",
-                "bridge_domain": "br.t.ns",
             },
             "defaults": {
                 "exit": {

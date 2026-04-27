@@ -1,7 +1,6 @@
 global:
   namespace: test.hexrift
   aphelion_domain: ap.test.hexrift
-  bridge_domain: br.test.hexrift
   cdn:
     exit_domain: cdn-exit.test.hexrift
     hub_domain: cdn-hub.test.hexrift
