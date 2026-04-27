@@ -148,10 +148,6 @@
           "title": "Aphelion Domain",
           "type": "string"
         },
-        "bridge_domain": {
-          "title": "Bridge Domain",
-          "type": "string"
-        },
         "cdn": {
           "anyOf": [
             {
@@ -166,8 +162,7 @@
       },
       "required": [
         "namespace",
-        "aphelion_domain",
-        "bridge_domain"
+        "aphelion_domain"
       ],
       "title": "GlobalConfig",
       "type": "object"
