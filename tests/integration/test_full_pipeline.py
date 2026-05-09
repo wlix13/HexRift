@@ -20,8 +20,10 @@ import orjson
 import pytest
 
 from hexrift.app import HexRiftApp
+from hexrift.components.derive.identity import Namespace
 from hexrift.components.render.context import build_exit_context, build_hub_context
 from hexrift.components.render.haproxy import render_haproxy
+from hexrift.components.render.portal import build_portal_config
 from hexrift.components.render.xray import build_exit_config, build_hub_config, serialize_config
 from hexrift.constants import RegionType
 
@@ -265,3 +267,114 @@ def test_exit_client_is_hub_exit_uuid():
     assert clients[0]["email"] == "mskA00-nlA00@test.hexrift"
     # UUID is deterministic: uuid5(ns, "mskA00-nlA00")
     assert clients[0]["id"] == "17d3c9f0-7373-5f77-9298-e18c4055e471"
+
+
+def _build_portal_for_alice(group_id: str | None = None) -> dict:
+    """Build portal config dict for alice/home using committed fixture topology + keys."""
+
+    app = HexRiftApp(yaml_path=FIXTURE_TOPOLOGY)
+    cfg = app.schema.config
+    hub_node_keys = {
+        n.id: app.keys.load_node_keys(n.id, FIXTURE_KEYS_DIR)
+        for r in cfg.regions
+        if r.type == RegionType.HUB
+        for n in r.nodes
+    }
+    fingerprint = cfg.defaults.hub.exit_connections.fingerprint
+    return build_portal_config(cfg, "alice", "home", hub_node_keys, fingerprint, group_id=group_id)
+
+
+@pytest.mark.integration
+def test_portal_config_structure():
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+
+    for key in ("log", "outbounds", "routing"):
+        assert key in cfg
+    assert "inbounds" not in cfg
+    assert "dns" not in cfg
+
+
+@pytest.mark.integration
+def test_portal_config_outbounds():
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    tags = [ob["tag"] for ob in cfg["outbounds"]]
+    # one per hub node + direct
+    assert "portal-mskA00" in tags
+    assert "direct" in tags
+    assert len(cfg["outbounds"]) == 2  # 1 hub node + 1 direct
+
+
+@pytest.mark.integration
+def test_portal_outbound_uses_hub_hostname():
+    """Address must be the hub node's hostname."""
+
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
+    assert ob["settings"]["address"] == "mskA00.ap.test.hexrift"
+
+
+@pytest.mark.integration
+def test_portal_outbound_uuid_is_deterministic():
+    ns = Namespace("test.hexrift")
+    user_base = ns.user_uuid("alice")
+    expected_id = str(ns.portal_uuid("home", "alice", user_base=user_base))
+
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
+    assert ob["settings"]["id"] == expected_id
+
+
+@pytest.mark.integration
+def test_portal_outbound_reality_settings():
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
+    reality = ob["streamSettings"]["realitySettings"]
+    assert reality["publicKey"] == "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"
+    assert reality["fingerprint"] == "chrome"
+    assert reality["shortId"] == "aabbccddeeff0011"
+
+
+@pytest.mark.integration
+def test_portal_outbound_has_reverse_sniffing():
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
+    reverse = ob["settings"]["reverse"]
+    assert reverse["tag"] == "direct"
+    assert reverse["sniffing"]["enabled"] is True
+    assert reverse["sniffing"]["routeOnly"] is True
+
+
+@pytest.mark.integration
+def test_portal_routing_single_catchall_direct():
+    cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
+    rules = cfg["routing"]["rules"]
+    assert len(rules) == 1
+    assert rules[0]["network"] == "TCP,UDP"
+    assert rules[0]["outboundTag"] == "direct"
+
+
+@pytest.mark.integration
+def test_portal_group_override_changes_short_id():
+    """Passing group_id='guest' should use the guest group's shortId."""
+
+    cfg_main = orjson.loads(serialize_config(_build_portal_for_alice()))
+    cfg_guest = orjson.loads(serialize_config(_build_portal_for_alice(group_id="guest")))
+
+    ob_main = next(o for o in cfg_main["outbounds"] if o["tag"] == "portal-mskA00")
+    ob_guest = next(o for o in cfg_guest["outbounds"] if o["tag"] == "portal-mskA00")
+
+    assert ob_main["streamSettings"]["realitySettings"]["shortId"] == "aabbccddeeff0011"
+    assert ob_guest["streamSettings"]["realitySettings"]["shortId"] == "1122334455667788"
+
+
+@pytest.mark.integration
+def test_portal_config_matches_committed():
+    generated = serialize_config(_build_portal_for_alice())
+    expected = (FIXTURE_CONFIGS_DIR / "portals" / "alice-home.json").read_bytes()
+    expected = expected.replace(b"\r\n", b"\n")
+    assert generated == expected, (
+        "portal config.json mismatch for alice/home.\n"
+        "Regenerate with:\n"
+        "  uv run hexrift --yaml tests/fixtures/topology.yaml portal-gen alice --label home "
+        "--keys-dir tests/fixtures/keys --out-dir tests/fixtures/configs/portals"
+    )
