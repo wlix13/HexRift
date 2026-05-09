@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING
 
 from hexrift.components.render.context import build_exit_context, build_hub_context
 from hexrift.components.render.haproxy import render_haproxy
+from hexrift.components.render.portal import build_portal_config
 from hexrift.components.render.xray import build_exit_config, build_hub_config, serialize_config
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
+from hexrift.errors import RenderError
 
 
 if TYPE_CHECKING:
@@ -60,6 +62,30 @@ class RenderController(BaseController["HexRiftApp"]):
             (node_dir / "config.json").write_bytes(serialize_config(xray_config))
         if haproxy:
             (node_dir / "haproxy.cfg").write_text(haproxy_cfg)
+
+    def portal_gen(
+        self,
+        username: str,
+        label: str,
+        out_dir: Path,
+        keys_dir: Path,
+        fingerprint: str,
+        group_id: str | None = None,
+    ) -> None:
+        """Generate portal client config.json."""
+
+        cfg = self.app.schema.config
+        if not any(u.username == username for u in cfg.users):
+            raise RenderError(f"User not found: {username!r}")
+        hub_node_keys = {
+            n.id: self.app.keys.load_node_keys(n.id, keys_dir)
+            for r in cfg.regions
+            if r.type == RegionType.HUB
+            for n in r.nodes
+        }
+        config = build_portal_config(cfg, username, label, hub_node_keys, fingerprint, group_id=group_id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{username}-{label}.json").write_bytes(serialize_config(config))
 
     def diff(self, node_id: str, current_dir: Path, keys_dir: Path) -> str:
         """Return unified diff between generated and current config.json."""
