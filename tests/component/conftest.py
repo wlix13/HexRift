@@ -43,6 +43,16 @@ MINIMAL_TOPOLOGY: dict = {
             "username": "alice",
             "group": "grp1",
             "access": ["xhttp"],
+            "portals": [
+                {
+                    "label": "home",
+                    "routes": {
+                        "domains": [
+                            "home.alice.example.com",
+                        ],
+                    },
+                },
+            ],
         },
     ],
     "routing": {"hub_default": "hub1"},

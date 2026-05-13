@@ -1,0 +1,88 @@
+{
+  "log": {
+    "loglevel": "none",
+    "access": "none",
+    "error": "none",
+    "dnsLog": false
+  },
+  "outbounds": [
+    {
+      "tag": "portal-mskA00",
+      "protocol": "vless",
+      "settings": {
+        "address": "mskA00.ap.test.hexrift",
+        "port": 443,
+        "id": "d2374034-7576-5dc0-9205-338fa2b75c0d",
+        "flow": "xtls-rprx-vision-udp443",
+        "encryption": "mlkem768x25519plus.native.0rtt.u-5whFoa5HSl8vqWLbyXN2gh8MG9JwY431bW4YiBtnc",
+        "reverse": {
+          "tag": "direct",
+          "sniffing": {
+            "enabled": true,
+            "destOverride": ["http", "tls", "quic"],
+            "routeOnly": true
+          }
+        }
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "realitySettings": {
+          "publicKey": "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk",
+          "fingerprint": "chrome",
+          "serverName": "www.microsoft.com",
+          "shortId": "aabbccddeeff0011"
+        },
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": false
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "network": "TCP,UDP",
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}

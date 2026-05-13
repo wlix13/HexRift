@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import orjson
+import pytest
 
 from hexrift.app import HexRiftApp
+from hexrift.errors import KeysError, RenderError
 
 
 def _gen_all_keys(app: HexRiftApp, keys_dir):
@@ -107,3 +111,69 @@ class TestDiff:
         _gen_all_keys(app, keys_dir)
         diff = app.render.diff("exitN1", out_dir, keys_dir)
         assert "no current config" in diff
+
+
+@pytest.fixture()
+def portal_config(app: HexRiftApp, tmp_path: Path):
+    keys_dir = tmp_path / "keys"
+    out_dir = tmp_path / "out"
+    _gen_all_keys(app, keys_dir)
+    app.render.portal_gen("alice", "home", out_dir, keys_dir, "chrome")
+    config_path = out_dir / "alice-home.json"
+    return {
+        "keys_dir": keys_dir,
+        "out_dir": out_dir,
+        "config_path": config_path,
+        "config": orjson.loads(config_path.read_bytes()),
+    }
+
+
+class TestPortalGen:
+    def test_creates_portal_config_file(self, portal_config):
+        assert portal_config["config_path"].exists()
+
+    def test_portal_config_is_valid_json(self, portal_config):
+        assert isinstance(portal_config["config"], dict)
+
+    def test_portal_config_top_level_keys(self, portal_config):
+        cfg = portal_config["config"]
+        for key in ("log", "outbounds", "routing"):
+            assert key in cfg, f"Missing top-level key: {key!r}"
+        assert "inbounds" not in cfg
+        assert "dns" not in cfg
+
+    def test_portal_config_has_hub_outbound(self, portal_config):
+        tags = [ob["tag"] for ob in portal_config["config"]["outbounds"]]
+        assert "portal-hubN1" in tags
+
+    def test_portal_config_has_direct_outbound(self, portal_config):
+        tags = [ob["tag"] for ob in portal_config["config"]["outbounds"]]
+        assert "direct" in tags
+
+    def test_portal_config_outbound_count(self, portal_config):
+        # 1 hub node (hubN1) + 1 direct freedom outbound
+        assert len(portal_config["config"]["outbounds"]) == 2
+
+    def test_portal_outbound_uses_hostname(self, portal_config):
+        cfg = portal_config["config"]
+        portal_ob = next((ob for ob in cfg["outbounds"] if ob["tag"] == "portal-hubN1"), None)
+        assert portal_ob is not None, "Outbound 'portal-hubN1' not found in outbounds"
+        assert portal_ob["settings"]["address"] == "hubN1.ap.test.ns"
+
+    def test_portal_routing_catchall_direct(self, portal_config):
+        rules = portal_config["config"]["routing"]["rules"]
+        assert len(rules) == 1
+        assert rules[0]["network"] == "TCP,UDP"
+        assert rules[0]["outboundTag"] == "direct"
+
+    def test_raises_for_unknown_username(self, app: HexRiftApp, tmp_path: Path) -> None:
+        keys_dir = tmp_path / "keys"
+        out_dir = tmp_path / "out"
+        _gen_all_keys(app, keys_dir)
+        with pytest.raises(RenderError, match="User not found"):
+            app.render.portal_gen("nobody", "home", out_dir, keys_dir, "chrome")
+
+    def test_raises_when_keys_not_generated(self, app: HexRiftApp, tmp_path: Path) -> None:
+        out_dir = tmp_path / "out"
+        with pytest.raises(KeysError):
+            app.render.portal_gen("alice", "home", out_dir, tmp_path / "keys", "chrome")
