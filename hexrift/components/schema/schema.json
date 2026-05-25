@@ -30,6 +30,13 @@
         "hub_domain": {
           "title": "Hub Domain",
           "type": "string"
+        },
+        "trusted_forwarded_headers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Trusted Forwarded Headers",
+          "type": "array"
         }
       },
       "required": [
@@ -54,6 +61,23 @@
         "hub"
       ],
       "title": "DefaultsConfig",
+      "type": "object"
+    },
+    "DnsServerConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "default": "127.0.0.1",
+          "title": "Address",
+          "type": "string"
+        },
+        "port": {
+          "default": 53,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "title": "DnsServerConfig",
       "type": "object"
     },
     "ExitConnectionsConfig": {
@@ -158,6 +182,9 @@
             }
           ],
           "default": null
+        },
+        "dns": {
+          "$ref": "#/$defs/DnsServerConfig"
         }
       },
       "required": [
