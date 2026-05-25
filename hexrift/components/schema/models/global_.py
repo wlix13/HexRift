@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+import ipaddress
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hexrift.constants import DEFAULT_TRUSTED_HEADER
 
@@ -16,6 +18,15 @@ class DnsServerConfig(BaseModel):
 
     address: str = "127.0.0.1"
     port: int = 53
+
+    @field_validator("address")
+    @classmethod
+    def validate_ip_address(cls, v: str) -> str:
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            raise ValueError(f"dns address must be a valid IP address, got: {v!r}")
+        return v
 
 
 class GlobalConfig(BaseModel):
