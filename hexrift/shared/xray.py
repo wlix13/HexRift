@@ -16,16 +16,18 @@ SNIFFING = {
     "routeOnly": True,
 }
 
-DNS = {
-    "servers": [
-        {
-            "address": "127.0.0.1",
-            "port": 53,
-        }
-    ],
-    "enableParallelQuery": True,
-    "useSystemHosts": True,
-}
+
+def make_dns(address: str, port: int) -> dict:
+    return {
+        "servers": [
+            {
+                "address": address,
+                "port": port,
+            }
+        ],
+        "enableParallelQuery": True,
+        "useSystemHosts": True,
+    }
 
 
 def make_sockopt(ipv6: bool) -> dict:

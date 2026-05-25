@@ -16,7 +16,7 @@ from hexrift.constants import (
     XraySecurity,
 )
 from hexrift.shared.xhttp import XHTTP_EXTRA, XHTTP_EXTRA_CDN, XMUX
-from hexrift.shared.xray import DNS, LOG, SNIFFING, make_inbound_sockopt, make_sockopt
+from hexrift.shared.xray import LOG, SNIFFING, make_dns, make_inbound_sockopt, make_sockopt
 
 
 def _warp_outbound(ipv6: bool) -> dict:
@@ -72,10 +72,13 @@ def build_exit_config(ctx: ExitContext) -> dict:
         "sniffing": SNIFFING,
     }
 
+    dns_direct_ips = ["127.0.0.1", "::1"]
+    if ctx.dns_address not in dns_direct_ips:
+        dns_direct_ips.append(ctx.dns_address)
     routing_rules: list[dict] = [
         {
-            "ip": ["127.0.0.1", "::1"],
-            "port": 53,
+            "ip": list(dns_direct_ips),
+            "port": ctx.dns_port,
             "outboundTag": SpecialDestination.DIRECT,
         },
     ]
@@ -143,7 +146,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "domainStrategy": "IPIfNonMatch",
                 "rules": routing_rules,
             },
-            "dns": DNS,
+            "dns": make_dns(ctx.dns_address, ctx.dns_port),
         }
     )
 
@@ -285,7 +288,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "balancers": ctx.balancers,
                 "rules": ctx.routing_rules,
             },
-            "dns": DNS,
+            "dns": make_dns(ctx.dns_address, ctx.dns_port),
         }
     )
 
