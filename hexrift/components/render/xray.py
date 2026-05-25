@@ -16,7 +16,7 @@ from hexrift.constants import (
     XraySecurity,
 )
 from hexrift.shared.xhttp import XHTTP_EXTRA, XHTTP_EXTRA_CDN, XMUX
-from hexrift.shared.xray import DNS, LOG, SNIFFING, make_sockopt
+from hexrift.shared.xray import DNS, LOG, SNIFFING, make_inbound_sockopt, make_sockopt
 
 
 def _warp_outbound(ipv6: bool) -> dict:
@@ -67,7 +67,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
                 "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
             },
-            "sockopt": make_sockopt(ctx.ipv6),
+            "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
         },
         "sniffing": SNIFFING,
     }
@@ -126,7 +126,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
                     "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
-                    "sockopt": make_sockopt(ctx.ipv6),
+                    "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
                 },
                 "sniffing": SNIFFING,
             }
@@ -175,7 +175,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
                 "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
             },
-            "sockopt": make_sockopt(ctx.ipv6),
+            "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
         },
         "sniffing": SNIFFING,
     }
@@ -265,7 +265,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                     "network": XrayNetwork.XHTTP,
                     "security": XraySecurity.NONE,
                     "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
-                    "sockopt": make_sockopt(ctx.ipv6),
+                    "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
                 },
                 "sniffing": SNIFFING,
             }

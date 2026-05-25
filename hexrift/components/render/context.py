@@ -65,6 +65,9 @@ class ExitContext:
     # Client lists
     direct_clients: list[dict]  # hub-exit UUIDs
 
+    # Trusted forwarded headers for inbound sockopt
+    trusted_forwarded_headers: list[str]
+
     # Routing
     warp_domains: list[str]  # region warp_extra + exit_warp_global (domain-based warp routing)
     extra_routes: list[dict]  # from region routes + global_exit_routes
@@ -128,6 +131,9 @@ class HubContext:
 
     # Observatory config
     observatory: ObservatoryConfig
+
+    # Trusted forwarded headers for inbound sockopt
+    trusted_forwarded_headers: list[str]
 
     # Proxy inbound
     proxy_inbound: bool
@@ -196,6 +202,7 @@ def build_exit_context(
         reality_fallback_limits=reality.fallback_limits,
         decryption=node_keys.decryption,
         direct_clients=get_exit_direct_clients(hub_nodes, node, ns, flow=_flow_for_keys(node_keys)),
+        trusted_forwarded_headers=config.global_.cdn.trusted_forwarded_headers if config.global_.cdn else [],
         cdn_xhttp_host=cdn_host,
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
@@ -309,6 +316,7 @@ def build_hub_context(
         node_id=node.id,
         hostname=node.hostname,
         ipv6=ipv6,
+        trusted_forwarded_headers=config.global_.cdn.trusted_forwarded_headers if config.global_.cdn else [],
         reality_dest=reality.dest,
         reality_server_names=server_names,
         reality_private_key=node_keys.reality_private_key,

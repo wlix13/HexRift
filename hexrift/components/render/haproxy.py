@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+import re
+
 from jinja2 import Environment, PackageLoader
 
 from hexrift.components.render.context import ExitContext, HubContext
-from hexrift.constants import RegionType, Socket
+from hexrift.constants import DEFAULT_TRUSTED_HEADER, RegionType, Socket
+
+
+_HEADER_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9\-]*$")
+
+
+def _safe_header(headers: list[str]) -> str:
+    """Return first header name if it is a valid HTTP token, else safe default."""
+
+    if headers and _HEADER_RE.fullmatch(headers[0]):
+        return headers[0]
+    return DEFAULT_TRUSTED_HEADER
 
 
 _env = Environment(
@@ -39,4 +52,5 @@ def render_haproxy(ctx: ExitContext | HubContext, node_type: str) -> str:
         socket=Socket,
         mtproto_domain=ctx.mtproto_domain,
         mtproto_port=ctx.mtproto_port,
+        trusted_forwarded_header=_safe_header(ctx.trusted_forwarded_headers),
     )
