@@ -85,7 +85,7 @@ frontend fe_cdn_https_local
 
   # Restore client info
   http-request set-header X-Forwarded-Proto https
-  http-request set-header X-Real-IP %[src]
+  http-request set-header {{ trusted_forwarded_header }} %[src]
   http-request del-header X-Forwarded-For
   http-request set-header X-Forwarded-For %[src]
   http-request del-header Proxy

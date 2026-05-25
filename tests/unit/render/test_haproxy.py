@@ -1,59 +1,7 @@
-from typing import Any
-
-from hexrift.components.render.context import ExitContext, HubContext
 from hexrift.components.render.haproxy import render_haproxy
-from hexrift.components.schema.models.defaults import ObservatoryConfig
-from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import RegionType
-
-
-def _exit_ctx(**overrides: Any) -> ExitContext:
-    defaults: dict[str, Any] = {
-        "node_id": "nlA00",
-        "hostname": "nlA00.ap.example.com",
-        "ipv6": True,
-        "reality_dest": "vk.com:443",
-        "reality_server_names": ["vk.com"],
-        "reality_private_key": "FAKE_PRIV_KEY",
-        "reality_public_key": "FAKE_PUB_KEY",
-        "reality_xhttp_host": "vk.com",
-        "reality_xhttp_path": "/path/",
-        "reality_short_id": "abcdef0123456789",
-        "decryption": "mlkem768x25519plus.native.600s.FAKE",
-        "reality_fallback_limits": RealityFallbackLimits(),
-        "direct_clients": [],
-        "warp_domains": [],
-        "extra_routes": [],
-    }
-    defaults.update(overrides)
-    return ExitContext(**defaults)
-
-
-def _hub_ctx(**overrides: Any) -> HubContext:
-    defaults: dict[str, Any] = {
-        "node_id": "mskA00",
-        "hostname": "mskA00.ap.example.com",
-        "ipv6": True,
-        "reality_dest": "vk.com:443",
-        "reality_server_names": ["vk.com"],
-        "reality_private_key": "FAKE_PRIV_KEY",
-        "reality_xhttp_host": "vk.com",
-        "reality_xhttp_path": "/path/",
-        "reality_short_ids": ["abcdef0123456789"],
-        "decryption": "mlkem768x25519plus.native.600s.FAKE",
-        "reality_fallback_limits": RealityFallbackLimits(),
-        "observatory": ObservatoryConfig(),
-        "vless_clients": [],
-        "outbounds": [],
-        "warp_outbounds": [],
-        "balancers": [],
-        "routing_rules": [],
-        "observatory_selectors": [],
-        "proxy_inbound": False,
-        "proxy_inbound_accounts": [],
-    }
-    defaults.update(overrides)
-    return HubContext(**defaults)
+from tests.unit.render.helpers import exit_ctx as _exit_ctx
+from tests.unit.render.helpers import hub_ctx as _hub_ctx
 
 
 class TestExitHaproxy:
@@ -96,6 +44,37 @@ class TestExitHaproxy:
     def test_ends_with_newline(self):
         result = render_haproxy(_exit_ctx(), RegionType.EXIT)
         assert result.endswith("\n")
+
+    def test_cdn_uses_default_trusted_header(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header X-Real-IP" in result
+
+    def test_cdn_uses_custom_trusted_header(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+            trusted_forwarded_headers=["CF-Connecting-IP"],
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header CF-Connecting-IP" in result
+        assert "set-header X-Real-IP" not in result
+
+    def test_cdn_invalid_trusted_header_falls_back_to_default(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+            trusted_forwarded_headers=["CF-Connecting-IP\n"],
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header X-Real-IP" in result
+        assert "CF-Connecting-IP" not in result
 
 
 class TestHubHaproxy:

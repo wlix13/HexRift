@@ -16,16 +16,18 @@ SNIFFING = {
     "routeOnly": True,
 }
 
-DNS = {
-    "servers": [
-        {
-            "address": "127.0.0.1",
-            "port": 53,
-        }
-    ],
-    "enableParallelQuery": True,
-    "useSystemHosts": True,
-}
+
+def make_dns(address: str, port: int) -> dict:
+    return {
+        "servers": [
+            {
+                "address": address,
+                "port": port,
+            }
+        ],
+        "enableParallelQuery": True,
+        "useSystemHosts": True,
+    }
 
 
 def make_sockopt(ipv6: bool) -> dict:
@@ -42,4 +44,11 @@ def make_sockopt(ipv6: bool) -> dict:
         "tcpKeepAliveIdle": 45,
         "tcpWindowClamp": 0,
         "tcpcongestion": "bbr",
+    }
+
+
+def make_inbound_sockopt(ipv6: bool, trusted_headers: list[str]) -> dict:
+    return {
+        **make_sockopt(ipv6),
+        **({"trustedXForwardedFor": trusted_headers} if trusted_headers else {}),
     }

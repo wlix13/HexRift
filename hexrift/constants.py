@@ -131,3 +131,6 @@ VLESS_CLIENT_FLOW = XtlsFlow.RPRX_VISION_UDP443
 
 HANDSHAKE_METHOD = HandshakeMethod.MLKEM768
 """Main handshake method"""
+
+DEFAULT_TRUSTED_HEADER = "X-Real-IP"
+"""Default header name used by HAProxy to forward the real client IP."""
