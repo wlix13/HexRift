@@ -22,6 +22,7 @@ def _exit_ctx(**overrides: Any) -> ExitContext:
         "decryption": "mlkem768x25519plus.native.600s.FAKE",
         "reality_fallback_limits": RealityFallbackLimits(),
         "direct_clients": [],
+        "trusted_forwarded_headers": [],
         "warp_domains": [],
         "extra_routes": [],
     }
@@ -49,6 +50,7 @@ def _hub_ctx(**overrides: Any) -> HubContext:
         "balancers": [],
         "routing_rules": [],
         "observatory_selectors": [],
+        "trusted_forwarded_headers": [],
         "proxy_inbound": False,
         "proxy_inbound_accounts": [],
     }
@@ -96,6 +98,37 @@ class TestExitHaproxy:
     def test_ends_with_newline(self):
         result = render_haproxy(_exit_ctx(), RegionType.EXIT)
         assert result.endswith("\n")
+
+    def test_cdn_uses_default_trusted_header(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header X-Real-IP" in result
+
+    def test_cdn_uses_custom_trusted_header(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+            trusted_forwarded_headers=["CF-Connecting-IP"],
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header CF-Connecting-IP" in result
+        assert "set-header X-Real-IP" not in result
+
+    def test_cdn_invalid_trusted_header_falls_back_to_default(self):
+        ctx = _exit_ctx(
+            cdn_cert_alias="pluto",
+            cdn_xhttp_host="nlA00.pluto.example.com",
+            cdn_xhttp_path="/cdn/",
+            trusted_forwarded_headers=["CF-Connecting-IP\n"],
+        )
+        result = render_haproxy(ctx, RegionType.EXIT)
+        assert "set-header X-Real-IP" in result
+        assert "CF-Connecting-IP" not in result
 
 
 class TestHubHaproxy:

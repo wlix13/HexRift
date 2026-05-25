@@ -74,7 +74,8 @@
           "tcpKeepAliveInterval": 45,
           "tcpKeepAliveIdle": 45,
           "tcpWindowClamp": 0,
-          "tcpcongestion": "bbr"
+          "tcpcongestion": "bbr",
+          "trustedXForwardedFor": ["X-Real-IP"]
         }
       },
       "sniffing": {
@@ -137,7 +138,8 @@
           "tcpKeepAliveInterval": 45,
           "tcpKeepAliveIdle": 45,
           "tcpWindowClamp": 0,
-          "tcpcongestion": "bbr"
+          "tcpcongestion": "bbr",
+          "trustedXForwardedFor": ["X-Real-IP"]
         }
       },
       "sniffing": {
