@@ -103,19 +103,29 @@ def get_hub_vless_clients(
     return clients
 
 
-def get_hub_cdn_clients(
+def _get_hub_access_clients(
     users: list[User],
     ns: Namespace,
-    flow: str = VLESS_FLOW,
+    access_type: AccessType,
+    flow: str,
+    include_server: bool = False,
 ) -> list[dict]:
-    """Clients for hub cdn-xhttp inbound."""
+    """Clients (user, optional server, guests) for hub inbound gated on single access type."""
 
     clients = []
     for u in users:
-        if AccessType.CDN not in u.access:
+        if access_type not in u.access:
             continue
         user_base = ns.user_uuid(u.username, override=u.uuid)
         clients.append({"id": str(user_base), "email": ns.user_email(u.username), "flow": flow})
+        if include_server and AccessType.SERVER in u.access:
+            clients.append(
+                {
+                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
+                    "email": ns.server_email(u.username),
+                    "flow": flow,
+                }
+            )
         for label in u.guests:
             clients.append(
                 {
@@ -125,6 +135,28 @@ def get_hub_cdn_clients(
                 }
             )
     return clients
+
+
+def get_hub_cdn_clients(
+    users: list[User],
+    ns: Namespace,
+    flow: str = VLESS_FLOW,
+) -> list[dict]:
+    """Clients for hub cdn-xhttp inbound."""
+
+    return _get_hub_access_clients(users, ns, AccessType.CDN, flow, include_server=True)
+
+
+def get_hub_xdns_clients(
+    users: list[User],
+    ns: Namespace,
+) -> list[dict]:
+    """Clients for hub xdns inbound.
+
+    xdns runs over non-TLS mKCP, where xtls-rprx-vision is useless, so flow is empty.
+    """
+
+    return _get_hub_access_clients(users, ns, AccessType.XDNS, flow="")
 
 
 def get_hub_short_ids(groups: list, ns: Namespace) -> list[str]:

@@ -10,6 +10,8 @@ from hexrift.components.derive.defaults import (
     resolve_node_mtproto,
     resolve_node_proxy_inbound,
     resolve_node_reality,
+    resolve_node_wireguard,
+    resolve_node_xdns,
 )
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import (
@@ -22,10 +24,12 @@ from hexrift.components.derive.topology import (
     get_hub_short_ids,
     get_hub_user_short_ids,
     get_hub_vless_clients,
+    get_hub_xdns_clients,
 )
+from hexrift.components.derive.wireguard import get_hub_wireguard_peers
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.defaults import ObservatoryConfig
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import Node, Region, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import VLESS_CLIENT_FLOW, VLESS_FLOW, AccessType, LbRole, RegionType, TagPrefix
@@ -156,6 +160,14 @@ class HubContext:
     # MTProto (None when not configured)
     mtproto_domain: str | None = None
     mtproto_port: int | None = None
+
+    # XDNS inbound (None when not configured)
+    xdns: XdnsConfig | None = None
+    xdns_clients: list[dict] = field(default_factory=list)
+
+    # WireGuard inbound (None when not configured)
+    wireguard: WireguardConfig | None = None
+    wireguard_peers: list[dict] = field(default_factory=list)
 
 
 def build_exit_context(
@@ -322,6 +334,25 @@ def build_hub_context(
             )
 
     mtproto = resolve_node_mtproto(node, config.defaults)
+    xdns = resolve_node_xdns(node, config.defaults)
+    xdns_clients = get_hub_xdns_clients(config.users, ns) if xdns else []
+    wireguard = resolve_node_wireguard(node, config.defaults)
+    wireguard_peers = (
+        get_hub_wireguard_peers(
+            config.users,
+            ns,
+            wireguard.subnet,
+            node_keys.reality_private_key,
+            keepalive=wireguard.keepalive,
+        )
+        if wireguard
+        else []
+    )
+    vless_clients = get_hub_vless_clients(
+        config.users,
+        ns,
+        flow=_flow_for_keys(node_keys),
+    )
     return HubContext(
         node_id=node.id,
         hostname=node.hostname,
@@ -338,7 +369,7 @@ def build_hub_context(
         reality_fallback_limits=reality.fallback_limits,
         observatory=config.defaults.hub.observatory,
         decryption=node_keys.decryption,
-        vless_clients=get_hub_vless_clients(config.users, ns, flow=_flow_for_keys(node_keys)),
+        vless_clients=vless_clients,
         cdn_xhttp_host=cdn_hub_domain,
         cdn_xhttp_path=cdn_path,
         cdn_cert_alias=cert_alias,
@@ -352,4 +383,8 @@ def build_hub_context(
         proxy_inbound_accounts=proxy_accounts if proxy_enabled else [],
         mtproto_domain=mtproto.domain if mtproto else None,
         mtproto_port=mtproto.port if mtproto else None,
+        xdns=xdns,
+        xdns_clients=xdns_clients,
+        wireguard=wireguard,
+        wireguard_peers=wireguard_peers,
     )

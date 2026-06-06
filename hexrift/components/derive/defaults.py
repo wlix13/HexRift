@@ -1,7 +1,15 @@
 """Merge per-node overrides on top of region defaults."""
 
 from hexrift.components.schema.models.defaults import DefaultsConfig, ExitConnectionsConfig, KeysConfig
-from hexrift.components.schema.models.regions import MtprotoConfig, Node, NodeMtprotoOverride, Region
+from hexrift.components.schema.models.regions import (
+    MtprotoConfig,
+    Node,
+    NodeMtprotoOverride,
+    NodeWireguardOverride,
+    Region,
+    WireguardConfig,
+    XdnsConfig,
+)
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import RegionType
 
@@ -63,6 +71,33 @@ def resolve_node_mtproto(node: Node, defaults: DefaultsConfig) -> MtprotoConfig 
         raise ValueError(f"Node {node.id!r}: mtproto.domain must be set (no default configured)")
 
     return MtprotoConfig(domain=domain, port=port)
+
+
+def resolve_node_xdns(node: Node, defaults: DefaultsConfig) -> XdnsConfig | None:
+    return node.xdns if node.xdns is not None else defaults.hub.xdns
+
+
+def resolve_node_wireguard(node: Node, defaults: DefaultsConfig) -> WireguardConfig | None:
+    override: NodeWireguardOverride | None = node.wireguard
+    base: WireguardConfig | None = defaults.hub.wireguard
+
+    if override is None:
+        return base
+    if override.enabled is False:
+        return None
+
+    # Merge override on top of base
+    subnet = override.subnet or (base.subnet if base else None)
+    if subnet is None:
+        raise ValueError(f"Node {node.id!r}: wireguard.subnet must be set (no default configured)")
+
+    return WireguardConfig(
+        port=override.port or (base.port if base else 443),
+        mtu=override.mtu or (base.mtu if base else 1420),
+        subnet=subnet,
+        keepalive=override.keepalive if override.keepalive is not None else (base.keepalive if base else 0),
+        kernel_mode=override.kernel_mode if override.kernel_mode is not None else (base.kernel_mode if base else False),
+    )
 
 
 def resolve_exit_connections(node: Node, defaults: DefaultsConfig) -> ExitConnectionsConfig:
