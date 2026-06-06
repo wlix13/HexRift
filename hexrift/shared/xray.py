@@ -30,6 +30,14 @@ def make_dns(address: str, port: int) -> dict:
     }
 
 
+MKCP_SETTINGS_XDNS: dict = {
+    "mtu": 128,
+    "tti": 50,
+    "uplinkCapacity": 1,
+    "downlinkCapacity": 1,
+}
+
+
 def make_sockopt(ipv6: bool) -> dict:
     return {
         "tproxy": "off",

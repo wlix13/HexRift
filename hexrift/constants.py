@@ -15,6 +15,8 @@ class AccessType(StrEnum):
     SERVER = "server"
     CDN = "cdn"
     PROXY = "proxy"
+    WIREGUARD = "wireguard"
+    XDNS = "xdns"
 
 
 class LbRole(StrEnum):
@@ -30,12 +32,14 @@ class XrayProtocol(StrEnum):
     FREEDOM = "freedom"
     BLACKHOLE = "blackhole"
     MIXED = "mixed"
+    WIREGUARD = "wireguard"
 
 
 class XrayNetwork(StrEnum):
     """Xray network/transport types."""
 
     XHTTP = "xhttp"
+    MKCP = "mkcp"
 
 
 class XraySecurity(StrEnum):
@@ -134,3 +138,6 @@ HANDSHAKE_METHOD = HandshakeMethod.MLKEM768
 
 DEFAULT_TRUSTED_HEADER = "X-Real-IP"
 """Default header name used by HAProxy to forward the real client IP."""
+
+WIREGUARD_CLIENT_DNS = "1.1.1.1"
+"""IPv4 DNS resolver placed in generated WireGuard client configs."""
