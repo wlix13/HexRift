@@ -126,6 +126,11 @@
             "id": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6",
             "email": "alice@test.hexrift",
             "flow": "xtls-rprx-vision"
+          },
+          {
+            "id": "57391a98-59cb-56ae-aa8e-e3f7a166e09e",
+            "email": "alice-server@alice",
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "mlkem768x25519plus.native.600s.wLmsbRtl20XcOo_xDOE7Zs-UBey6ZwSqRtWaw55MWmE"
@@ -173,6 +178,116 @@
           "tcpcongestion": "bbr",
           "trustedXForwardedFor": ["X-Real-IP"]
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
+      "tag": "xdns",
+      "listen": "0.0.0.0",
+      "port": 53,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "a5f242a8-5b2f-5415-bc2a-1ef107ce93cd",
+            "email": "bob@test.hexrift",
+            "flow": ""
+          },
+          {
+            "id": "34b1975b-5059-5875-9c97-4acf78b1e35f",
+            "email": "laptop@bob",
+            "flow": ""
+          },
+          {
+            "id": "6f416c36-94e2-5562-9a2e-86eca9847f59",
+            "email": "phone@bob",
+            "flow": ""
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.wLmsbRtl20XcOo_xDOE7Zs-UBey6ZwSqRtWaw55MWmE"
+      },
+      "streamSettings": {
+        "network": "mkcp",
+        "kcpSettings": {
+          "mtu": 128,
+          "tti": 50,
+          "uplinkCapacity": 1,
+          "downlinkCapacity": 1
+        },
+        "finalmask": {
+          "udp": [
+            {
+              "type": "xdns",
+              "settings": {
+                "domains": ["dns.google"]
+              }
+            }
+          ]
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
+      "tag": "wireguard-in",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "wireguard",
+      "settings": {
+        "secretKey": "UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf+3GDy6nCUQ=",
+        "mtu": 1420,
+        "peers": [
+          {
+            "email": "alice@test.hexrift",
+            "publicKey": "nCjqMh2ZzIx2ymn1xVUul0iYo5wRdr/nH+GqH0208z0=",
+            "allowedIPs": ["10.0.0.2/32"],
+            "keepAlive": 0
+          },
+          {
+            "email": "alice-server@alice",
+            "publicKey": "V37OG5HyfdT/+6nyYX7uIzWrmhzZeJEjok3lJAY60hw=",
+            "allowedIPs": ["10.0.0.3/32"],
+            "keepAlive": 0
+          },
+          {
+            "email": "bob@test.hexrift",
+            "publicKey": "vQ4aU6n+J59b6zGMikLM4zkimQ85lc9YxOQO9nDpfSU=",
+            "allowedIPs": ["10.0.0.4/32"],
+            "keepAlive": 0
+          },
+          {
+            "email": "laptop@bob",
+            "publicKey": "XQe1h1WI30CduatmFHzmYeGXqcCDyJLRq7LZVAOBSXA=",
+            "allowedIPs": ["10.0.0.5/32"],
+            "keepAlive": 0
+          },
+          {
+            "email": "phone@bob",
+            "publicKey": "zHPzm6XOMssUnZZ89/sC/VqeEtc6Xm3F4zy0Q/ywEzs=",
+            "allowedIPs": ["10.0.0.6/32"],
+            "keepAlive": 0
+          }
+        ]
       },
       "sniffing": {
         "enabled": true,

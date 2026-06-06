@@ -6,6 +6,7 @@ from hexrift.components.derive.topology import (
     get_hub_cdn_clients,
     get_hub_user_short_ids,
     get_hub_vless_clients,
+    get_hub_xdns_clients,
     region_outbound_tag,
     region_warp_outbound_tag,
 )
@@ -440,6 +441,67 @@ class TestGetHubCdnClients:
         clients = get_hub_cdn_clients([u], ns)
         emails = [c["email"] for c in clients]
         assert "laptop@alice" in emails
+
+    def test_cdn_server_included(self):
+        ns = Namespace("t.ns")
+        u = _make_user("alice", access=["xhttp", "cdn", "server"])
+        clients = get_hub_cdn_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "alice-server@alice" in emails
+
+
+class TestGetHubXdnsClients:
+    def test_xdns_user_included(self):
+        ns = Namespace("t.ns")
+        u = _make_user(
+            "alice",
+            access=["xhttp", "xdns"],
+        )
+        clients = get_hub_xdns_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "alice@t.ns" in emails
+
+    def test_non_xdns_user_excluded(self):
+        ns = Namespace("t.ns")
+        u = _make_user(
+            "bob",
+            access=["xhttp"],
+        )
+        clients = get_hub_xdns_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "bob@t.ns" not in emails
+
+    def test_xdns_user_guests_included(self):
+        ns = Namespace("t.ns")
+        u = _make_user(
+            "alice",
+            access=["xhttp", "xdns"],
+            guests=["laptop"],
+        )
+        clients = get_hub_xdns_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "laptop@alice" in emails
+
+    def test_server_and_portal_variants_excluded(self):
+        ns = Namespace("t.ns")
+        u = _make_user(
+            "alice",
+            access=["xhttp", "server", "xdns"],
+            portals=[Portal(label="home", routes=PortalRoutes())],
+        )
+        clients = get_hub_xdns_clients([u], ns)
+        emails = [c["email"] for c in clients]
+        assert "alice@t.ns" in emails
+        assert "alice-server@alice" not in emails
+        assert "home-portal@alice" not in emails
+
+    def test_clients_have_empty_flow(self):
+        # xdns runs over non-TLS mKCP, where xtls-rprx-vision is invalid.
+        ns = Namespace("t.ns")
+        u = _make_user("alice", access=["xhttp", "xdns"], guests=["laptop"])
+        clients = get_hub_xdns_clients([u], ns)
+        assert clients  # sanity
+        assert all(c["flow"] == "" for c in clients)
 
 
 class TestGetHubUserShortIds:

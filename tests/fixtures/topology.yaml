@@ -25,6 +25,10 @@ defaults:
     reality:
       dest: www.microsoft.com:443
       xhttp_path: /update/
+    xdns:
+      domains: ["dns.google"]
+    wireguard:
+      subnet: "10.0.0.0/24"
 
 groups:
   - id: main
@@ -35,14 +39,14 @@ groups:
 users:
   - username: alice
     group: main
-    access: [xhttp, cdn, server, proxy]
+    access: [xhttp, cdn, server, proxy, wireguard]
     portals:
       - label: home
         routes:
           domains: [home.alice.example.com]
   - username: bob
     group: guest
-    access: [xhttp]
+    access: [xhttp, wireguard, xdns]
     guests: [laptop, phone]
 
 routing:
