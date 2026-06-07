@@ -4,10 +4,27 @@ from urllib.parse import quote
 
 import orjson
 
-from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
+from hexrift.components.derive.defaults import (
+    derive_server_names,
+    derive_xhttp_host,
+    resolve_node_reality,
+    resolve_node_wireguard,
+)
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
-from hexrift.constants import VLESS_CLIENT_FLOW, AccessType, RegionType, UplinkHttpMethod
+from hexrift.components.derive.wireguard import (
+    derive_user_wireguard_keypair,
+    iter_hub_wireguard_allocs,
+    render_wireguard_client_conf,
+)
+from hexrift.components.keys.reality import x25519_urlsafe_to_std
+from hexrift.constants import (
+    VLESS_CLIENT_FLOW,
+    WIREGUARD_CLIENT_DNS,
+    AccessType,
+    RegionType,
+    UplinkHttpMethod,
+)
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
 from hexrift.shared.xhttp import XHTTP_EXTRA_CDN
@@ -76,11 +93,15 @@ class DeriveController(BaseController["HexRiftApp"]):
         keys_dir: Path,
         cdn: bool = False,
         guest: str | None = None,
+        server: bool = False,
     ) -> list[tuple[str, str]]:
-        """Generate VLESS share URLs for user (or guest) on hub node.
+        """Generate VLESS share URLs for user (or guest/server) on hub node.
 
         Returns a list of (label, url) pairs where label describes the hub/mode.
         """
+
+        if server and guest is not None:
+            raise DeriveError("Flags 'server' and 'guest' are mutually exclusive")
 
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
@@ -89,11 +110,17 @@ class DeriveController(BaseController["HexRiftApp"]):
         if user is None:
             raise DeriveError(f"User not found: {username!r}")
 
-        if AccessType.XHTTP not in user.access:
+        if server:
+            if AccessType.SERVER not in user.access:
+                raise DeriveError(f"User {username!r} does not have server access")
+        elif AccessType.XHTTP not in user.access:
             raise DeriveError(f"User {username!r} does not have XHTTP access")
 
         user_base = ns.user_uuid(username, override=user.uuid)
-        if guest is not None:
+        if server:
+            identity_uuid = ns.server_uuid(username, user_base=user_base)
+            identity_label = ns.server_email(username)
+        elif guest is not None:
             if guest not in user.guests:
                 raise DeriveError(f"Guest {guest!r} not found for user {username!r}")
             identity_uuid = ns.guest_uuid(guest, username, user_base=user_base)
@@ -201,6 +228,90 @@ class DeriveController(BaseController["HexRiftApp"]):
                     )
                 )
 
+        return results
+
+    def build_wireguard_configs(
+        self,
+        username: str,
+        hub_id: str | None,
+        keys_dir: Path,
+        guest: str | None = None,
+        server: bool = False,
+    ) -> list[tuple[str, str]]:
+        """Generate WireGuard client configs for user (or guest/server) on hub node(s).
+
+        Returns list of (label, conf) pairs where conf is standard WireGuard `.conf`.
+        """
+
+        if server and guest is not None:
+            raise DeriveError("Flags 'server' and 'guest' are mutually exclusive")
+
+        cfg = self.app.schema.config
+        ns = Namespace(cfg.global_.namespace)
+
+        user = next((u for u in cfg.users if u.username == username), None)
+        if user is None:
+            raise DeriveError(f"User not found: {username!r}")
+
+        if AccessType.WIREGUARD not in user.access:
+            raise DeriveError(f"User {username!r} does not have WireGuard access")
+
+        if server:
+            if AccessType.SERVER not in user.access:
+                raise DeriveError(f"User {username!r} does not have server access")
+            target_email = ns.server_email(username)
+            conf_label = ns.server_email(username)
+        elif guest is not None:
+            if guest not in user.guests:
+                raise DeriveError(f"Guest {guest!r} not found for user {username!r}")
+            target_email = ns.guest_email(guest, username)
+            conf_label = f"{guest}@{username}"
+        else:
+            target_email = ns.user_email(username)
+            conf_label = username
+
+        if hub_id is not None:
+            hub_region, hub_node = self.app.schema.get_node(hub_id)
+            if hub_region.type != RegionType.HUB:
+                raise DeriveError(f"Node {hub_id!r} is not a hub node")
+            hub_node_pairs = [(hub_region, hub_node)]
+        else:
+            hub_node_pairs = [
+                (region, node) for region in cfg.regions if region.type == RegionType.HUB for node in region.nodes
+            ]
+
+        results: list[tuple[str, str]] = []
+        for _hub_region, hub_node in hub_node_pairs:
+            wg = resolve_node_wireguard(hub_node, cfg.defaults)
+            if wg is None:
+                continue
+
+            # Same canonical allocation as the inbound, so the client address matches by construction.
+            allocs = {a.email: a for a in iter_hub_wireguard_allocs(cfg.users, ns, wg.subnet)}
+            alloc = allocs.get(target_email)
+            if alloc is None:
+                continue
+
+            hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
+            client_private, _client_public = derive_user_wireguard_keypair(
+                hub_keys.reality_private_key, alloc.identity_uuid, ns.name
+            )
+            server_public = x25519_urlsafe_to_std(hub_keys.reality_public_key)
+
+            conf = render_wireguard_client_conf(
+                private_key=client_private,
+                address=alloc.address,
+                dns=[WIREGUARD_CLIENT_DNS],
+                mtu=wg.mtu,
+                server_public_key=server_public,
+                endpoint=f"{hub_node.hostname}:{wg.port}",
+                allowed_ips=["0.0.0.0/0"],
+                keepalive=wg.keepalive,
+            )
+            results.append((f"{hub_node.id}  WireGuard  {conf_label}", conf))
+
+        if not results:
+            raise DeriveError(f"No WireGuard-enabled hub nodes found for user {username!r}")
         return results
 
     def derive_nodes(self) -> list[dict]:

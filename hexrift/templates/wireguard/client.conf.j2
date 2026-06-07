@@ -1,0 +1,13 @@
+[Interface]
+PrivateKey = {{ private_key }}
+Address = {{ address }}
+DNS = {{ dns | join(', ') }}
+MTU = {{ mtu }}
+
+[Peer]
+PublicKey = {{ server_public_key }}
+Endpoint = {{ endpoint }}
+AllowedIPs = {{ allowed_ips | join(', ') }}
+{% if keepalive > 0 %}
+PersistentKeepalive = {{ keepalive }}
+{% endif %}
