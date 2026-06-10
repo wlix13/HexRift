@@ -140,6 +140,55 @@ hexrift --yaml conglomerate.yaml share alice --bare | clip
 
 ---
 
+## XDNS (optional)
+
+Hub nodes can expose a DNS-interception inbound (**XDNS**) — VLESS over mKCP that intercepts queries for the listed domains. Enable it under `defaults.hub` and grant users `xdns` access:
+
+```yaml
+defaults:
+  hub:
+    # ...existing hub defaults...
+    xdns:
+      domains: [dns.google]
+
+users:
+  - username: alice
+    group: staff
+    access: [xhttp, cdn, xdns]
+```
+
+XDNS is baked into the hub's Xray config by `build` — there is no separate command.
+
+---
+
+## WireGuard (optional)
+
+Hub nodes can also expose a **WireGuard** inbound. Enable it under `defaults.hub` and grant users `wireguard` access:
+
+```yaml
+defaults:
+  hub:
+    # ...existing hub defaults...
+    wireguard:
+      subnet: 10.0.0.0/24   # server holds .1, peers from .2
+
+users:
+  - username: alice
+    group: staff
+    access: [xhttp, cdn, wireguard]
+```
+
+WireGuard client configs are generated with the `share` command's `--wg` flag:
+
+```bash
+# WireGuard client config for alice
+hexrift --yaml conglomerate.yaml share alice --wg
+```
+
+See the [Topology Schema](topology-schema.md) for the full `XdnsConfig` / `WireguardConfig` fields and per-node overrides.
+
+---
+
 ## Developer setup
 
 ```bash

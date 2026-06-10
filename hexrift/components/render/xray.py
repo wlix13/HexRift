@@ -6,6 +6,7 @@ import re
 
 import orjson
 
+from hexrift.components.keys.reality import x25519_urlsafe_to_std
 from hexrift.components.render.context import ExitContext, HubContext, HubOutboundContext
 from hexrift.constants import (
     WARP_VLESS_ROUTE,
@@ -16,7 +17,7 @@ from hexrift.constants import (
     XraySecurity,
 )
 from hexrift.shared.xhttp import XHTTP_EXTRA, XHTTP_EXTRA_CDN, XMUX
-from hexrift.shared.xray import LOG, SNIFFING, make_dns, make_inbound_sockopt, make_sockopt
+from hexrift.shared.xray import LOG, MKCP_SETTINGS_XDNS, SNIFFING, make_dns, make_inbound_sockopt, make_sockopt
 
 
 def _warp_outbound(ipv6: bool) -> dict:
@@ -275,6 +276,52 @@ def build_hub_config(ctx: HubContext) -> dict:
         )
     if ctx.proxy_inbound:
         inbounds.append(proxy_inbound)
+
+    if ctx.xdns is not None and ctx.xdns_clients:
+        inbounds.append(
+            {
+                "tag": "xdns",
+                "listen": "0.0.0.0",  # noqa: S104
+                "port": ctx.xdns.port,
+                "protocol": XrayProtocol.VLESS,
+                "settings": {
+                    "clients": ctx.xdns_clients,
+                    "decryption": ctx.decryption,
+                },
+                "streamSettings": {
+                    "network": XrayNetwork.MKCP,
+                    "kcpSettings": MKCP_SETTINGS_XDNS,
+                    "finalmask": {
+                        "udp": [
+                            {
+                                "type": "xdns",
+                                "settings": {
+                                    "domains": ctx.xdns.domains,
+                                },
+                            },
+                        ],
+                    },
+                    "sockopt": make_sockopt(ctx.ipv6),
+                },
+                "sniffing": SNIFFING,
+            }
+        )
+
+    if ctx.wireguard is not None and ctx.wireguard_peers:
+        inbounds.append(
+            {
+                "tag": "wireguard-in",
+                "listen": "0.0.0.0",  # noqa: S104
+                "port": ctx.wireguard.port,
+                "protocol": XrayProtocol.WIREGUARD,
+                "settings": {
+                    "secretKey": x25519_urlsafe_to_std(ctx.reality_private_key),
+                    "mtu": ctx.wireguard.mtu,
+                    "peers": ctx.wireguard_peers,
+                },
+                "sniffing": SNIFFING,
+            }
+        )
 
     config: dict = {
         "log": LOG,

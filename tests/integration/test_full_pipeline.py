@@ -285,6 +285,64 @@ def _build_portal_for_alice(group_id: str | None = None) -> dict:
 
 
 @pytest.mark.integration
+def test_hub_xdns_inbound_present():
+    generated, _ = _build_for_node("mskA00")
+    cfg = orjson.loads(generated)
+    inbound_tags = [ib["tag"] for ib in cfg["inbounds"]]
+    assert "xdns" in inbound_tags
+
+    xdns_ib = next(ib for ib in cfg["inbounds"] if ib["tag"] == "xdns")
+    assert xdns_ib["port"] == 53
+    assert xdns_ib["streamSettings"]["network"] == "mkcp"
+    assert "kcpSettings" in xdns_ib["streamSettings"]
+
+    finalmask_udp = xdns_ib["streamSettings"]["finalmask"]["udp"]
+    assert finalmask_udp[0]["type"] == "xdns"
+    assert finalmask_udp[0]["settings"]["domains"] == ["dns.google"]
+
+    assert "trustedXForwardedFor" not in xdns_ib["streamSettings"]["sockopt"]
+
+    emails = {c["email"] for c in xdns_ib["settings"]["clients"]}
+    assert emails == {"bob@test.hexrift", "laptop@bob", "phone@bob"}
+    assert "alice@test.hexrift" not in emails  # alice lacks xdns access
+
+    # mKCP is non-TLS, so xtls-rprx-vision is invalid; clients must carry empty flow.
+    assert all(c["flow"] == "" for c in xdns_ib["settings"]["clients"])
+
+
+@pytest.mark.integration
+def test_hub_wireguard_inbound_present():
+    generated, _ = _build_for_node("mskA00")
+    cfg = orjson.loads(generated)
+    inbound_tags = [ib["tag"] for ib in cfg["inbounds"]]
+    assert "wireguard-in" in inbound_tags
+
+    wg = next(ib for ib in cfg["inbounds"] if ib["tag"] == "wireguard-in")
+    assert wg["port"] == 443  # default
+    assert wg["protocol"] == "wireguard"
+    assert wg["settings"]["mtu"] == 1420  # default
+    assert wg["settings"]["secretKey"]  # present, std base64
+
+    peers = wg["settings"]["peers"]
+    # alice (user + server), bob (user + 2 guests) → 5 peers, in canonical order.
+    assert [p["email"] for p in peers] == [
+        "alice@test.hexrift",
+        "alice-server@alice",
+        "bob@test.hexrift",
+        "laptop@bob",
+        "phone@bob",
+    ]
+    assert [p["allowedIPs"][0] for p in peers] == [
+        "10.0.0.2/32",
+        "10.0.0.3/32",
+        "10.0.0.4/32",
+        "10.0.0.5/32",
+        "10.0.0.6/32",
+    ]
+    assert all(p["publicKey"] for p in peers)
+
+
+@pytest.mark.integration
 def test_portal_config_structure():
     cfg = orjson.loads(serialize_config(_build_portal_for_alice()))
 

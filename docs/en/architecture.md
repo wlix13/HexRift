@@ -88,6 +88,17 @@ ShortIds are the first 16 hex characters of a SHA-256 hash:
 | Hub-Exit | `{hub_id}-{exit_id}@{namespace}` |
 | Warp | `warp-{hub_id}-{exit_id}@{namespace}` |
 
+### WireGuard keypair derivation
+
+WireGuard peer keys are also deterministic. For each identity (user, server, guest) a 32-byte seed is derived from the hub's Reality private key and the identity, then expanded into an x25519 keypair:
+
+```text
+seed    = HMAC-SHA256(reality_private_key, "{identity_uuid}.wireguard.{namespace}")
+keypair = x25519(seed[:32])
+```
+
+Peer addresses are allocated sequentially from `defaults.hub.wireguard.subnet`: the first host (`.1`) is reserved for the server, then peers are assigned from `.2` in user → server → guest order.
+
 ---
 
 ## Key storage

@@ -6,7 +6,7 @@
 ![uv](https://img.shields.io/badge/package%20manager-uv-blueviolet?logo=astral)
 ![Ruff](https://img.shields.io/badge/linter-ruff-orange?logo=ruff)
 
-Config generator for the **Conglomerate** distributed proxy network. Takes a topology definition and produces Xray JSON configs and HAProxy configs for every node.
+Config generator for the **Conglomerate** distributed proxy network. Takes a topology definition and produces Xray JSON configs and HAProxy configs for every node. Hub nodes additionally support WireGuard and XDNS inbounds.
 
 ## Installation
 
@@ -33,7 +33,7 @@ hexrift --yaml conglomerate.yaml <command>
 | `gen-keys [NODE_ID\|--all] [--force] [--keys-dir PATH]` | Generate x25519 + ML-KEM 768 keypairs for nodes |
 | `build [NODE_ID\|--all] --xray\|--haproxy [--keys-dir PATH] [--out-dir PATH]` | Build Xray config.json and/or HAProxy .cfg |
 | `diff NODE_ID [--current-dir PATH] [--keys-dir PATH]` | Diff generated config against deployed config |
-| `share USERNAME [--hub NODE_ID] [--fp FINGERPRINT] [--cdn] [--guest LABEL] [--all-guests] [--bare] [--keys-dir PATH]` | Generate VLESS share URLs |
+| `share USERNAME [--hub NODE_ID] [--fp FINGERPRINT] [--cdn] [--wg] [--server] [--guest LABEL] [--all-guests] [--bare] [--keys-dir PATH]` | Generate VLESS share URLs or WireGuard client configs (`--wg`) |
 
 ### Examples
 
@@ -67,6 +67,9 @@ hexrift share alice --cdn
 
 # Generate share links for all guests of a user
 hexrift share alice --all-guests --bare | clip
+
+# Generate a WireGuard client config
+hexrift share alice --wg
 ```
 
 ## Architecture
@@ -97,6 +100,7 @@ All identifiers are deterministically derived from the topology:
 - `Group shortId` = SHA256[`{groupId}.{namespace}`](:16)
 - `Hub shortId` = SHA256[`{nodeId}.hub.{namespace}`](:16)
 - `Exit shortId` = SHA256[`{nodeId}.exit.{namespace}`](:16)
+- `WireGuard keypair` = x25519(HMAC-SHA256(reality_private_key, `{identity_uuid}.wireguard.{namespace}`))
 
 ### Keys
 

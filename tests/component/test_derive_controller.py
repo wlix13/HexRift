@@ -353,6 +353,28 @@ class TestBuildShareUrls:
         expected_uuid = str(ns.guest_uuid("laptop", "bob", user_base=bob_base))
         assert expected_uuid in url
 
+    def test_server_direct_url(self, app: HexRiftApp):
+        pairs = app.derive.build_share_urls("alice", "mskA00", "chrome", FIXTURE_KEYS_DIR, server=True)
+        assert len(pairs) == 1
+        label, url = pairs[0]
+        assert "alice-server@alice" in label
+        assert "security=reality" in url
+        ns = Namespace("test.hexrift")
+        expected_uuid = str(ns.server_uuid("alice", user_base=ns.user_uuid("alice")))
+        assert url.startswith(f"vless://{expected_uuid}@")
+
+    def test_server_cdn_url(self, app: HexRiftApp):
+        pairs = app.derive.build_share_urls("alice", "mskA00", "chrome", FIXTURE_KEYS_DIR, cdn=True, server=True)
+        assert len(pairs) == 1
+        label, url = pairs[0]
+        assert "CDN" in label
+        assert "alice-server@alice" in label
+        assert "security=tls" in url
+
+    def test_server_without_access_raises(self, app: HexRiftApp):
+        with pytest.raises(DeriveError, match="does not have server access"):
+            app.derive.build_share_urls("bob", None, "chrome", FIXTURE_KEYS_DIR, server=True)
+
     def test_specific_hub_node(self, app: HexRiftApp):
         pairs_all = app.derive.build_share_urls("alice", None, "chrome", FIXTURE_KEYS_DIR)
         pairs_specific = app.derive.build_share_urls("alice", "mskA00", "chrome", FIXTURE_KEYS_DIR)
@@ -440,3 +462,176 @@ class TestBuildShareUrls:
         pairs = multi_app.derive.build_share_urls("alice", None, "chrome", tmp_path)
         # Only one URL per region for region-default reality
         assert len(pairs) == 1
+
+
+class TestBuildWireguardConfigs:
+    def test_conf_has_interface_and_peer(self, app: HexRiftApp):
+        pairs = app.derive.build_wireguard_configs("alice", None, FIXTURE_KEYS_DIR)
+        assert len(pairs) >= 1
+        _, conf = pairs[0]
+        assert conf.startswith("[Interface]")
+        assert "[Peer]" in conf
+        assert "PrivateKey = " in conf
+        assert "PublicKey = " in conf
+        assert "MTU = 1420" in conf
+
+    def test_conf_address_matches_peer_allocation(self, app: HexRiftApp):
+        # alice is the first wireguard user → .2 (server holds .1)
+        _, conf = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)[0]
+        assert "Address = 10.0.0.2/32" in conf
+
+    def test_conf_endpoint_and_full_tunnel(self, app: HexRiftApp):
+        _, conf = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)[0]
+        assert "Endpoint = mskA00.ap.test.hexrift:443" in conf
+        assert "AllowedIPs = 0.0.0.0/0" in conf
+        assert "DNS = 1.1.1.1" in conf
+
+    def test_conf_server_public_key(self, app: HexRiftApp):
+        from hexrift.components.keys.reality import x25519_urlsafe_to_std
+
+        _, conf = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)[0]
+        expected = x25519_urlsafe_to_std("mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk")
+        assert f"PublicKey = {expected}" in conf
+
+    def test_specific_hub_node(self, app: HexRiftApp):
+        pairs = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)
+        assert len(pairs) == 1
+        assert pairs[0][0] == "mskA00  WireGuard  alice"
+
+    def test_no_keepalive_line_when_zero(self, app: HexRiftApp):
+        _, conf = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)[0]
+        assert "PersistentKeepalive" not in conf
+
+    def test_renderer_emits_keepalive_when_positive(self):
+        from hexrift.components.derive.wireguard import render_wireguard_client_conf
+
+        conf = render_wireguard_client_conf(
+            private_key="priv",
+            address="10.0.0.2/32",
+            dns=["1.1.1.1"],
+            mtu=1420,
+            server_public_key="pub",
+            endpoint="host:443",
+            allowed_ips=["0.0.0.0/0"],
+            keepalive=25,
+        )
+        assert "PersistentKeepalive = 25" in conf
+
+    def test_conf_is_ipv4_only(self, app: HexRiftApp):
+        # Hub defaults set ipv6: true, but WireGuard has no IPv6 subnet to allocate from,
+        # so the client config must stay IPv4-only (no ::/0, no IPv6 DNS).
+        _, conf = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR)[0]
+        assert "::/0" not in conf
+        assert "AllowedIPs = 0.0.0.0/0\n" in conf
+        assert "DNS = 1.1.1.1\n" in conf
+
+    def test_guest_config_address_and_label(self, app: HexRiftApp):
+        # Canonical order: alice .2, alice-server .3, bob .4, laptop@bob .5, phone@bob .6
+        _, conf = app.derive.build_wireguard_configs("bob", "mskA00", FIXTURE_KEYS_DIR, guest="laptop")[0]
+        assert "Address = 10.0.0.5/32" in conf
+        pairs = app.derive.build_wireguard_configs("bob", "mskA00", FIXTURE_KEYS_DIR, guest="phone")
+        assert pairs[0][0] == "mskA00  WireGuard  phone@bob"
+        assert "Address = 10.0.0.6/32" in pairs[0][1]
+
+    def test_guest_address_matches_inbound_peer(self, app: HexRiftApp):
+        # The client guest address must equal the inbound peer allocation by construction.
+        from hexrift.components.derive.identity import Namespace
+        from hexrift.components.derive.wireguard import iter_hub_wireguard_allocs
+
+        cfg = app.schema.config
+        ns = Namespace(cfg.global_.namespace)
+        allocs = {a.email: a for a in iter_hub_wireguard_allocs(cfg.users, ns, "10.0.0.0/24")}
+        _, conf = app.derive.build_wireguard_configs("bob", "mskA00", FIXTURE_KEYS_DIR, guest="laptop")[0]
+        assert f"Address = {allocs['laptop@bob'].address}" in conf
+
+    def test_unknown_guest_raises(self, app: HexRiftApp):
+        with pytest.raises(DeriveError, match="Guest 'nobody' not found"):
+            app.derive.build_wireguard_configs("bob", None, FIXTURE_KEYS_DIR, guest="nobody")
+
+    def test_server_config_address_and_label(self, app: HexRiftApp):
+        # alice has server access → server identity is the second peer (.3)
+        pairs = app.derive.build_wireguard_configs("alice", "mskA00", FIXTURE_KEYS_DIR, server=True)
+        assert pairs[0][0] == "mskA00  WireGuard  alice-server@alice"
+        assert "Address = 10.0.0.3/32" in pairs[0][1]
+
+    def test_server_without_access_raises(self, app: HexRiftApp):
+        # bob has wireguard but not server access
+        with pytest.raises(DeriveError, match="does not have server access"):
+            app.derive.build_wireguard_configs("bob", None, FIXTURE_KEYS_DIR, server=True)
+
+    def test_unknown_user_raises(self, app: HexRiftApp):
+        with pytest.raises(DeriveError, match="User not found"):
+            app.derive.build_wireguard_configs("nobody", None, FIXTURE_KEYS_DIR)
+
+    def test_no_wireguard_access_raises(self, app: HexRiftApp, tmp_path: Path):
+        topo = {
+            "global": {
+                "namespace": "t.ns",
+                "aphelion_domain": "ap.t.ns",
+            },
+            "defaults": {
+                "exit": {
+                    "ipv6": True,
+                    "keys": {
+                        "auth": "mlkem768",
+                        "mode": "native",
+                        "session_time": "600s",
+                    },
+                },
+                "hub": {
+                    "ipv6": True,
+                    "keys": {
+                        "auth": "x25519",
+                        "mode": "native",
+                        "session_time": "600s",
+                    },
+                    "exit_connections": {
+                        "method": "mlkem768x25519plus",
+                        "fingerprint": "chrome",
+                    },
+                    "reality": {
+                        "dest": "a.com:443",
+                        "xhttp_path": "/x/",
+                    },
+                    "wireguard": {"subnet": "10.0.0.0/24"},
+                },
+            },
+            "groups": [{"id": "g1"}],
+            "users": [
+                {
+                    "username": "alice",
+                    "group": "g1",
+                    "access": ["xhttp"],
+                },
+            ],
+            "routing": {"hub_default": "hub1"},
+            "regions": [
+                {
+                    "id": "exit1",
+                    "type": "exit",
+                    "vless_route": 1000,
+                    "nodes": [
+                        {
+                            "id": "eN1",
+                            "hostname": "e.t.ns",
+                            "reality": {
+                                "dest": "a.com:443",
+                                "xhttp_path": "/x/",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "id": "hub1",
+                    "type": "hub",
+                    "nodes": [
+                        {"id": "hN1", "hostname": "h.t.ns"},
+                    ],
+                },
+            ],
+        }
+        p = tmp_path / "topology.yaml"
+        p.write_text(yaml.dump(topo))
+        restricted_app = HexRiftApp(yaml_path=p)
+        with pytest.raises(DeriveError, match="does not have WireGuard access"):
+            restricted_app.derive.build_wireguard_configs("alice", None, tmp_path)

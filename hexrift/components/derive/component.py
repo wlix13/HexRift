@@ -79,6 +79,21 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             help="Generate URLs for all guests of the user.",
         )
         @click.option(
+            "--wg",
+            "--wireguard",
+            "wireguard",
+            is_flag=True,
+            default=False,
+            help="Generate WireGuard client config instead of a VLESS URL.",
+        )
+        @click.option(
+            "--server",
+            "server",
+            is_flag=True,
+            default=False,
+            help="Generate config for the user's server identity.",
+        )
+        @click.option(
             "--bare",
             is_flag=True,
             default=False,
@@ -99,13 +114,38 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             cdn: bool,
             guest: str | None,
             all_guests: bool,
+            wireguard: bool,
+            server: bool,
             bare: bool,
             keys_dir: Path,
         ) -> None:
-            """Generate VLESS share URL for user on hub node."""
+            """Generate a VLESS share URL (or WireGuard config) for user on hub node."""
 
             if guest and all_guests:
                 raise click.UsageError("--guest and --all-guests are mutually exclusive.")
+            if server and (guest or all_guests):
+                raise click.UsageError("--server cannot be combined with --guest or --all-guests.")
+
+            if wireguard:
+                if cdn:
+                    raise click.UsageError("--wg cannot be combined with --cdn.")
+                if server:
+                    pairs = app.derive.build_wireguard_configs(username, hub_id, keys_dir, server=True)
+                    _print_share_urls(app, pairs, bare=bare)
+                elif all_guests:
+                    user = next((u for u in app.schema.config.users if u.username == username), None)
+                    if user is None:
+                        raise click.UsageError(f"User not found: {username!r}")
+                    if not user.guests:
+                        raise click.UsageError(f"User {username!r} has no guests configured.")
+                    all_pairs = []
+                    for label in user.guests:
+                        all_pairs += app.derive.build_wireguard_configs(username, hub_id, keys_dir, guest=label)
+                    _print_share_urls(app, all_pairs, bare=bare)
+                else:
+                    pairs = app.derive.build_wireguard_configs(username, hub_id, keys_dir, guest=guest)
+                    _print_share_urls(app, pairs, bare=bare)
+                return
 
             if all_guests:
                 user = next((u for u in app.schema.config.users if u.username == username), None)
@@ -118,7 +158,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                     all_pairs += app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=label)
                 _print_share_urls(app, all_pairs, bare=bare)
             else:
-                pairs = app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=guest)
+                pairs = app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=guest, server=server)
                 _print_share_urls(app, pairs, bare=bare)
 
         @base.command("nodes")

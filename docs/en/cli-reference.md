@@ -108,7 +108,7 @@ hexrift nodes --domains --type hub
 hexrift share <username> [options]
 ```
 
-Generate VLESS share URLs for a user.
+Generate VLESS share URLs — or WireGuard client configs — for a user.
 
 **Arguments:**
 
@@ -120,16 +120,23 @@ Generate VLESS share URLs for a user.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--hub HUB_ID` | all hub nodes | Generate URL for a specific hub node |
+| `--hub HUB_ID` | all hub nodes | Generate config for a specific hub node |
 | `--fp FINGERPRINT` | `edge` | Client TLS fingerprint |
 | `--cdn` | off | Generate CDN URL instead of direct Reality URL |
-| `--guest LABEL` | — | Generate URL for a specific guest identity |
-| `--all-guests` | off | Generate URLs for all guests of the user |
-| `--bare` | off | Output raw URLs only — no formatting, suitable for piping |
+| `--wg`, `--wireguard` | off | Generate a WireGuard client `.conf` instead of a VLESS URL |
+| `--server` | off | Generate config for the user's `server` identity |
+| `--guest LABEL` | — | Generate config for a specific guest identity |
+| `--all-guests` | off | Generate config for all guests of the user |
+| `--bare` | off | Output raw URLs/configs only — no formatting, suitable for piping |
 | `--keys-dir PATH` | `keys` | Directory containing key files |
 
 !!! note
-    `--guest` and `--all-guests` are mutually exclusive.
+    `--guest` and `--all-guests` are mutually exclusive. `--server` cannot be combined
+    with `--guest` or `--all-guests`. `--wg` cannot be combined with `--cdn`.
+
+!!! info "WireGuard configs"
+    `--wg` requires the user to have `wireguard` access and the hub to define
+    `defaults.hub.wireguard`. Generated configs use `1.1.1.1` as the client DNS resolver.
 
 **Examples:**
 
@@ -139,6 +146,12 @@ hexrift share alice
 
 # CDN link on a specific hub
 hexrift share alice --cdn --hub euH00
+
+# WireGuard client config for alice
+hexrift share alice --wg
+
+# WireGuard configs for all of alice's guests, piped to clipboard
+hexrift share alice --wg --all-guests --bare | clip
 
 # All guest links, piped to clipboard
 hexrift share alice --all-guests --bare | clip
