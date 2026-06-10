@@ -6,7 +6,9 @@
         "xhttp",
         "server",
         "cdn",
-        "proxy"
+        "proxy",
+        "wireguard",
+        "xdns"
       ],
       "title": "AccessType",
       "type": "string"
@@ -245,6 +247,28 @@
           "anyOf": [
             {
               "$ref": "#/$defs/MtprotoConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xdns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XdnsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wireguard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WireguardConfig"
             },
             {
               "type": "null"
@@ -536,6 +560,28 @@
             }
           ],
           "default": null
+        },
+        "xdns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XdnsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wireguard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeWireguardOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -686,6 +732,90 @@
         }
       },
       "title": "NodeMtprotoOverride",
+      "type": "object"
+    },
+    "NodeWireguardOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        },
+        "mtu": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 576,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mtu"
+        },
+        "subnet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subnet"
+        },
+        "keepalive": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Keepalive"
+        },
+        "kernel_mode": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kernel Mode"
+        }
+      },
+      "title": "NodeWireguardOverride",
       "type": "object"
     },
     "ObservatoryConfig": {
@@ -1103,6 +1233,69 @@
         "vless_route"
       ],
       "title": "WarpConfig",
+      "type": "object"
+    },
+    "WireguardConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "default": 443,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "mtu": {
+          "default": 1420,
+          "maximum": 65535,
+          "minimum": 576,
+          "title": "Mtu",
+          "type": "integer"
+        },
+        "subnet": {
+          "title": "Subnet",
+          "type": "string"
+        },
+        "keepalive": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Keepalive",
+          "type": "integer"
+        },
+        "kernel_mode": {
+          "default": false,
+          "title": "Kernel Mode",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "subnet"
+      ],
+      "title": "WireguardConfig",
+      "type": "object"
+    },
+    "XdnsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Domains",
+          "type": "array"
+        },
+        "port": {
+          "default": 53,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "domains"
+      ],
+      "title": "XdnsConfig",
       "type": "object"
     }
   },
