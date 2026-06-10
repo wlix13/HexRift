@@ -56,6 +56,8 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `exit_connections` | `ExitConnectionsConfig` | yes | — | How hubs connect to exits |
 | `reality` | `RealityConfig` | yes | — | Default Reality config for hub nodes |
 | `mtproto` | `MtprotoConfig` | no | — | MTProto proxy configuration |
+| `xdns` | `XdnsConfig` | no | — | DNS-interception inbound (VLESS over mKCP) |
+| `wireguard` | `WireguardConfig` | no | — | WireGuard inbound configuration |
 | `observatory` | `ObservatoryConfig` | no | see below | Health-check / load-balancer probe settings |
 
 ### `KeysConfig`
@@ -91,6 +93,27 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `domain` | `str` | yes | — | Domain for the MTProto inbound |
 | `port` | `int` (1–65535) | no | `1234` | MTProto listen port |
 
+### `XdnsConfig`
+
+Configures a DNS-interception inbound on hub nodes — VLESS over mKCP that intercepts queries for the listed domains. Only users whose `access` includes `xdns` are added as clients.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `domains` | `list[str]` | yes | — | Domains the inbound intercepts (e.g. `["dns.google"]`) |
+| `port` | `int` (1–65535) | no | `53` | XDNS listen port |
+
+### `WireguardConfig`
+
+Configures a WireGuard inbound on hub nodes. Peer keypairs are derived deterministically from each identity and the hub's Reality private key (see [Architecture](architecture.md#deterministic-derivation)). Only users whose `access` includes `wireguard` become peers; their `server` identity and `guests` are allocated too.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `subnet` | `str` (CIDR) | yes | — | Peer address pool, e.g. `10.0.0.0/24`. The server holds the first host (`.1`); peers are assigned sequentially from `.2` |
+| `port` | `int` (1–65535) | no | `443` | WireGuard listen port |
+| `mtu` | `int` (576–65535) | no | `1420` | Interface MTU |
+| `keepalive` | `int` (≥0) | no | `0` | Persistent keepalive in seconds (`0` disables) |
+| `kernel_mode` | `bool` | no | `false` | Use kernel-mode WireGuard |
+
 ---
 
 ## `groups`
@@ -121,7 +144,7 @@ groups:
 |-------|------|----------|-------------|
 | `username` | `str` | yes | Unique username — used as derivation seed |
 | `group` | `str` | yes | Must reference an existing `groups[].id` |
-| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy` |
+| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy`, `wireguard`, `xdns` |
 | `uuid` | `UUID` | no | Override auto-derived UUID |
 | `portals` | `list[Portal]` | no | Portal (site-to-site tunnel) definitions |
 | `guests` | `list[str]` | no | Guest identity labels |
@@ -134,6 +157,8 @@ groups:
 | `server` | Server-to-server access |
 | `cdn` | CDN-fronted xhttp access |
 | `proxy` | Mixed proxy inbound access |
+| `wireguard` | WireGuard peer on hub nodes (see `defaults.hub.wireguard`) |
+| `xdns` | DNS-interception inbound on hub nodes (see `defaults.hub.xdns`) |
 
 ### `Portal`
 
@@ -251,6 +276,8 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings (hub nodes) |
 | `proxy_inbound` | `bool` | no | Override proxy inbound setting (hub nodes) |
 | `mtproto` | `NodeMtprotoOverride` | no | Override MTProto settings (hub nodes) |
+| `xdns` | `XdnsConfig` | no | Override XDNS settings (hub nodes) |
+| `wireguard` | `NodeWireguardOverride` | no | Override WireGuard settings (hub nodes) |
 
 ### `RealityConfig`
 
@@ -290,6 +317,21 @@ All fields optional; `null` means "use the default":
 | `domain` | `str` | Override MTProto domain |
 | `port` | `int` (1–65535) | Override MTProto port |
 
+### `NodeWireguardOverride`
+
+All fields optional; `null` means "use the `defaults.hub.wireguard` value". Set `enabled: false` to disable WireGuard on this node even when defaults configure it.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `bool` | Enable/disable WireGuard on this node |
+| `subnet` | `str` (CIDR) | Override peer address pool |
+| `port` | `int` (1–65535) | Override WireGuard port |
+| `mtu` | `int` (576–65535) | Override MTU |
+| `keepalive` | `int` (≥0) | Override persistent keepalive |
+| `kernel_mode` | `bool` | Override kernel-mode setting |
+
+XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.
+
 ---
 
 ## Complete minimal example
@@ -318,6 +360,10 @@ defaults:
     reality:
       dest: www.google.com:443
       xhttp_path: /stream
+    xdns:
+      domains: [dns.google]
+    wireguard:
+      subnet: 10.0.0.0/24
 
 groups:
   - id: staff
@@ -325,7 +371,7 @@ groups:
 users:
   - username: alice
     group: staff
-    access: [xhttp, cdn]
+    access: [xhttp, cdn, wireguard, xdns]
 
 routing:
   hub_default: hub-eu
