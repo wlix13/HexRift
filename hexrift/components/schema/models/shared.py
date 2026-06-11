@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RealityFallbackLimits(BaseModel):
@@ -25,3 +25,13 @@ class RealityConfig(BaseModel):
     xhttp_host: str | None = None
     xhttp_path: str
     fallback_limits: RealityFallbackLimits = Field(default_factory=RealityFallbackLimits)
+
+    @field_validator("server_names")
+    @classmethod
+    def validate_server_names(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        stripped = [name.strip() for name in v]
+        if any(not name for name in stripped):
+            raise ValueError("server_names entries must be non-empty")
+        return stripped

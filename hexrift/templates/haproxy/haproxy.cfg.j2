@@ -109,19 +109,3 @@ backend bk_local_tls_front
   mode tcp
   server localtls unix@{{ socket.HAPROXY_CDN }} send-proxy-v2
 {% endif %}
-{% if proxy_inbound %}
-#---------------------------------------------------------------------
-#  FRONTEND (Mixed proxy)
-#---------------------------------------------------------------------
-frontend fe_mixed_proxy
-  mode tcp
-  bind *:80 tfo
-{% if ipv6 %}
-  bind [::]:80 tfo
-{% endif %}
-  default_backend bk_mixed_proxy
-
-backend bk_mixed_proxy
-  mode tcp
-  server xmixed {{ socket.MIXED }}
-{% endif %}

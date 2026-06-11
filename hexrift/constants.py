@@ -1,6 +1,11 @@
 """Centralized constants and enums for HexRift."""
 
+import re
 from enum import StrEnum
+
+
+HTTP_HEADER_TOKEN_RE = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+"""RFC 9110 token (field-name) syntax: tchar+."""
 
 
 class RegionType(StrEnum):

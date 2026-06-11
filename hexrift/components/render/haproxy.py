@@ -2,53 +2,34 @@
 
 from __future__ import annotations
 
-import re
-
-from jinja2 import Environment, PackageLoader
-
-from hexrift.components.render.context import ExitContext, HubContext
-from hexrift.constants import DEFAULT_TRUSTED_HEADER, RegionType, Socket
-
-
-_HEADER_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9\-]*$")
+from hexrift.constants import DEFAULT_TRUSTED_HEADER, HTTP_HEADER_TOKEN_RE, RegionType, Socket
+from hexrift.errors import RenderError
+from hexrift.inbounds.cdn import CDN_SPEC
+from hexrift.inbounds.context import ExitContext, HubContext
+from hexrift.shared.templates import jinja_env
 
 
 def _safe_header(headers: list[str]) -> str:
-    """Return first header name if it is a valid HTTP token, else safe default."""
+    """Return first configured trusted header, or default when none are set."""
 
-    if headers and _HEADER_RE.fullmatch(headers[0]):
-        return headers[0]
-    return DEFAULT_TRUSTED_HEADER
-
-
-_env = Environment(
-    loader=PackageLoader("hexrift", "templates/haproxy"),
-    keep_trailing_newline=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-    autoescape=False,  # noqa: S701
-)
+    if not headers:
+        return DEFAULT_TRUSTED_HEADER
+    if not HTTP_HEADER_TOKEN_RE.fullmatch(headers[0]):
+        raise RenderError(f"Invalid trusted forwarded header name: {headers[0]!r}")
+    return headers[0]
 
 
-def render_haproxy(ctx: ExitContext | HubContext, node_type: str) -> str:
-    template = _env.get_template("haproxy.cfg.j2")
-    cdn_enabled = ctx.cdn_cert_alias is not None
-    cdn_domain = None
-    if cdn_enabled and ctx.cdn_xhttp_host:
-        if node_type == RegionType.EXIT:
-            parts = ctx.cdn_xhttp_host.split(".", 1)
-            cdn_domain = parts[1] if len(parts) > 1 else ctx.cdn_xhttp_host
-        else:
-            cdn_domain = ctx.cdn_xhttp_host
-    # TODO: Return when added support for unix sockets
-    # proxy_inbound = isinstance(ctx, HubContext) and ctx.proxy_inbound
+def render_haproxy(ctx: ExitContext | HubContext) -> str:
+    node_type = RegionType.HUB if isinstance(ctx, HubContext) else RegionType.EXIT
+    cdn = CDN_SPEC.narrow(ctx.slots)
+    template = jinja_env("haproxy").get_template("haproxy.cfg.j2")
+
     return template.render(
-        cdn_enabled=cdn_enabled,
-        cert_alias=ctx.cdn_cert_alias,
-        cdn_domain=cdn_domain,
+        cdn_enabled=cdn is not None,
+        cert_alias=cdn.cert_alias if cdn else None,
+        cdn_domain=cdn.domain if cdn else None,
         node_type=node_type,
-        ipv6=ctx.ipv6,
-        proxy_inbound=False,
+        ipv6=ctx.shared.ipv6,
         socket=Socket,
-        trusted_forwarded_header=_safe_header(ctx.trusted_forwarded_headers),
+        trusted_forwarded_header=_safe_header(ctx.shared.trusted_forwarded_headers),
     )

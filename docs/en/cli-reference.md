@@ -121,7 +121,7 @@ Generate VLESS share URLs — or WireGuard client configs — for a user.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--hub HUB_ID` | all hub nodes | Generate config for a specific hub node |
-| `--fp FINGERPRINT` | `edge` | Client TLS fingerprint |
+| `--fp FINGERPRINT` | from config | Client TLS fingerprint |
 | `--cdn` | off | Generate CDN URL instead of direct Reality URL |
 | `--wg`, `--wireguard` | off | Generate a WireGuard client `.conf` instead of a VLESS URL |
 | `--server` | off | Generate config for the user's `server` identity |
@@ -237,6 +237,44 @@ hexrift build --all --xray --haproxy --out-dir ./out
 
 # Custom directories
 hexrift build euH00 --xray --keys-dir /etc/hexrift/keys --out-dir /etc/xray
+```
+
+---
+
+## gen-portal
+
+```bash
+hexrift gen-portal <USERNAME> [options]
+```
+
+Generate the Xray portal client `config.json` for a user's portal(s). With no `--label`, a config is
+generated for every portal the user has; pass `--label` to target a single portal. Each file is written
+to `<out-dir>/<username>-<label>.json` with `0o600` permissions (it embeds the reality private key).
+
+**Arguments:**
+
+| Argument | Description |
+|----------|-------------|
+| `USERNAME` | User whose portal config(s) to generate |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--label`, `-l LABEL` | all portals | Generate only the named portal |
+| `--group`, `-g ID` | user's own group | Group whose shortId the portal uses |
+| `--fp FINGERPRINT` | from config | Client TLS fingerprint |
+| `--out-dir PATH` | `configs/portals` | Output directory |
+| `--keys-dir PATH` | `keys` | Directory containing key files |
+
+**Examples:**
+
+```bash
+# All portals for a user
+hexrift gen-portal alice
+
+# A single portal, into a custom directory
+hexrift gen-portal alice --label home --out-dir ./portals
 ```
 
 ---

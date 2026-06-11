@@ -1,12 +1,8 @@
 import ipaddress
-import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from hexrift.constants import DEFAULT_TRUSTED_HEADER
-
-
-_HTTP_HEADER_TOKEN_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9\-]*$")
+from hexrift.constants import DEFAULT_TRUSTED_HEADER, HTTP_HEADER_TOKEN_RE
 
 
 class CdnConfig(BaseModel):
@@ -20,8 +16,10 @@ class CdnConfig(BaseModel):
     @classmethod
     def validate_trusted_forwarded_headers(cls, v: list[str]) -> list[str]:
         for header in v:
-            if not _HTTP_HEADER_TOKEN_RE.fullmatch(header):
-                raise ValueError(f"trusted_forwarded_headers entry must be a valid HTTP header token, got: {header!r}")
+            if not HTTP_HEADER_TOKEN_RE.fullmatch(header):
+                raise ValueError(
+                    f"trusted_forwarded_headers entry must be an RFC-compliant HTTP header field-name, got: {header!r}"
+                )
         return v
 
 

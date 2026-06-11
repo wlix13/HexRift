@@ -4,9 +4,10 @@ from hexrift.components.derive.defaults import derive_server_names, derive_xhttp
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.root import ConglomerateConfig
-from hexrift.constants import VLESS_CLIENT_FLOW, RegionType, XrayNetwork, XrayProtocol, XraySecurity
+from hexrift.constants import RegionType, XrayNetwork, XrayProtocol, XraySecurity
+from hexrift.errors import RenderError
 from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
-from hexrift.shared.xray import LOG, SNIFFING, make_sockopt
+from hexrift.shared.xray_defaults import LOG, SNIFFING, make_sockopt
 
 
 def build_portal_config(
@@ -18,12 +19,16 @@ def build_portal_config(
     group_id: str | None = None,
 ) -> dict:
     ns = Namespace(cfg.global_.namespace)
-    user = next(u for u in cfg.users if u.username == username)
+    user = next((u for u in cfg.users if u.username == username), None)
+    if user is None:
+        raise RenderError(f"User not found: {username!r}")
     user_base = ns.user_uuid(username, override=user.uuid)
     portal_id = str(ns.portal_uuid(label, username, user_base=user_base))
 
     resolved_group_id = group_id if group_id is not None else user.group
-    group = next(g for g in cfg.groups if g.id == resolved_group_id)
+    group = next((g for g in cfg.groups if g.id == resolved_group_id), None)
+    if group is None:
+        raise RenderError(f"Group not found: {resolved_group_id!r}")
     short_id = ns.group_short_id(group)
 
     outbounds: list[dict] = []
@@ -34,10 +39,8 @@ def build_portal_config(
             keys = hub_node_keys[node.id]
             reality = resolve_node_reality(node, region, cfg.defaults)
             server_names = derive_server_names(reality)
-            if not server_names:
-                raise ValueError(f"No server names derived for node {node.id!r}")
             xhttp_host = derive_xhttp_host(reality)
-            flow = VLESS_CLIENT_FLOW if keys.encryption != "none" else ""
+            flow = keys.client_flow
 
             outbounds.append(
                 {

@@ -26,7 +26,7 @@ click.rich_click.COMMAND_GROUPS = {
     "hexrift": [
         {
             "name": "Generate",
-            "commands": ["gen-keys", "build", "portal-gen"],
+            "commands": ["gen-keys", "build", "gen-portal"],
         },
         {"name": "Visualize", "commands": ["show", "derive", "share"]},
         {
