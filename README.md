@@ -2,6 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.13%2B-blue?logo=python&logoColor=white)
 ![Build](https://img.shields.io/github/actions/workflow/status/wlix13/hexrift/ci-code-quality.yaml?label=build&logo=github)
+[![Coverage](https://codecov.io/gh/wlix13/HexRift/graph/badge.svg)](https://codecov.io/gh/wlix13/HexRift)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![uv](https://img.shields.io/badge/package%20manager-uv-blueviolet?logo=astral)
 ![Ruff](https://img.shields.io/badge/linter-ruff-orange?logo=ruff)
