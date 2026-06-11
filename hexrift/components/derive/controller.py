@@ -1,15 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import quote
+from uuid import UUID
 
-import orjson
-
-from hexrift.components.derive.defaults import (
-    derive_server_names,
-    derive_xhttp_host,
-    resolve_node_reality,
-    resolve_node_wireguard,
-)
+from hexrift.components.derive import views
+from hexrift.components.derive.defaults import resolve_node_reality
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.derive.wireguard import (
@@ -17,132 +15,178 @@ from hexrift.components.derive.wireguard import (
     iter_hub_wireguard_allocs,
     render_wireguard_client_conf,
 )
-from hexrift.components.keys.reality import x25519_urlsafe_to_std
+from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.users import User
 from hexrift.constants import (
-    VLESS_CLIENT_FLOW,
     WIREGUARD_CLIENT_DNS,
     AccessType,
     RegionType,
-    UplinkHttpMethod,
 )
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
-from hexrift.shared.xhttp import XHTTP_EXTRA_CDN
+from hexrift.inbounds.cdn import build_cdn_share_url
+from hexrift.inbounds.wireguard import resolve_node_wireguard
+from hexrift.inbounds.xhttp import build_reality_share_url
+from hexrift.shared.crypto import x25519_urlsafe_to_std
 
 
 if TYPE_CHECKING:
     from hexrift.app import HexRiftApp  # noqa: F401
 
 
+@dataclass(frozen=True)
+class _Identity:
+    """Resolved share/wireguard identity: user, one of their guests, or their server."""
+
+    uuid: UUID
+    email: str
+    label: str
+
+
 class DeriveController(BaseController["HexRiftApp"]):
-    def derive_users(self) -> list[dict]:
+    def _resolve_user(self, username: str) -> User:
+        user = next((u for u in self.app.schema.config.users if u.username == username), None)
+        if user is None:
+            raise DeriveError(f"User not found: {username!r}")
+        return user
+
+    def _resolve_identity(self, user: User, ns: Namespace, *, guest: str | None, server: bool) -> _Identity:
+        if server and guest is not None:
+            raise DeriveError("Flags 'server' and 'guest' are mutually exclusive")
+        user_base = ns.user_uuid(user.username, override=user.uuid)
+        if server:
+            if AccessType.SERVER not in user.access:
+                raise DeriveError(f"User {user.username!r} does not have server access")
+            return _Identity(
+                ns.server_uuid(user.username, user_base=user_base),
+                ns.server_email(user.username),
+                ns.server_email(user.username),
+            )
+        if guest is not None:
+            if guest not in user.guests:
+                raise DeriveError(f"Guest {guest!r} not found for user {user.username!r}")
+            return _Identity(
+                ns.guest_uuid(guest, user.username, user_base=user_base),
+                ns.guest_email(guest, user.username),
+                f"{guest}@{user.username}",
+            )
+        return _Identity(user_base, ns.user_email(user.username), user.username)
+
+    def _hub_node_pairs(self, hub_id: str | None) -> list[tuple[Region, Node]]:
+        cfg = self.app.schema.config
+        if hub_id is not None:
+            hub_region, hub_node = self.app.schema.get_node(hub_id)
+            if hub_region.type != RegionType.HUB:
+                raise DeriveError(f"Node {hub_id!r} is not a hub node")
+            return [(hub_region, hub_node)]
+        return [(region, node) for region in cfg.regions if region.type == RegionType.HUB for node in region.nodes]
+
+    def _for_all_guests(self, user: User, build_one: Callable[[str], list[tuple[str, str]]]) -> list[tuple[str, str]]:
+        if not user.guests:
+            raise DeriveError(f"User {user.username!r} has no guests configured.")
+        results: list[tuple[str, str]] = []
+        for label in user.guests:
+            results += build_one(label)
+        return results
+
+    def derive_users(self) -> list[views.User]:
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
-        rows = []
+        rows: list[views.User] = []
         for user in cfg.users:
             user_base = ns.user_uuid(user.username, override=user.uuid)
-            row: dict = {
-                "username": user.username,
-                "group": user.group,
-                "access": user.access,
-                "uuid": str(user_base),
-                "email": ns.user_email(user.username),
-            }
+            server_uuid = server_email = None
             if AccessType.SERVER in user.access:
-                row["server_uuid"] = str(ns.server_uuid(user.username, user_base=user_base))
-                row["server_email"] = ns.server_email(user.username)
-            if user.guests:
-                row["guests"] = [
-                    {
-                        "label": label,
-                        "uuid": str(ns.guest_uuid(label, user.username, user_base=user_base)),
-                        "email": ns.guest_email(label, user.username),
-                        "short_id": ns.user_short_id(user.username),
-                    }
-                    for label in user.guests
-                ]
-            if user.portals:
-                row["portals"] = [
-                    {
-                        "label": p.label,
-                        "tag": portal_tag(p.label),
-                        "uuid": str(ns.portal_uuid(p.label, user.username, user_base=user_base)),
-                        "email": ns.portal_email(p.label, user.username),
-                    }
-                    for p in user.portals
-                ]
-            rows.append(row)
+                server_uuid = str(ns.server_uuid(user.username, user_base=user_base))
+                server_email = ns.server_email(user.username)
+            guests = [
+                views.Guest(
+                    label=label,
+                    uuid=str(ns.guest_uuid(label, user.username, user_base=user_base)),
+                    email=ns.guest_email(label, user.username),
+                    short_id=ns.user_short_id(user.username),
+                )
+                for label in user.guests
+            ]
+            portals = [
+                views.Portal(
+                    label=p.label,
+                    tag=portal_tag(p.label),
+                    uuid=str(ns.portal_uuid(p.label, user.username, user_base=user_base)),
+                    email=ns.portal_email(p.label, user.username),
+                )
+                for p in user.portals
+            ]
+            rows.append(
+                views.User(
+                    username=user.username,
+                    group=user.group,
+                    access=user.access,
+                    uuid=str(user_base),
+                    email=ns.user_email(user.username),
+                    server_uuid=server_uuid,
+                    server_email=server_email,
+                    guests=guests,
+                    portals=portals,
+                )
+            )
         return rows
 
-    def derive_groups(self) -> list[dict]:
+    def derive_groups(self) -> list[views.Group]:
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
-        return [
-            {
-                "id": g.id,
-                "short_id": ns.group_short_id(g),
-            }
-            for g in cfg.groups
-        ]
+        return [views.Group(id=g.id, short_id=ns.group_short_id(g)) for g in cfg.groups]
 
     def build_share_urls(
         self,
         username: str,
         hub_id: str | None,
-        fingerprint: str,
         keys_dir: Path,
+        fingerprint: str,
+        *,
         cdn: bool = False,
         guest: str | None = None,
         server: bool = False,
+        all_guests: bool = False,
     ) -> list[tuple[str, str]]:
-        """Generate VLESS share URLs for user (or guest/server) on hub node.
+        """Generate VLESS share URLs for user (or guest/server, or all guests) on hub node.
 
-        Returns a list of (label, url) pairs where label describes the hub/mode.
+        Returns list of (label, url) pairs where label describes hub/mode.
         """
-
-        if server and guest is not None:
-            raise DeriveError("Flags 'server' and 'guest' are mutually exclusive")
 
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
+        user = self._resolve_user(username)
 
-        user = next((u for u in cfg.users if u.username == username), None)
-        if user is None:
-            raise DeriveError(f"User not found: {username!r}")
+        if all_guests:
+            if guest is not None or server:
+                raise DeriveError("Flag 'all_guests' cannot be combined with 'guest' or 'server'")
+            return self._for_all_guests(
+                user,
+                lambda label: self.build_share_urls(
+                    username,
+                    hub_id,
+                    keys_dir,
+                    fingerprint,
+                    cdn=cdn,
+                    guest=label,
+                ),
+            )
 
-        if server:
-            if AccessType.SERVER not in user.access:
-                raise DeriveError(f"User {username!r} does not have server access")
-        elif AccessType.XHTTP not in user.access:
+        if cdn:
+            if AccessType.CDN not in user.access:
+                raise DeriveError(f"User {username!r} does not have CDN access")
+        elif not server and AccessType.XHTTP not in user.access:
             raise DeriveError(f"User {username!r} does not have XHTTP access")
 
-        user_base = ns.user_uuid(username, override=user.uuid)
-        if server:
-            identity_uuid = ns.server_uuid(username, user_base=user_base)
-            identity_label = ns.server_email(username)
-        elif guest is not None:
-            if guest not in user.guests:
-                raise DeriveError(f"Guest {guest!r} not found for user {username!r}")
-            identity_uuid = ns.guest_uuid(guest, username, user_base=user_base)
-            identity_label = f"{guest}@{username}"
-        else:
-            identity_uuid = user_base
-            identity_label = username
+        identity = self._resolve_identity(user, ns, guest=guest, server=server)
 
         group = next((g for g in cfg.groups if g.id == user.group), None)
         if group is None:
             raise DeriveError(f"Group not found for user {username!r}: {user.group!r}")
         g_short_id = ns.user_short_id(username) if guest is not None else ns.group_short_id(group)
 
-        if hub_id is not None:
-            hub_region, hub_node = self.app.schema.get_node(hub_id)
-            if hub_region.type != RegionType.HUB:
-                raise DeriveError(f"Node {hub_id!r} is not a hub node")
-            hub_node_pairs = [(hub_region, hub_node)]
-        else:
-            hub_node_pairs = [
-                (region, node) for region in cfg.regions if region.type == RegionType.HUB for node in region.nodes
-            ]
+        hub_node_pairs = self._hub_node_pairs(hub_id)
 
         results: list[tuple[str, str]] = []
 
@@ -158,35 +202,17 @@ class DeriveController(BaseController["HexRiftApp"]):
                 if not hub_region.cdn_xhttp_path:
                     continue
                 hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                flow = VLESS_CLIENT_FLOW if hub_keys.encryption != "none" else ""
-                extra = orjson.dumps(
-                    {
-                        **XHTTP_EXTRA_CDN,
-                        "uplinkHTTPMethod": UplinkHttpMethod.PATCH,
-                    }
-                ).decode()
-                params = "&".join(
-                    [
-                        f"encryption={hub_keys.encryption}",
-                        f"flow={flow}",
-                        "security=tls",
-                        f"sni={cdn_domain}",
-                        f"fp={fingerprint}",
-                        f"sid={g_short_id}",
-                        f"spx={quote('/', safe='')}",
-                        f"alpn={quote('h3,h2,http/1.1', safe='')}",
-                        "insecure=0",
-                        "allowInsecure=0",
-                        "type=xhttp",
-                        f"host={cdn_domain}",
-                        f"path={quote(hub_region.cdn_xhttp_path, safe='')}",
-                        "mode=auto",
-                        f"extra={quote(extra, safe='')}",
-                    ]
+                label = f"{hub_region.id}  CDN  {identity.label}"
+                url = build_cdn_share_url(
+                    identity_uuid=identity.uuid,
+                    cdn_domain=cdn_domain,
+                    cdn_path=hub_region.cdn_xhttp_path,
+                    hub_keys=hub_keys,
+                    short_id=g_short_id,
+                    fingerprint=fingerprint,
+                    fragment=f"{hub_region.id}(CDN)-{identity.label}",
                 )
-                fragment = f"{hub_region.id}(CDN)-{identity_label}"
-                label = f"{hub_region.id}  CDN  {identity_label}"
-                results.append((label, f"vless://{identity_uuid}@{cdn_domain}:443?{params}#{fragment}"))
+                results.append((label, url))
         else:
             seen_default_regions: set[str] = set()
             for hub_region, hub_node in hub_node_pairs:
@@ -195,39 +221,27 @@ class DeriveController(BaseController["HexRiftApp"]):
                     if hub_region.id in seen_default_regions:
                         continue
                     seen_default_regions.add(hub_region.id)
-                    fragment = f"{hub_region.id}-{identity_label}"
-                    label = f"{hub_region.id}  Reality  {identity_label}"
+                    fragment = f"{hub_region.id}-{identity.label}"
+                    label = f"{hub_region.id}  Reality  {identity.label}"
                 else:
-                    fragment = f"{hub_node.id}-{identity_label}"
-                    label = f"{hub_node.id}  Reality  {identity_label}"
+                    fragment = f"{hub_node.id}-{identity.label}"
+                    label = f"{hub_node.id}  Reality  {identity.label}"
 
                 hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                flow = VLESS_CLIENT_FLOW if hub_keys.encryption != "none" else ""
-                reality = resolve_node_reality(hub_node, hub_region, cfg.defaults)
-                server_names = derive_server_names(reality)
-                xhttp_host = derive_xhttp_host(reality)
-                params = "&".join(
-                    [
-                        f"encryption={hub_keys.encryption}",
-                        f"flow={flow}",
-                        "security=reality",
-                        f"sni={server_names[0]}",
-                        f"fp={fingerprint}",
-                        f"pbk={hub_keys.reality_public_key}",
-                        f"sid={g_short_id}",
-                        "type=xhttp",
-                        f"host={xhttp_host}",
-                        f"path={quote(reality.xhttp_path, safe='')}",
-                        "mode=auto",
-                    ]
+                url = build_reality_share_url(
+                    identity_uuid=identity.uuid,
+                    hostname=hub_node.hostname,
+                    hub_keys=hub_keys,
+                    reality=resolve_node_reality(hub_node, hub_region, cfg.defaults),
+                    short_id=g_short_id,
+                    fingerprint=fingerprint,
+                    fragment=fragment,
                 )
-                results.append(
-                    (
-                        label,
-                        f"vless://{identity_uuid}@{hub_node.hostname}:443?{params}#{fragment}",
-                    )
-                )
+                results.append((label, url))
 
+        if not results:
+            kind = "CDN" if cdn else "Reality"
+            raise DeriveError(f"No {kind} hub nodes found for user {username!r}")
         return results
 
     def build_wireguard_configs(
@@ -235,50 +249,41 @@ class DeriveController(BaseController["HexRiftApp"]):
         username: str,
         hub_id: str | None,
         keys_dir: Path,
+        *,
         guest: str | None = None,
         server: bool = False,
+        all_guests: bool = False,
     ) -> list[tuple[str, str]]:
-        """Generate WireGuard client configs for user (or guest/server) on hub node(s).
+        """Generate WireGuard client configs for user (or guest/server, or all guests) on hub node(s).
 
         Returns list of (label, conf) pairs where conf is standard WireGuard `.conf`.
         """
 
-        if server and guest is not None:
-            raise DeriveError("Flags 'server' and 'guest' are mutually exclusive")
-
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
+        user = self._resolve_user(username)
 
-        user = next((u for u in cfg.users if u.username == username), None)
-        if user is None:
-            raise DeriveError(f"User not found: {username!r}")
+        if all_guests:
+            if guest is not None or server:
+                raise DeriveError("Flag 'all_guests' cannot be combined with 'guest' or 'server'")
+            return self._for_all_guests(
+                user,
+                lambda label: self.build_wireguard_configs(
+                    username,
+                    hub_id,
+                    keys_dir,
+                    guest=label,
+                ),
+            )
 
         if AccessType.WIREGUARD not in user.access:
             raise DeriveError(f"User {username!r} does not have WireGuard access")
 
-        if server:
-            if AccessType.SERVER not in user.access:
-                raise DeriveError(f"User {username!r} does not have server access")
-            target_email = ns.server_email(username)
-            conf_label = ns.server_email(username)
-        elif guest is not None:
-            if guest not in user.guests:
-                raise DeriveError(f"Guest {guest!r} not found for user {username!r}")
-            target_email = ns.guest_email(guest, username)
-            conf_label = f"{guest}@{username}"
-        else:
-            target_email = ns.user_email(username)
-            conf_label = username
+        identity = self._resolve_identity(user, ns, guest=guest, server=server)
+        target_email = identity.email
+        conf_label = identity.label
 
-        if hub_id is not None:
-            hub_region, hub_node = self.app.schema.get_node(hub_id)
-            if hub_region.type != RegionType.HUB:
-                raise DeriveError(f"Node {hub_id!r} is not a hub node")
-            hub_node_pairs = [(hub_region, hub_node)]
-        else:
-            hub_node_pairs = [
-                (region, node) for region in cfg.regions if region.type == RegionType.HUB for node in region.nodes
-            ]
+        hub_node_pairs = self._hub_node_pairs(hub_id)
 
         results: list[tuple[str, str]] = []
         for _hub_region, hub_node in hub_node_pairs:
@@ -294,7 +299,9 @@ class DeriveController(BaseController["HexRiftApp"]):
 
             hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
             client_private, _client_public = derive_user_wireguard_keypair(
-                hub_keys.reality_private_key, alloc.identity_uuid, ns.name
+                hub_keys.reality_private_key,
+                alloc.identity_uuid,
+                ns.name,
             )
             server_public = x25519_urlsafe_to_std(hub_keys.reality_public_key)
 
@@ -314,22 +321,30 @@ class DeriveController(BaseController["HexRiftApp"]):
             raise DeriveError(f"No WireGuard-enabled hub nodes found for user {username!r}")
         return results
 
-    def derive_nodes(self) -> list[dict]:
+    def derive_nodes(self) -> list[views.Node]:
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
         hub_nodes = [n for r in cfg.regions if r.type == RegionType.HUB for n in r.nodes]
-        rows = []
+        rows: list[views.Node] = []
         for region in cfg.regions:
             for node in region.nodes:
-                row: dict = {
-                    "id": node.id,
-                    "region": region.id,
-                    "type": region.type,
-                }
                 if region.type == RegionType.EXIT:
-                    row["short_id"] = ns.exit_short_id(node.id)
-                    row["hub_exit_uuids"] = {hub.id: str(ns.hub_exit_uuid(hub.id, node.id)) for hub in hub_nodes}
+                    rows.append(
+                        views.Node(
+                            id=node.id,
+                            region=region.id,
+                            type=region.type,
+                            short_id=ns.exit_short_id(node.id),
+                            hub_exit_uuids={hub.id: str(ns.hub_exit_uuid(hub.id, node.id)) for hub in hub_nodes},
+                        )
+                    )
                 else:
-                    row["hub_short_id"] = ns.hub_short_id(node.id)
-                rows.append(row)
+                    rows.append(
+                        views.Node(
+                            id=node.id,
+                            region=region.id,
+                            type=region.type,
+                            hub_short_id=ns.hub_short_id(node.id),
+                        )
+                    )
         return rows

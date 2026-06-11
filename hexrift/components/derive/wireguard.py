@@ -1,4 +1,5 @@
-import base64
+from __future__ import annotations
+
 import hashlib
 import hmac
 import ipaddress
@@ -6,14 +7,12 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from uuid import UUID
 
-from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-from jinja2 import Environment, PackageLoader
-
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.keys.reality import urlsafe_b64decode_unpadded, x25519_raw_bytes
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType
 from hexrift.errors import DeriveError
+from hexrift.shared.crypto import urlsafe_b64decode_unpadded, x25519_keypair_from_seed
+from hexrift.shared.templates import jinja_env
 
 
 @dataclass(frozen=True)
@@ -27,20 +26,13 @@ class WireguardPeer:
     label: str | None = None
 
 
-def _derive_x25519_keypair_std(seed: bytes) -> tuple[str, str]:
-    """Deterministically derive x25519 keypair from 32-byte seed."""
-
-    private, public = x25519_raw_bytes(X25519PrivateKey.from_private_bytes(seed[:32]))
-    return base64.b64encode(private).decode(), base64.b64encode(public).decode()
-
-
 def derive_user_wireguard_keypair(reality_private_key: str, identity_uuid: UUID, ns_name: str) -> tuple[str, str]:
     """Deterministically derive WireGuard keypair for one identity (user/server/guest)."""
 
     key = urlsafe_b64decode_unpadded(reality_private_key)
     msg = f"{identity_uuid}.wireguard.{ns_name}".encode()
     seed = hmac.new(key, msg, hashlib.sha256).digest()
-    return _derive_x25519_keypair_std(seed)
+    return x25519_keypair_from_seed(seed)
 
 
 def iter_hub_wireguard_allocs(users: list[User], ns: Namespace, subnet: str) -> Iterator[WireguardPeer]:
@@ -78,41 +70,6 @@ def iter_hub_wireguard_allocs(users: list[User], ns: Namespace, subnet: str) -> 
             )
 
 
-def get_hub_wireguard_peers(
-    users: list[User],
-    ns: Namespace,
-    subnet: str,
-    reality_private_key: str,
-    keepalive: int = 0,
-) -> list[dict]:
-    """Peers for hub wireguard inbound.
-
-    Each peer keypair is derived from its identity UUID and hub reality private key.
-    """
-
-    peers = []
-    for alloc in iter_hub_wireguard_allocs(users, ns, subnet):
-        _priv, pub = derive_user_wireguard_keypair(reality_private_key, alloc.identity_uuid, ns.name)
-        peers.append(
-            {
-                "email": alloc.email,
-                "publicKey": pub,
-                "allowedIPs": [alloc.address],
-                "keepAlive": keepalive,
-            }
-        )
-    return peers
-
-
-_env = Environment(
-    loader=PackageLoader("hexrift", "templates/wireguard"),
-    keep_trailing_newline=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-    autoescape=False,  # noqa: S701
-)
-
-
 def render_wireguard_client_conf(
     *,
     private_key: str,
@@ -124,7 +81,7 @@ def render_wireguard_client_conf(
     allowed_ips: list[str],
     keepalive: int,
 ) -> str:
-    template = _env.get_template("client.conf.j2")
+    template = jinja_env("wireguard").get_template("client.conf.j2")
     return template.render(
         private_key=private_key,
         address=address,

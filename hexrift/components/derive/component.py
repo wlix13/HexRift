@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from hexrift.components.derive.controller import DeriveController
-from hexrift.constants import RegionType
+from hexrift.constants import AccessType, RegionType
 from hexrift.core.component import BaseComponent
 
 
@@ -18,10 +18,12 @@ if TYPE_CHECKING:
     from hexrift.components.schema.models.users import User
 
 _ACCESS_STYLE = {
-    "xhttp": "cyan",
-    "cdn": "blue",
-    "proxy": "dim white",
-    "server": "yellow",
+    AccessType.XHTTP: "cyan",
+    AccessType.CDN: "blue",
+    AccessType.PROXY: "dim white",
+    AccessType.SERVER: "yellow",
+    AccessType.WIREGUARD: "green",
+    AccessType.XDNS: "magenta",
 }
 
 
@@ -55,9 +57,8 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
         )
         @click.option(
             "--fp",
-            default="edge",
-            show_default=True,
-            help="Client TLS fingerprint.",
+            default=None,
+            help="Client TLS fingerprint (default: from config).",
         )
         @click.option(
             "--cdn",
@@ -110,7 +111,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             app: HexRiftApp,
             username: str,
             hub_id: str | None,
-            fp: str,
+            fp: str | None,
             cdn: bool,
             guest: str | None,
             all_guests: bool,
@@ -119,47 +120,38 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             bare: bool,
             keys_dir: Path,
         ) -> None:
-            """Generate a VLESS share URL (or WireGuard config) for user on hub node."""
+            """Generate VLESS share URL (or WireGuard config) for user on hub node."""
 
             if guest and all_guests:
                 raise click.UsageError("--guest and --all-guests are mutually exclusive.")
             if server and (guest or all_guests):
                 raise click.UsageError("--server cannot be combined with --guest or --all-guests.")
+            if wireguard and cdn:
+                raise click.UsageError("--wg cannot be combined with --cdn.")
+
+            fingerprint = fp or app.schema.config.defaults.hub.exit_connections.fingerprint
 
             if wireguard:
-                if cdn:
-                    raise click.UsageError("--wg cannot be combined with --cdn.")
-                if server:
-                    pairs = app.derive.build_wireguard_configs(username, hub_id, keys_dir, server=True)
-                    _print_share_urls(app, pairs, bare=bare)
-                elif all_guests:
-                    user = next((u for u in app.schema.config.users if u.username == username), None)
-                    if user is None:
-                        raise click.UsageError(f"User not found: {username!r}")
-                    if not user.guests:
-                        raise click.UsageError(f"User {username!r} has no guests configured.")
-                    all_pairs = []
-                    for label in user.guests:
-                        all_pairs += app.derive.build_wireguard_configs(username, hub_id, keys_dir, guest=label)
-                    _print_share_urls(app, all_pairs, bare=bare)
-                else:
-                    pairs = app.derive.build_wireguard_configs(username, hub_id, keys_dir, guest=guest)
-                    _print_share_urls(app, pairs, bare=bare)
-                return
-
-            if all_guests:
-                user = next((u for u in app.schema.config.users if u.username == username), None)
-                if user is None:
-                    raise click.UsageError(f"User not found: {username!r}")
-                if not user.guests:
-                    raise click.UsageError(f"User {username!r} has no guests configured.")
-                all_pairs = []
-                for label in user.guests:
-                    all_pairs += app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=label)
-                _print_share_urls(app, all_pairs, bare=bare)
+                pairs = app.derive.build_wireguard_configs(
+                    username,
+                    hub_id,
+                    keys_dir,
+                    guest=guest,
+                    server=server,
+                    all_guests=all_guests,
+                )
             else:
-                pairs = app.derive.build_share_urls(username, hub_id, fp, keys_dir, cdn=cdn, guest=guest, server=server)
-                _print_share_urls(app, pairs, bare=bare)
+                pairs = app.derive.build_share_urls(
+                    username,
+                    hub_id,
+                    keys_dir,
+                    fingerprint,
+                    cdn=cdn,
+                    guest=guest,
+                    server=server,
+                    all_guests=all_guests,
+                )
+            _print_share_urls(app, pairs, bare=bare)
 
         @base.command("nodes")
         @click.option("--names", "output", flag_value="names", help="Output node IDs only.")
@@ -190,70 +182,74 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
         @base.command()
         @click.pass_obj
         def show(app: HexRiftApp) -> None:
-            """Visualize the network topology."""
+            """Visualize network topology."""
 
-            cfg = app.schema.config
-            g = cfg.global_
-            kv = [
-                ("Namespace", g.namespace),
-                ("Aphelion", g.aphelion_domain),
+            _print_topology(app)
+
+
+def _print_topology(app: HexRiftApp) -> None:
+    cfg = app.schema.config
+    g = cfg.global_
+    kv = [
+        ("Namespace", g.namespace),
+        ("Aphelion", g.aphelion_domain),
+    ]
+    if g.cdn:
+        kv.extend(
+            [
+                ("CDN exit", g.cdn.exit_domain),
+                ("CDN hub", g.cdn.hub_domain),
             ]
-            if g.cdn:
-                kv.extend(
-                    [
-                        ("CDN exit", g.cdn.exit_domain),
-                        ("CDN hub", g.cdn.hub_domain),
-                    ]
-                )
-            for key, val in kv:
-                app.console.print(f"[bold dim]{key:<10}[/bold dim] [white]{val}[/white]")
-            app.console.print()
+        )
+    for key, val in kv:
+        app.console.print(f"[bold dim]{key:<10}[/bold dim] [white]{val}[/white]")
+    app.console.print()
 
-            tree = Tree("[bold cyan]Regions[/bold cyan]")
-            for region in cfg.regions:
-                if region.type == RegionType.EXIT:
-                    extras = []
-                    if region.vless_route is not None:
-                        hex_route = format(region.vless_route, "04x")
-                        extras.append(f"[dim]route={region.vless_route} [cyan]{hex_route}[/cyan][/dim]")
-                    if region.warp is not None:
-                        hex_warp = format(region.warp.vless_route, "04x")
-                        extras.append(f"[magenta]warp={region.warp.vless_route} {hex_warp}[/magenta]")
-                    extra_str = "  " + "  ".join(extras) if extras else ""
-                    r_branch = tree.add(f"[green]{region.id}[/green] [dim]exit[/dim]{extra_str}")
-                else:
-                    r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]")
-                for node in region.nodes:
-                    tags = []
-                    if node.lb_role:
-                        tags.append(f"LB: [dim]{node.lb_role}[/dim]")
-                    tag_str = "  " + " ".join(tags) if tags else ""
-                    r_branch.add(f"[bold]{node.id}[/bold]  [dim]{node.hostname}[/dim]{tag_str}")
-            app.console.print(tree)
-            app.console.print()
+    tree = Tree("[bold cyan]Regions[/bold cyan]")
+    for region in cfg.regions:
+        if region.type == RegionType.EXIT:
+            extras = []
+            if region.vless_route is not None:
+                hex_route = format(region.vless_route, "04x")
+                extras.append(f"[dim]route={region.vless_route} [cyan]{hex_route}[/cyan][/dim]")
+            if region.warp is not None:
+                hex_warp = format(region.warp.vless_route, "04x")
+                extras.append(f"[magenta]warp={region.warp.vless_route} {hex_warp}[/magenta]")
+            extra_str = "  " + "  ".join(extras) if extras else ""
+            r_branch = tree.add(f"[green]{region.id}[/green] [dim]exit[/dim]{extra_str}")
+        else:
+            r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]")
+        for node in region.nodes:
+            tags = []
+            if node.lb_role:
+                tags.append(f"LB: [dim]{node.lb_role}[/dim]")
+            tag_str = "  " + " ".join(tags) if tags else ""
+            r_branch.add(f"[bold]{node.id}[/bold]  [dim]{node.hostname}[/dim]{tag_str}")
+    app.console.print(tree)
+    app.console.print()
 
-            # Group users by group
-            groups_order: list[str] = []
-            groups_map: dict[str, list[User]] = {}
-            for user in cfg.users:
-                if user.group not in groups_map:
-                    groups_order.append(user.group)
-                    groups_map[user.group] = []
-                groups_map[user.group].append(user)
+    # Group users by group
+    groups_order: list[str] = []
+    groups_map: dict[str, list[User]] = {}
+    for user in cfg.users:
+        if user.group not in groups_map:
+            groups_order.append(user.group)
+            groups_map[user.group] = []
+        groups_map[user.group].append(user)
 
-            user_tree = Tree("[bold cyan]Users[/bold cyan]")
-            for group_id in groups_order:
-                g_branch = user_tree.add(f"[bold magenta]{group_id}[/bold magenta]")
-                for user in groups_map[group_id]:
-                    badges = " ".join(f"[{_ACCESS_STYLE.get(a, 'white')}]{a}[/]" for a in user.access)
-                    u_node = g_branch.add(f"[bold]{user.username}[/bold]  {badges}")
-                    if user.portals:
-                        labels = ", ".join(p.label for p in user.portals)
-                        u_node.add(f"[bold yellow]portals[/bold yellow] {labels}")
-                    if user.guests:
-                        labels = ", ".join(user.guests)
-                        u_node.add(f"[bold green]guests[/bold green] {labels}")
-            app.console.print(user_tree)
+    user_tree = Tree("[bold cyan]Users[/bold cyan]")
+    for group_id in groups_order:
+        g_branch = user_tree.add(f"[bold magenta]{group_id}[/bold magenta]")
+        for user in groups_map[group_id]:
+            badges = " ".join(f"[{_ACCESS_STYLE.get(a, 'white')}]{a}[/]" for a in user.access)
+            u_node = g_branch.add(f"[bold]{user.username}[/bold]  {badges}")
+            if user.portals:
+                labels = ", ".join(p.label for p in user.portals)
+                u_node.add(f"[bold yellow]portals[/bold yellow] {labels}")
+            if user.guests:
+                labels = ", ".join(user.guests)
+                u_node.add(f"[bold green]guests[/bold green] {labels}")
+    app.console.print(user_tree)
 
 
 def _print_share_urls(
@@ -282,19 +278,19 @@ def _print_users(app: HexRiftApp) -> None:
     table.add_column("ShortId")
     for row in rows:
         table.add_row(
-            row["username"],
-            row["uuid"],
-            row["email"],
-            row.get("server_uuid", "—"),
+            row.username,
+            row.uuid,
+            row.email,
+            row.server_uuid or "—",
             "—",
         )
-        for guest in row.get("guests", []):
+        for guest in row.guests:
             table.add_row(
-                f"[dim]  {guest['label']}[/dim]",
-                f"[dim]{guest['uuid']}[/dim]",
-                f"[dim]{guest['email']}[/dim]",
+                f"[dim]  {guest.label}[/dim]",
+                f"[dim]{guest.uuid}[/dim]",
+                f"[dim]{guest.email}[/dim]",
                 "—",
-                f"[dim]{guest['short_id']}[/dim]",
+                f"[dim]{guest.short_id}[/dim]",
             )
     app.console.print(table)
 
@@ -305,7 +301,7 @@ def _print_groups(app: HexRiftApp) -> None:
     table.add_column("ID", style="bold")
     table.add_column("ShortId")
     for row in rows:
-        table.add_row(row["id"], row["short_id"])
+        table.add_row(row.id, row.short_id)
     app.console.print(table)
 
 
@@ -317,9 +313,10 @@ def _print_nodes(app: HexRiftApp) -> None:
     table.add_column("Type")
     table.add_column("ShortId / Hub-Exit UUIDs")
     for row in rows:
-        if row["type"] == RegionType.EXIT:
-            detail = f"shortId: {row['short_id']}"
+        if row.type == RegionType.EXIT:
+            uuid_lines = [f"{hub_id}: {uuid}" for hub_id, uuid in (row.hub_exit_uuids or {}).items()]
+            detail = "\n".join([f"shortId: {row.short_id}", *uuid_lines])
         else:
-            detail = f"hubShortId: {row['hub_short_id']}"
-        table.add_row(row["id"], row["region"], row["type"], detail)
+            detail = f"hubShortId: {row.hub_short_id}"
+        table.add_row(row.id, row.region, row.type, detail)
     app.console.print(table)
