@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from hexrift.components.schema.models.defaults import KeysConfig, ObservatoryConfig
+from hexrift.components.schema.models.defaults import ExitConnectionsConfig, KeysConfig, ObservatoryConfig
+from hexrift.constants import HandshakeMethod, TlsFingerprint
 
 
 class TestObservatoryConfig:
@@ -66,6 +67,14 @@ class TestKeysConfig:
         k = KeysConfig(enabled=False, mode="native", session_time="600s")
         assert k.enabled is False
 
+    def test_session_time_valid(self):
+        assert KeysConfig(mode="native", session_time="12h").session_time == "12h"
+
+    @pytest.mark.parametrize("bad", ["600", "bad", "600d", ""])
+    def test_session_time_invalid_rejected(self, bad: str):
+        with pytest.raises(ValidationError):
+            KeysConfig(mode="native", session_time=bad)
+
     def test_extra_field_forbidden(self):
         with pytest.raises(ValidationError):
             KeysConfig.model_validate(
@@ -73,5 +82,41 @@ class TestKeysConfig:
                     "mode": "native",
                     "session_time": "600s",
                     "mystery": "x",
+                },
+            )
+
+
+class TestExitConnectionsConfig:
+    def test_valid_method_and_default_fingerprint(self):
+        ec = ExitConnectionsConfig(method=HandshakeMethod.MLKEM768)
+        assert ec.method == "mlkem768x25519plus"
+        assert ec.fingerprint is TlsFingerprint.EDGE
+
+    def test_string_values_coerced_to_enums(self):
+        # mirrors how YAML loads: plain strings are coerced to the enum members.
+        ec = ExitConnectionsConfig.model_validate(
+            {
+                "method": "mlkem768x25519plus",
+                "fingerprint": "chrome",
+            },
+        )
+        assert ec.method is HandshakeMethod.MLKEM768
+        assert ec.fingerprint is TlsFingerprint.CHROME
+
+    def test_invalid_method_rejected(self):
+        with pytest.raises(ValidationError):
+            ExitConnectionsConfig.model_validate(
+                {
+                    "method": "rsa",
+                    "fingerprint": "chrome",
+                },
+            )
+
+    def test_invalid_fingerprint_rejected(self):
+        with pytest.raises(ValidationError):
+            ExitConnectionsConfig.model_validate(
+                {
+                    "method": "mlkem768x25519plus",
+                    "fingerprint": "netscape",
                 },
             )

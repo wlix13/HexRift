@@ -80,6 +80,28 @@ class TestUser:
         )
         assert u.guests == ["device1"]
 
+    @pytest.mark.parametrize("bad", ["bad name", "no!", "dotted.name", ""])
+    def test_invalid_username_rejected(self, bad: str):
+        with pytest.raises(ValidationError):
+            User.model_validate(
+                {
+                    "username": bad,
+                    "group": "grp1",
+                    "access": ["xhttp"],
+                },
+            )
+
+    def test_invalid_guest_rejected(self):
+        with pytest.raises(ValidationError, match="invalid identifier"):
+            User.model_validate(
+                {
+                    "username": "alice",
+                    "group": "grp1",
+                    "access": ["xhttp"],
+                    "guests": ["ok", "bad guest"],
+                },
+            )
+
 
 class TestPortalRoutes:
     def test_both_none_valid(self):
@@ -91,6 +113,10 @@ class TestPortalRoutes:
         with pytest.raises(ValidationError):
             PortalRoutes.model_validate({"extra": "x"})
 
+    def test_blank_domain_rejected(self):
+        with pytest.raises(ValidationError, match="non-empty"):
+            PortalRoutes(domains=["ok.example.com", "  "])
+
 
 class TestPortal:
     def test_valid(self):
@@ -99,6 +125,15 @@ class TestPortal:
             routes=PortalRoutes(domains=["home.example.com"]),
         )
         assert p.label == "home"
+
+    def test_invalid_label_rejected(self):
+        with pytest.raises(ValidationError):
+            Portal.model_validate(
+                {
+                    "label": "bad label",
+                    "routes": {},
+                },
+            )
 
     def test_extra_field_forbidden(self):
         with pytest.raises(ValidationError):

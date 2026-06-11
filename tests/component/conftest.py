@@ -1,4 +1,6 @@
+import copy
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -81,6 +83,23 @@ MINIMAL_TOPOLOGY: dict = {
         },
     ],
 }
+
+
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Recursively merge `overrides` into `base`."""
+
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def make_topology(**overrides: Any) -> dict:
+    """Return deep copy of `MINIMAL_TOPOLOGY` with per-test overrides deep-merged in."""
+
+    return _deep_merge(copy.deepcopy(MINIMAL_TOPOLOGY), overrides)
 
 
 @pytest.fixture()

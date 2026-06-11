@@ -1,6 +1,6 @@
+import json
 from pathlib import Path
 
-import orjson
 import pytest
 
 from hexrift.app import HexRiftApp
@@ -8,7 +8,7 @@ from hexrift.errors import KeysError, RenderError
 
 
 def _gen_all_keys(app: HexRiftApp, keys_dir):
-    """Generate keys for all nodes in the minimal topology."""
+    """Generate keys for all nodes in minimal topology."""
 
     for _region, node in app.schema.get_all_nodes():
         app.keys.gen_keys(node.id, keys_dir)
@@ -35,7 +35,7 @@ class TestBuildExit:
         _gen_all_keys(app, keys_dir)
         app.render.build("exitN1", out_dir, keys_dir, xray=True, haproxy=True)
         raw = (out_dir / "exitN1" / "config.json").read_bytes()
-        parsed = orjson.loads(raw)
+        parsed = json.loads(raw)
         assert isinstance(parsed, dict)
 
     def test_config_json_has_expected_top_keys(self, app: HexRiftApp, tmp_path):
@@ -43,7 +43,7 @@ class TestBuildExit:
         out_dir = tmp_path / "out"
         _gen_all_keys(app, keys_dir)
         app.render.build("exitN1", out_dir, keys_dir, xray=True, haproxy=True)
-        parsed = orjson.loads((out_dir / "exitN1" / "config.json").read_bytes())
+        parsed = json.loads((out_dir / "exitN1" / "config.json").read_bytes())
         for key in ("log", "inbounds", "outbounds", "routing", "dns"):
             assert key in parsed, f"Missing top-level key: {key!r}"
 
@@ -78,7 +78,7 @@ class TestBuildHub:
         _gen_all_keys(app, keys_dir)
         app.render.build("hubN1", out_dir, keys_dir, xray=True, haproxy=True)
         raw = (out_dir / "hubN1" / "config.json").read_bytes()
-        parsed = orjson.loads(raw)
+        parsed = json.loads(raw)
         assert "inbounds" in parsed
         assert "outbounds" in parsed
 
@@ -118,13 +118,13 @@ def portal_config(app: HexRiftApp, tmp_path: Path):
     keys_dir = tmp_path / "keys"
     out_dir = tmp_path / "out"
     _gen_all_keys(app, keys_dir)
-    app.render.portal_gen("alice", "home", out_dir, keys_dir, "chrome")
+    app.render.gen_portal("alice", "home", out_dir, keys_dir, "chrome")
     config_path = out_dir / "alice-home.json"
     return {
         "keys_dir": keys_dir,
         "out_dir": out_dir,
         "config_path": config_path,
-        "config": orjson.loads(config_path.read_bytes()),
+        "config": json.loads(config_path.read_bytes()),
     }
 
 
@@ -171,9 +171,9 @@ class TestPortalGen:
         out_dir = tmp_path / "out"
         _gen_all_keys(app, keys_dir)
         with pytest.raises(RenderError, match="User not found"):
-            app.render.portal_gen("nobody", "home", out_dir, keys_dir, "chrome")
+            app.render.gen_portal("nobody", "home", out_dir, keys_dir, "chrome")
 
     def test_raises_when_keys_not_generated(self, app: HexRiftApp, tmp_path: Path) -> None:
         out_dir = tmp_path / "out"
         with pytest.raises(KeysError):
-            app.render.portal_gen("alice", "home", out_dir, tmp_path / "keys", "chrome")
+            app.render.gen_portal("alice", "home", out_dir, tmp_path / "keys", "chrome")

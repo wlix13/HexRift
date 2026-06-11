@@ -6,6 +6,7 @@ from hexrift.app import cli
 
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+FIXTURE_CONFIGS_DIR = FIXTURES_DIR / "configs"
 FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
 
@@ -366,3 +367,124 @@ class TestShareCommand:
     def test_show_command_exits_zero(self):
         result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "show")
         assert result.exit_code == 0
+
+
+class TestGenPortalCommand:
+    def test_builds_portal(self, tmp_path):
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "alice",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert "built" in result.output
+        assert (tmp_path / "alice-home.json").exists()
+
+    def test_single_label(self, tmp_path):
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "alice",
+            "--label",
+            "home",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "alice-home.json").exists()
+
+    def test_unknown_user_fails(self, tmp_path):
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "nobody",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_user_without_portals_fails(self, tmp_path):
+        # bob has no portals configured
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "bob",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_unknown_label_fails(self, tmp_path):
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "alice",
+            "--label",
+            "ghost",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_unknown_group_fails(self, tmp_path):
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "alice",
+            "--group",
+            "ghostgroup",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code != 0
+
+
+class TestDiffCommand:
+    def test_matching_config_reports_no_differences(self):
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "diff",
+            "mskA00",
+            "--current-dir",
+            str(FIXTURE_CONFIGS_DIR),
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+        )
+        assert result.exit_code == 0
+        assert "No differences" in result.output
+
+    def test_missing_current_config_is_reported(self, tmp_path):
+        # current-dir exists but holds no config for the node
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "diff",
+            "mskA00",
+            "--current-dir",
+            str(tmp_path),
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+        )
+        assert result.exit_code == 0
+        assert "no current config" in result.output

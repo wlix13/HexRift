@@ -6,10 +6,10 @@ from hexrift.core.application import BaseApplication
 
 @pytest.fixture(autouse=True)
 def reset_singleton():
-    """Reset the app singleton before and after every test."""
+    """Reset app singleton before and after every test."""
 
-    BaseApplication._instance = None
-    HexRiftApp._instance = None
+    BaseApplication.reset()
+    HexRiftApp.reset()
     yield
-    BaseApplication._instance = None
-    HexRiftApp._instance = None
+    BaseApplication.reset()
+    HexRiftApp.reset()

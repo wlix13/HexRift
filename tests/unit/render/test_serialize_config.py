@@ -1,4 +1,4 @@
-import orjson
+import json
 
 from hexrift.components.render.xray import serialize_config
 
@@ -14,7 +14,7 @@ class TestReturnType:
 
     def test_is_valid_json(self):
         result = serialize_config({"key": "value", "num": 42})
-        parsed = orjson.loads(result)
+        parsed = json.loads(result)
         assert parsed["key"] == "value"
 
     def test_has_indentation(self):
