@@ -5,6 +5,7 @@ requires = [ "hatchling" ]
 [project]
 name = "hexrift"
 description = "Rift Hex"
+readme = "README.md"
 maintainers = [ { name = "wlix13", email = "github@wlix13.dev" } ]
 authors = [ { name = "wlix13", email = "github@wlix13.dev" } ]
 requires-python = ">=3.13"
@@ -48,7 +49,7 @@ environment.root = [ "." ]
 
 [tool.pytest]
 ini_options.testpaths = [ "tests" ]
-ini_options.addopts = "-ra -q --tb=short --cov=hexrift"
+ini_options.addopts = "-ra -q --tb=short"
 ini_options.markers = [
   "unit: pure unit tests, no I/O",
   "component: controller-level tests with tmp_path",
@@ -63,3 +64,4 @@ tasks.typecheck = "uv run --group dev --group tests ty check"
 tasks.check = [ "check-format", "lint", "typecheck" ]
 tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
 tasks.tests = "uv run --group tests pytest"
+tasks.coverage = "uv run --group tests pytest --cov=hexrift --cov-report=term --cov-report=html"
