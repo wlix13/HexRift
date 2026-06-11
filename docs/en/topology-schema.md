@@ -55,7 +55,6 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `keys` | `KeysConfig` | yes | — | Encryption key configuration |
 | `exit_connections` | `ExitConnectionsConfig` | yes | — | How hubs connect to exits |
 | `reality` | `RealityConfig` | yes | — | Default Reality config for hub nodes |
-| `mtproto` | `MtprotoConfig` | no | — | MTProto proxy configuration |
 | `xdns` | `XdnsConfig` | no | — | DNS-interception inbound (VLESS over mKCP) |
 | `wireguard` | `WireguardConfig` | no | — | WireGuard inbound configuration |
 | `observatory` | `ObservatoryConfig` | no | see below | Health-check / load-balancer probe settings |
@@ -85,13 +84,6 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `interval` | `str` | `15s` | Probe interval (format: `\d+(ms\|s\|m\|h)`) |
 | `timeout` | `str` | `5s` | Probe timeout |
 | `concurrency` | `bool` | `true` | Run probes concurrently |
-
-### `MtprotoConfig`
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `domain` | `str` | yes | — | Domain for the MTProto inbound |
-| `port` | `int` (1–65535) | no | `1234` | MTProto listen port |
 
 ### `XdnsConfig`
 
@@ -275,7 +267,6 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `keys` | `NodeKeysOverride` | no | Override default key settings |
 | `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings (hub nodes) |
 | `proxy_inbound` | `bool` | no | Override proxy inbound setting (hub nodes) |
-| `mtproto` | `NodeMtprotoOverride` | no | Override MTProto settings (hub nodes) |
 | `xdns` | `XdnsConfig` | no | Override XDNS settings (hub nodes) |
 | `wireguard` | `NodeWireguardOverride` | no | Override WireGuard settings (hub nodes) |
 
@@ -308,14 +299,6 @@ All fields optional; `null` means "use the default":
 | `session_time` | `str` | Override `session_time` |
 | `auth` | `mlkem768 \| x25519` | Override auth algorithm |
 | `padding` | `str` | Override padding |
-
-### `NodeMtprotoOverride`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `enabled` | `bool` | Enable/disable MTProto on this node |
-| `domain` | `str` | Override MTProto domain |
-| `port` | `int` (1–65535) | Override MTProto port |
 
 ### `NodeWireguardOverride`
 

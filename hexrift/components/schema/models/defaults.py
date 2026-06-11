@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from hexrift.components.schema.models.regions import MtprotoConfig, WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod
 
@@ -46,7 +46,6 @@ class HubDefaults(BaseModel):
     keys: KeysConfig
     exit_connections: ExitConnectionsConfig
     reality: RealityConfig
-    mtproto: MtprotoConfig | None = None
     xdns: XdnsConfig | None = None
     wireguard: WireguardConfig | None = None
     observatory: ObservatoryConfig = Field(default_factory=ObservatoryConfig)

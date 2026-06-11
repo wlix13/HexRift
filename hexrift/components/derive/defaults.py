@@ -2,9 +2,7 @@
 
 from hexrift.components.schema.models.defaults import DefaultsConfig, ExitConnectionsConfig, KeysConfig
 from hexrift.components.schema.models.regions import (
-    MtprotoConfig,
     Node,
-    NodeMtprotoOverride,
     NodeWireguardOverride,
     Region,
     WireguardConfig,
@@ -52,25 +50,6 @@ def resolve_node_proxy_inbound(node: Node, defaults: DefaultsConfig) -> bool:
     if node.proxy_inbound is not None:
         return node.proxy_inbound
     return defaults.hub.proxy_inbound
-
-
-def resolve_node_mtproto(node: Node, defaults: DefaultsConfig) -> MtprotoConfig | None:
-    override: NodeMtprotoOverride | None = node.mtproto
-    base: MtprotoConfig | None = defaults.hub.mtproto
-
-    if override is None:
-        return base
-    if override.enabled is False:
-        return None
-
-    # Merge override on top of base
-    domain = override.domain or (base.domain if base else None)
-    port = override.port or (base.port if base else 1234)
-
-    if domain is None:
-        raise ValueError(f"Node {node.id!r}: mtproto.domain must be set (no default configured)")
-
-    return MtprotoConfig(domain=domain, port=port)
 
 
 def resolve_node_xdns(node: Node, defaults: DefaultsConfig) -> XdnsConfig | None:

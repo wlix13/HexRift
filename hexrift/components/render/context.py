@@ -7,7 +7,6 @@ from hexrift.components.derive.defaults import (
     derive_xhttp_host,
     resolve_exit_connections,
     resolve_node_ipv6,
-    resolve_node_mtproto,
     resolve_node_proxy_inbound,
     resolve_node_reality,
     resolve_node_wireguard,
@@ -86,10 +85,6 @@ class ExitContext:
     cdn_cert_alias: str | None = None
     cdn_clients: list[dict] = field(default_factory=list)
 
-    # MTProto (None when not configured)
-    mtproto_domain: str | None = None
-    mtproto_port: int | None = None
-
 
 @dataclass
 class HubOutboundContext:
@@ -156,10 +151,6 @@ class HubContext:
     cdn_xhttp_path: str | None = None
     cdn_cert_alias: str | None = None
     cdn_clients: list[dict] = field(default_factory=list)
-
-    # MTProto (None when not configured)
-    mtproto_domain: str | None = None
-    mtproto_port: int | None = None
 
     # XDNS inbound (None when not configured)
     xdns: XdnsConfig | None = None
@@ -333,7 +324,6 @@ def build_hub_context(
                 }
             )
 
-    mtproto = resolve_node_mtproto(node, config.defaults)
     xdns = resolve_node_xdns(node, config.defaults)
     xdns_clients = get_hub_xdns_clients(config.users, ns) if xdns else []
     wireguard = resolve_node_wireguard(node, config.defaults)
@@ -381,8 +371,6 @@ def build_hub_context(
         observatory_selectors=build_burst_observatory_selectors(exit_regions),
         proxy_inbound=(proxy_enabled := resolve_node_proxy_inbound(node, config.defaults)),
         proxy_inbound_accounts=proxy_accounts if proxy_enabled else [],
-        mtproto_domain=mtproto.domain if mtproto else None,
-        mtproto_port=mtproto.port if mtproto else None,
         xdns=xdns,
         xdns_clients=xdns_clients,
         wireguard=wireguard,

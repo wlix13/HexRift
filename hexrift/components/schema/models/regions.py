@@ -64,26 +64,11 @@ class WarpConfig(BaseModel):
     vless_route: int
 
 
-class MtprotoConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    domain: str = Field(min_length=1)
-    port: int = Field(default=1234, ge=1, le=65535)
-
-
 class XdnsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     domains: list[str]
     port: int = Field(default=53, ge=1, le=65535)
-
-
-class NodeMtprotoOverride(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool | None = None
-    domain: str | None = Field(default=None, min_length=1)
-    port: int | None = Field(default=None, ge=1, le=65535)
 
 
 class WireguardConfig(BaseModel):
@@ -128,7 +113,6 @@ class Node(BaseModel):
     keys: NodeKeysOverride | None = None
     exit_connections: NodeExitConnectionsOverride | None = None
     proxy_inbound: bool | None = None
-    mtproto: NodeMtprotoOverride | None = None
     xdns: XdnsConfig | None = None
     wireguard: NodeWireguardOverride | None = None
 

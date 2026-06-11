@@ -50,7 +50,5 @@ def render_haproxy(ctx: ExitContext | HubContext, node_type: str) -> str:
         ipv6=ctx.ipv6,
         proxy_inbound=False,
         socket=Socket,
-        mtproto_domain=ctx.mtproto_domain,
-        mtproto_port=ctx.mtproto_port,
         trusted_forwarded_header=_safe_header(ctx.trusted_forwarded_headers),
     )
