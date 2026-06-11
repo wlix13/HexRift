@@ -70,3 +70,5 @@ class KeysComponent(BaseComponent["HexRiftApp", KeysController]):
                 f"\n[bold]Done[/bold] — {generated} generated, {skipped} skipped, {errors} errors"
                 f"  ([dim]{keys_dir}/[/dim])"
             )
+            if errors:
+                raise KeysError(f"{errors} node(s) failed key generation")

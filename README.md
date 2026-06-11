@@ -79,12 +79,15 @@ hexrift share alice --wg
 hexrift/
   components/
     schema/     # Pydantic models for yaml
-    derive/     # Pure derivation functions (UUIDs, shortIds, emails)
+    derive/     # Identity derivation (UUIDs, shortIds, emails), defaults resolution,
+                # topology->Xray-fragment construction, and WireGuard derivation/configs
     keys/       # x25519 + ML-KEM 768 keypair generation and storage
     render/     # Xray config builder + HAProxy Jinja2 templates
   core/         # BaseApplication / Component / Controller framework
+  shared/       # Cross-component helpers (crypto encoding, Xray/xhttp constants)
   templates/
     haproxy/    # haproxy.cfg.j2
+    wireguard/  # client.conf.j2
 ```
 
 ### Derivation

@@ -1,4 +1,4 @@
-"""General Xray config defaults shared across components."""
+"""Xray config defaults."""
 
 from __future__ import annotations
 

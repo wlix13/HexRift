@@ -9,13 +9,12 @@ Xray distinguishes them purely by the byte length of the decoded last block.
 
 from __future__ import annotations
 
-import base64
 import os
 
 from kyber_py.ml_kem import ML_KEM_768
 
-from hexrift.components.keys.reality import generate_x25519_keypair
 from hexrift.constants import HANDSHAKE_METHOD, AuthMethod
+from hexrift.shared.crypto import generate_x25519_keypair, urlsafe_b64encode_unpadded
 
 
 def _mlkem768_auth() -> tuple[str, str]:
@@ -29,10 +28,7 @@ def _mlkem768_auth() -> tuple[str, str]:
 
     seed = os.urandom(64)
     ek, _ = ML_KEM_768.key_derive(seed)
-    return (
-        base64.urlsafe_b64encode(seed).rstrip(b"=").decode(),
-        base64.urlsafe_b64encode(ek).rstrip(b"=").decode(),
-    )
+    return urlsafe_b64encode_unpadded(seed), urlsafe_b64encode_unpadded(ek)
 
 
 def generate_auth_keypair(

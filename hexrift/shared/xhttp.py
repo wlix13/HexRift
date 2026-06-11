@@ -29,3 +29,13 @@ XMUX = {
     "hMaxReusableSecs": "1800-3000",
     "hKeepAlivePeriod": 0,
 }
+
+
+def make_xhttp_settings(host: str, path: str, mode: str = "auto", cdn: bool = False) -> dict:
+    return {
+        "host": host,
+        "path": path,
+        "mode": mode,
+        "extra": dict(XHTTP_EXTRA_CDN if cdn else XHTTP_EXTRA),
+        "xmux": dict(XMUX),
+    }
