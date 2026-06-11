@@ -18,7 +18,6 @@ dependencies = [
   "cryptography",
   "jinja2",
   "kyber-py",
-  "orjson",
   "pydantic",
   "pyyaml",
   "rich",

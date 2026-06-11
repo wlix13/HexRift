@@ -6,6 +6,7 @@ import rich_click as click
 
 from hexrift.components.schema.controller import SchemaController
 from hexrift.core.component import BaseComponent
+from hexrift.errors import Error
 
 
 if TYPE_CHECKING:
@@ -35,6 +36,6 @@ class SchemaComponent(BaseComponent["HexRiftApp", SchemaController]):
                     f"{len(exit_regions)} exit regions, {len(hub_regions)} hub regions, "
                     f"{total_nodes} nodes"
                 )
-            except Exception as e:
+            except Error as e:
                 app.console.print(f"[bold red]Validation error:[/bold red] {e}")
                 raise click.Abort() from e

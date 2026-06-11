@@ -20,10 +20,10 @@ class BaseComponent(Generic[ApplicationType, ControllerType]):  # noqa: UP046
 
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
-        """Register Click commands on the base group."""
+        """Register Click commands on base group."""
 
     def on_register(self) -> None:
-        """Called after the component is registered with the application."""
+        """Called after component is registered with application."""
 
     def on_deregister(self) -> None:
-        """Called before the component is removed from the application."""
+        """Called before component is deregistered from application."""

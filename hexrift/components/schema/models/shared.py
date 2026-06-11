@@ -21,7 +21,7 @@ class RealityConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dest: str
-    server_names: list[str] | None = None
+    server_names: list[str] | None = Field(default=None, min_length=1)
     xhttp_host: str | None = None
     xhttp_path: str
     fallback_limits: RealityFallbackLimits = Field(default_factory=RealityFallbackLimits)

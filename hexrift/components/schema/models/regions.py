@@ -12,8 +12,8 @@ def normalize_cidr_subnet(value: str) -> str:
 
     try:
         return str(ipaddress.ip_network(value, strict=False))
-    except ValueError as exc:
-        raise ValueError(f"invalid CIDR subnet {value!r}: {exc}") from exc
+    except ValueError as e:
+        raise ValueError(f"invalid CIDR subnet {value!r}: {e}") from e
 
 
 class NodeKeysOverride(BaseModel):

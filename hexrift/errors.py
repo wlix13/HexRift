@@ -35,11 +35,11 @@ class DeriveError(Error):
 
 
 class NodeError(Error):
-    """"""
+    """Node lookup failed (unknown node id)."""
 
 
 class RegionError(Error):
-    """"""
+    """Region lookup failed (unknown region id)."""
 
 
 class RenderError(Error):
