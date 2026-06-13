@@ -27,3 +27,17 @@ updates:
       python-deps:
         patterns:
           - "*"
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      pre-commit:
+        patterns:
+          - "*"
