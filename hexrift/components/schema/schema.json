@@ -26,10 +26,14 @@
       "additionalProperties": false,
       "properties": {
         "exit_domain": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "title": "Exit Domain",
           "type": "string"
         },
         "hub_domain": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "title": "Hub Domain",
           "type": "string"
         },
@@ -86,13 +90,11 @@
       "additionalProperties": false,
       "properties": {
         "method": {
-          "title": "Method",
-          "type": "string"
+          "$ref": "#/$defs/HandshakeMethod"
         },
         "fingerprint": {
-          "default": "edge",
-          "title": "Fingerprint",
-          "type": "string"
+          "$ref": "#/$defs/TlsFingerprint",
+          "default": "edge"
         }
       },
       "required": [
@@ -167,10 +169,14 @@
       "additionalProperties": false,
       "properties": {
         "namespace": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "title": "Namespace",
           "type": "string"
         },
         "aphelion_domain": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "title": "Aphelion Domain",
           "type": "string"
         },
@@ -200,12 +206,16 @@
       "additionalProperties": false,
       "properties": {
         "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Id",
           "type": "string"
         },
         "short_id": {
           "anyOf": [
             {
+              "maxLength": 16,
+              "pattern": "^[0-9a-fA-F]*$",
               "type": "string"
             },
             {
@@ -221,6 +231,14 @@
       ],
       "title": "Group",
       "type": "object"
+    },
+    "HandshakeMethod": {
+      "description": "Vless encryption handshake methods.",
+      "enum": [
+        "mlkem768x25519plus"
+      ],
+      "title": "HandshakeMethod",
+      "type": "string"
     },
     "HubDefaults": {
       "additionalProperties": false,
@@ -242,17 +260,6 @@
         },
         "reality": {
           "$ref": "#/$defs/RealityConfig"
-        },
-        "mtproto": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MtprotoConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
         },
         "xdns": {
           "anyOf": [
@@ -376,6 +383,7 @@
           "type": "string"
         },
         "session_time": {
+          "pattern": "^\\d+(ms|s|m|h)$",
           "title": "Session Time",
           "type": "string"
         },
@@ -411,6 +419,17 @@
       "title": "LbRole",
       "type": "string"
     },
+    "LbStrategy": {
+      "description": "Load balancer selection strategies.",
+      "enum": [
+        "random",
+        "roundRobin",
+        "leastPing",
+        "leastLoad"
+      ],
+      "title": "LbStrategy",
+      "type": "string"
+    },
     "LeastLoadSettings": {
       "additionalProperties": false,
       "properties": {
@@ -421,6 +440,7 @@
             "250ms"
           ],
           "items": {
+            "pattern": "^\\d+(ms|s)$",
             "type": "string"
           },
           "title": "Baselines",
@@ -449,36 +469,18 @@
       "title": "LeastLoadSettings",
       "type": "object"
     },
-    "MtprotoConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "domain": {
-          "minLength": 1,
-          "title": "Domain",
-          "type": "string"
-        },
-        "port": {
-          "default": 1234,
-          "maximum": 65535,
-          "minimum": 1,
-          "title": "Port",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "domain"
-      ],
-      "title": "MtprotoConfig",
-      "type": "object"
-    },
     "Node": {
       "additionalProperties": false,
       "properties": {
         "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Id",
           "type": "string"
         },
         "hostname": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "title": "Hostname",
           "type": "string"
         },
@@ -550,17 +552,6 @@
           "default": null,
           "title": "Proxy Inbound"
         },
-        "mtproto": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NodeMtprotoOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
         "xdns": {
           "anyOf": [
             {
@@ -597,26 +588,24 @@
         "method": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/HandshakeMethod"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Method"
+          "default": null
         },
         "fingerprint": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/TlsFingerprint"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Fingerprint"
+          "default": null
         }
       },
       "title": "NodeExitConnectionsOverride",
@@ -652,6 +641,7 @@
         "session_time": {
           "anyOf": [
             {
+              "pattern": "^\\d+(ms|s|m|h)$",
               "type": "string"
             },
             {
@@ -686,52 +676,6 @@
         }
       },
       "title": "NodeKeysOverride",
-      "type": "object"
-    },
-    "NodeMtprotoOverride": {
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Enabled"
-        },
-        "domain": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Domain"
-        },
-        "port": {
-          "anyOf": [
-            {
-              "maximum": 65535,
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Port"
-        }
-      },
-      "title": "NodeMtprotoOverride",
       "type": "object"
     },
     "NodeWireguardOverride": {
@@ -853,6 +797,8 @@
       "additionalProperties": false,
       "properties": {
         "label": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Label",
           "type": "string"
         },
@@ -917,6 +863,7 @@
               "items": {
                 "type": "string"
               },
+              "minItems": 1,
               "type": "array"
             },
             {
@@ -929,6 +876,8 @@
         "xhttp_host": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
               "type": "string"
             },
             {
@@ -979,6 +928,8 @@
       "additionalProperties": false,
       "properties": {
         "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Id",
           "type": "string"
         },
@@ -988,6 +939,8 @@
         "vless_route": {
           "anyOf": [
             {
+              "maximum": 65535,
+              "minimum": 0,
               "type": "integer"
             },
             {
@@ -1012,14 +965,13 @@
         "lb_strategy": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/LbStrategy"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Lb Strategy"
+          "default": null
         },
         "lb_fallback": {
           "anyOf": [
@@ -1165,14 +1117,35 @@
       "title": "RoutingConfig",
       "type": "object"
     },
+    "TlsFingerprint": {
+      "description": "uTLS client fingerprints.",
+      "enum": [
+        "chrome",
+        "firefox",
+        "safari",
+        "ios",
+        "android",
+        "edge",
+        "360",
+        "qq",
+        "random",
+        "randomized"
+      ],
+      "title": "TlsFingerprint",
+      "type": "string"
+    },
     "User": {
       "additionalProperties": false,
       "properties": {
         "username": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Username",
           "type": "string"
         },
         "group": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Group",
           "type": "string"
         },
@@ -1225,6 +1198,8 @@
       "additionalProperties": false,
       "properties": {
         "vless_route": {
+          "maximum": 65535,
+          "minimum": 0,
           "title": "Vless Route",
           "type": "integer"
         }
