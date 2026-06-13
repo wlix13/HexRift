@@ -32,6 +32,7 @@ hexrift --yaml conglomerate.yaml <command>
 | `nodes [--names\|--domains] [--type exit\|hub]` | List nodes with hostnames; machine-friendly output for automation |
 | `gen-keys [NODE_ID\|--all] [--force] [--keys-dir PATH]` | Generate x25519 + ML-KEM 768 keypairs for nodes |
 | `build [NODE_ID\|--all] --xray\|--haproxy [--keys-dir PATH] [--out-dir PATH]` | Build Xray config.json and/or HAProxy .cfg |
+| `gen-portal USERNAME [--label LABEL] [--group ID] [--fp FINGERPRINT] [--out-dir PATH] [--keys-dir PATH]` | Build Xray portal client config.json (all portals, or one `--label`) |
 | `diff NODE_ID [--current-dir PATH] [--keys-dir PATH]` | Diff generated config against deployed config |
 | `share USERNAME [--hub NODE_ID] [--fp FINGERPRINT] [--cdn] [--wg] [--server] [--guest LABEL] [--all-guests] [--bare] [--keys-dir PATH]` | Generate VLESS share URLs or WireGuard client configs (`--wg`) |
 
@@ -78,12 +79,15 @@ hexrift share alice --wg
 hexrift/
   components/
     schema/     # Pydantic models for yaml
-    derive/     # Pure derivation functions (UUIDs, shortIds, emails)
+    derive/     # Identity derivation (UUIDs, shortIds, emails), defaults resolution,
+                # topology->Xray-fragment construction, and WireGuard derivation/configs
     keys/       # x25519 + ML-KEM 768 keypair generation and storage
     render/     # Xray config builder + HAProxy Jinja2 templates
   core/         # BaseApplication / Component / Controller framework
+  shared/       # Cross-component helpers (crypto encoding, Xray/xhttp constants)
   templates/
     haproxy/    # haproxy.cfg.j2
+    wireguard/  # client.conf.j2
 ```
 
 ### Derivation

@@ -3,10 +3,10 @@ from pydantic import ValidationError
 
 from hexrift.components.schema.models.regions import (
     LeastLoadSettings,
-    MtprotoConfig,
     Node,
-    NodeMtprotoOverride,
+    Region,
 )
+from hexrift.constants import LbStrategy, RegionType
 
 
 class TestLeastLoadSettings:
@@ -46,6 +46,10 @@ class TestLeastLoadSettings:
         with pytest.raises(ValidationError):
             LeastLoadSettings(max_rtt="750")
 
+    def test_baselines_invalid_entry_rejected(self):
+        with pytest.raises(ValidationError):
+            LeastLoadSettings(baselines=["30ms", "bad"])
+
     def test_expected_minimum_one(self):
         with pytest.raises(ValidationError):
             LeastLoadSettings(expected=0)
@@ -54,41 +58,6 @@ class TestLeastLoadSettings:
         s = LeastLoadSettings()
         xs = s.xray_settings
         assert "baselines" in xs and "expected" in xs and "maxRTT" in xs and "tolerance" in xs
-
-
-class TestMtprotoConfig:
-    def test_valid_defaults(self):
-        m = MtprotoConfig(domain="tg.example.com")
-        assert m.port == 1234
-
-    def test_custom_port(self):
-        m = MtprotoConfig(domain="tg.example.com", port=5678)
-        assert m.port == 5678
-
-    def test_port_min_one(self):
-        with pytest.raises(ValidationError):
-            MtprotoConfig(domain="x.com", port=0)
-
-    def test_port_max_65535(self):
-        m = MtprotoConfig(domain="x.com", port=65535)
-        assert m.port == 65535
-
-    def test_port_above_max_raises(self):
-        with pytest.raises(ValidationError):
-            MtprotoConfig(domain="x.com", port=65536)
-
-    def test_domain_empty_raises(self):
-        with pytest.raises(ValidationError):
-            MtprotoConfig(domain="")
-
-    def test_extra_field_forbidden(self):
-        with pytest.raises(ValidationError):
-            MtprotoConfig.model_validate(
-                {
-                    "domain": "x.com",
-                    "bad_field": 1,
-                },
-            )
 
 
 class TestNode:
@@ -108,16 +77,130 @@ class TestNode:
                 },
             )
 
-
-class TestNodeMtprotoOverride:
-    def test_all_none_valid(self):
-        o = NodeMtprotoOverride()
-        assert o.enabled is None and o.domain is None and o.port is None
-
-    def test_empty_domain_raises(self):
+    @pytest.mark.parametrize(
+        "bad_id",
+        [
+            "bad id",
+            "weird!",
+            "dotted.id",
+            "",
+        ],
+    )
+    def test_invalid_id_rejected(self, bad_id: str):
         with pytest.raises(ValidationError):
-            NodeMtprotoOverride(domain="")
+            Node.model_validate(
+                {
+                    "id": bad_id,
+                    "hostname": "n1.example.com",
+                },
+            )
 
-    def test_port_zero_raises(self):
+    @pytest.mark.parametrize(
+        "bad_host",
+        [
+            "bad host",
+            "host!",
+            "",
+        ],
+    )
+    def test_invalid_hostname_rejected(self, bad_host: str):
         with pytest.raises(ValidationError):
-            NodeMtprotoOverride(port=0)
+            Node.model_validate(
+                {
+                    "id": "n1",
+                    "hostname": bad_host,
+                },
+            )
+
+
+class TestRegionValidation:
+    def test_lb_strategy_enum_accepted(self):
+        r = Region(
+            id="r1",
+            type=RegionType.EXIT,
+            lb_strategy=LbStrategy.LEAST_LOAD,
+            nodes=[
+                Node(
+                    id="n1",
+                    hostname="n1.example.com",
+                ),
+            ],
+        )
+        assert r.lb_strategy is LbStrategy.LEAST_LOAD
+
+    def test_lb_strategy_string_coerced(self):
+        r = Region.model_validate(
+            {
+                "id": "r1",
+                "type": "exit",
+                "lb_strategy": "roundRobin",
+                "nodes": [
+                    {
+                        "id": "n1",
+                        "hostname": "h.example.com",
+                    },
+                ],
+            }
+        )
+        assert r.lb_strategy is LbStrategy.ROUND_ROBIN
+
+    def test_lb_strategy_invalid_rejected(self):
+        with pytest.raises(ValidationError):
+            Region.model_validate(
+                {
+                    "id": "r1",
+                    "type": "exit",
+                    "lb_strategy": "bogus",
+                    "nodes": [
+                        {
+                            "id": "n1",
+                            "hostname": "h.example.com",
+                        },
+                    ],
+                }
+            )
+
+    @pytest.mark.parametrize("bad", [-1, 65536])
+    def test_vless_route_out_of_range_rejected(self, bad: int):
+        with pytest.raises(ValidationError):
+            Region(
+                id="r1",
+                type=RegionType.EXIT,
+                vless_route=bad,
+                nodes=[
+                    Node(
+                        id="n1",
+                        hostname="n1.example.com",
+                    ),
+                ],
+            )
+
+    def test_cdn_xhttp_path_must_start_with_slash(self):
+        with pytest.raises(ValidationError, match="must start with"):
+            Region(
+                id="r1",
+                type=RegionType.EXIT,
+                cdn_xhttp_path="cdn/",
+                nodes=[
+                    Node(
+                        id="n1",
+                        hostname="n1.example.com",
+                    ),
+                ],
+            )
+
+    @pytest.mark.parametrize("bad_id", ["bad id", "weird!", ""])
+    def test_invalid_region_id_rejected(self, bad_id: str):
+        with pytest.raises(ValidationError):
+            Region.model_validate(
+                {
+                    "id": bad_id,
+                    "type": "exit",
+                    "nodes": [
+                        {
+                            "id": "n1",
+                            "hostname": "h.example.com",
+                        },
+                    ],
+                },
+            )

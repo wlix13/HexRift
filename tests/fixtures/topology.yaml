@@ -72,3 +72,4 @@ regions:
     nodes:
       - id: mskA00
         hostname: mskA00.ap.test.hexrift
+        proxy_inbound: true

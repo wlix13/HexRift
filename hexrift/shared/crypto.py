@@ -1,4 +1,4 @@
-"""x25519 keypair generation for Reality TLS."""
+"""Pure x25519 / base64 encoding helpers."""
 
 from __future__ import annotations
 
@@ -13,6 +13,12 @@ def urlsafe_b64decode_unpadded(value: str) -> bytes:
 
     padding = "=" * (-len(value) % 4)
     return base64.urlsafe_b64decode(value + padding)
+
+
+def urlsafe_b64encode_unpadded(data: bytes) -> str:
+    """Encode bytes as URL-safe base64 with stripped padding."""
+
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
 def x25519_raw_bytes(private_key: X25519PrivateKey) -> tuple[bytes, bytes]:
@@ -30,20 +36,27 @@ def x25519_raw_bytes(private_key: X25519PrivateKey) -> tuple[bytes, bytes]:
     return private, public
 
 
-def generate_x25519_keypair() -> tuple[str, str]:
-    """Generate an x25519 keypair.
+def x25519_urlsafe_to_std(key_b64url: str) -> str:
+    """Re-encode URL-safe, unpadded x25519 key to standard base64."""
 
-    Returns:
-        (private_key_b64url, public_key_b64url) — raw 32-byte keys, URL-safe base64, no padding.
+    return base64.b64encode(urlsafe_b64decode_unpadded(key_b64url)).decode()
+
+
+def generate_x25519_keypair() -> tuple[str, str]:
+    """Generate random x25519 keypair.
+
+    Returns (private, public) raw 32-byte keys as URL-safe base64, no padding.
     """
 
     private, public = x25519_raw_bytes(X25519PrivateKey.generate())
-    priv_b64 = base64.urlsafe_b64encode(private).rstrip(b"=").decode()
-    pub_b64 = base64.urlsafe_b64encode(public).rstrip(b"=").decode()
-    return priv_b64, pub_b64
+    return urlsafe_b64encode_unpadded(private), urlsafe_b64encode_unpadded(public)
 
 
-def x25519_urlsafe_to_std(key_b64url: str) -> str:
-    """Re-encode a URL-safe, unpadded x25519 key to standard base64."""
+def x25519_keypair_from_seed(seed: bytes) -> tuple[str, str]:
+    """Deterministically derive x25519 keypair from 32-byte seed.
 
-    return base64.b64encode(urlsafe_b64decode_unpadded(key_b64url)).decode()
+    Returns (private, public) as standard base64 (not URL-safe).
+    """
+
+    private, public = x25519_raw_bytes(X25519PrivateKey.from_private_bytes(seed[:32]))
+    return base64.b64encode(private).decode(), base64.b64encode(public).decode()

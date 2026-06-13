@@ -28,6 +28,12 @@ class BaseApplication(Generic[ApplicationType]):  # noqa: UP046
             raise RuntimeError("No application instance exists yet.")
         return cls._instance  # ty:ignore[invalid-return-type]
 
+    @classmethod
+    def reset(cls) -> None:
+        """Clear cached singleton instance. Intended for test isolation."""
+
+        cls._instance = None
+
     def register(self, component_cls: type[BaseComponent]) -> None:
         component = component_cls(self)
         self.components[component.name] = component

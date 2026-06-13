@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from hexrift.components.schema.models.fields import DnsName, HostPort, NonBlankList, XrayPath
+
 
 class RealityFallbackLimits(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -20,8 +22,8 @@ class RealityFallbackLimits(BaseModel):
 class RealityConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    dest: str
-    server_names: list[str] | None = None
-    xhttp_host: str | None = None
-    xhttp_path: str
+    dest: HostPort
+    server_names: NonBlankList | None = Field(default=None, min_length=1)
+    xhttp_host: DnsName | None = None
+    xhttp_path: XrayPath
     fallback_limits: RealityFallbackLimits = Field(default_factory=RealityFallbackLimits)

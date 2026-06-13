@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 import yaml
 from pydantic import ValidationError
 
-from hexrift.components.schema.models import ConglomerateConfig, Region
-from hexrift.components.schema.models.regions import Node
+from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
-from hexrift.errors import Error, SchemaValidationError
+from hexrift.errors import Error, NodeError, RegionError, SchemaValidationError
 
 
 if TYPE_CHECKING:
@@ -49,11 +49,11 @@ class SchemaController(BaseController["HexRiftApp"]):
         for region in self.config.regions:
             if region.id == region_id:
                 return region
-        raise KeyError(f"Region not found: {region_id!r}")
+        raise RegionError(f"Region not found: {region_id!r}")
 
     def get_node(self, node_id: str) -> tuple[Region, Node]:
         for region in self.config.regions:
             for node in region.nodes:
                 if node.id == node_id:
                     return region, node
-        raise KeyError(f"Node not found: {node_id!r}")
+        raise NodeError(f"Node not found: {node_id!r}")

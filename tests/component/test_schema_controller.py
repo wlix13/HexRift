@@ -4,7 +4,7 @@ import yaml
 from hexrift.app import HexRiftApp
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType
-from hexrift.errors import Error, SchemaValidationError
+from hexrift.errors import Error, NodeError, RegionError, SchemaValidationError
 
 
 class TestLoad:
@@ -57,7 +57,7 @@ class TestRegionAndNodeHelpers:
         assert region.id == "exit1"
 
     def test_get_node_not_found(self, app: HexRiftApp):
-        with pytest.raises(KeyError):
+        with pytest.raises(NodeError):
             app.schema.get_node("ghost")
 
     def test_get_region_found(self, app: HexRiftApp):
@@ -65,7 +65,7 @@ class TestRegionAndNodeHelpers:
         assert region.id == "exit1"
 
     def test_get_region_not_found(self, app: HexRiftApp):
-        with pytest.raises(KeyError):
+        with pytest.raises(RegionError):
             app.schema.get_region("ghost")
 
     def test_config_lazy_loads(self, topology_yaml):

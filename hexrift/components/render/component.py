@@ -8,7 +8,7 @@ from rich.syntax import Syntax
 
 from hexrift.components.render.controller import RenderController
 from hexrift.core.component import BaseComponent
-from hexrift.errors import NodeError, RenderError
+from hexrift.errors import RenderError
 
 
 if TYPE_CHECKING:
@@ -77,24 +77,22 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
             if all_nodes:
                 nodes_to_build = app.schema.get_all_nodes()
             else:
-                try:
-                    nodes_to_build = [app.schema.get_node(node_id)]
-                except KeyError:
-                    raise NodeError(f"Node not found: {node_id!r}")
+                nodes_to_build = [app.schema.get_node(node_id)]
 
-            ok = failed = 0
-            for _, node in nodes_to_build:
-                try:
-                    app.render.build(node.id, out_dir, keys_dir, xray, haproxy)
-                    app.console.print(f"  [green]built[/green]  {node.id}")
-                    ok += 1
-                except Exception as e:
-                    app.console.print(f"  [red]error[/red]  {node.id}: {e}")
-                    failed += 1
+            def report(node_id: str, error: Exception | None) -> None:
+                if error is None:
+                    app.console.print(f"  [green]built[/green]  {node_id}")
+                else:
+                    app.console.print(f"  [red]error[/red]  {node_id}: {error}")
 
-            app.console.print(f"\n[bold]Done[/bold] — {ok} built, {failed} failed  ([dim]{out_dir}/[/dim])")
-            if failed:
-                raise RenderError(f"{failed} node(s) failed to build")
+            node_ids = [node.id for _, node in nodes_to_build]
+            result = app.render.build_nodes(node_ids, out_dir, keys_dir, xray, haproxy, on_item=report)
+
+            app.console.print(
+                f"\n[bold]Done[/bold] — {result.ok} built, {result.failed} failed  ([dim]{out_dir}/[/dim])"
+            )
+            if result.failed:
+                raise RenderError(f"{result.failed} node(s) failed to build")
 
         @base.command()
         @click.argument("node_id")
@@ -121,7 +119,7 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
             else:
                 app.console.print(Syntax(result, "diff", theme="monokai"))
 
-        @base.command("portal-gen")
+        @base.command("gen-portal")
         @click.argument("username")
         @click.option("--label", "-l", default=None, help="Portal label (default: all portals for user).")
         @click.option("--group", "-g", default=None, help="Group ID for shortId (default: user's own group).")
@@ -139,7 +137,7 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
             show_default=True,
         )
         @click.pass_obj
-        def portal_gen(
+        def gen_portal(
             app: HexRiftApp,
             username: str,
             label: str | None,
@@ -150,29 +148,26 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
         ) -> None:
             """Generate Xray config.json for portal client."""
 
-            user = next((u for u in app.schema.config.users if u.username == username), None)
-            if user is None:
-                raise click.UsageError(f"User not found: {username!r}")
-            if not user.portals:
-                raise click.UsageError(f"User {username!r} has no portals configured.")
-            if label is not None and not any(p.label == label for p in user.portals):
-                raise click.UsageError(f"Portal {label!r} not found for user {username!r}.")
-            if group is not None and not any(g.id == group for g in app.schema.config.groups):
-                raise click.UsageError(f"Group not found: {group!r}")
-
             fingerprint = fp or app.schema.config.defaults.hub.exit_connections.fingerprint
-            labels = [label] if label is not None else [p.label for p in user.portals]
 
-            ok = failed = 0
-            for lbl in labels:
-                try:
-                    app.render.portal_gen(username, lbl, out_dir, keys_dir, fingerprint, group_id=group)
+            def report(lbl: str, error: Exception | None) -> None:
+                if error is None:
                     app.console.print(f"  [green]built[/green]  {out_dir}/{username}-{lbl}.json")
-                    ok += 1
-                except Exception as e:
-                    app.console.print(f"  [red]error[/red]  {username}/{lbl}: {e}")
-                    failed += 1
+                else:
+                    app.console.print(f"  [red]error[/red]  {username}/{lbl}: {error}")
 
-            app.console.print(f"\n[bold]Done[/bold] — {ok} built, {failed} failed  ([dim]{out_dir}/[/dim])")
-            if failed:
-                raise RenderError(f"{failed} portal(s) failed to build")
+            result = app.render.gen_portals(
+                username,
+                label,
+                out_dir,
+                keys_dir,
+                fingerprint,
+                group_id=group,
+                on_item=report,
+            )
+
+            app.console.print(
+                f"\n[bold]Done[/bold] — {result.ok} built, {result.failed} failed  ([dim]{out_dir}/[/dim])"
+            )
+            if result.failed:
+                raise RenderError(f"{result.failed} portal(s) failed to build")

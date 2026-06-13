@@ -2,29 +2,30 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from hexrift.components.schema.models.fields import Identifier, IdentifierList, NonBlankList
 from hexrift.constants import AccessType
 
 
 class PortalRoutes(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    domains: list[str] | None = None
-    ips: list[str] | None = None
+    domains: NonBlankList | None = None
+    ips: NonBlankList | None = None
 
 
 class Portal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    label: str
+    label: Identifier
     routes: PortalRoutes
 
 
 class User(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    username: str
-    group: str
+    username: Identifier
+    group: Identifier
     access: list[AccessType]
     uuid: UUID | None = None
     portals: list[Portal] = []
-    guests: list[str] = []
+    guests: IdentifierList = []

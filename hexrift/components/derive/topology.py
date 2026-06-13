@@ -1,11 +1,13 @@
 """Topology resolution — build client lists, outbounds, balancers, routing rules."""
 
+from __future__ import annotations
+
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region
+from hexrift.components.schema.models.regions import LeastLoadSettings, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
-from hexrift.components.schema.models.users import User
-from hexrift.constants import VLESS_FLOW, AccessType, LbRole, RegionType, SpecialDestination, TagPrefix, TagSuffix
+from hexrift.constants import LbRole, LbStrategy, RegionType, SpecialDestination, TagPrefix, TagSuffix
+from hexrift.errors import DeriveError
 
 
 def portal_tag(label: str) -> str:
@@ -14,183 +16,9 @@ def portal_tag(label: str) -> str:
     return f"{label}{TagSuffix.PORTAL}"
 
 
-def _build_exit_clients(
-    hub_nodes: list[Node],
-    exit_node: Node,
-    ns: Namespace,
-    flow: str,
-) -> list[dict]:
-    return [
-        {
-            "email": ns.hub_exit_email(hub.id, exit_node.id),
-            "id": str(ns.hub_exit_uuid(hub.id, exit_node.id)),
-            "flow": flow,
-        }
-        for hub in hub_nodes
-    ]
-
-
-def get_exit_direct_clients(
-    hub_nodes: list[Node],
-    exit_node: Node,
-    ns: Namespace,
-    flow: str = VLESS_FLOW,
-) -> list[dict]:
-    """Clients for exit direct-xhttp inbound."""
-
-    return _build_exit_clients(hub_nodes, exit_node, ns, flow)
-
-
-def get_exit_cdn_clients(
-    hub_nodes: list[Node],
-    exit_node: Node,
-    ns: Namespace,
-    flow: str = VLESS_FLOW,
-) -> list[dict]:
-    """Clients for exit cdn-xhttp inbound."""
-
-    return _build_exit_clients(hub_nodes, exit_node, ns, flow)
-
-
-def get_hub_vless_clients(
-    users: list[User],
-    ns: Namespace,
-    flow: str = VLESS_FLOW,
-) -> list[dict]:
-    """Clients for hub vless-xhttp inbound: xhttp users + servers + portal clients."""
-
-    clients = []
-    for user in users:
-        user_base = ns.user_uuid(user.username, override=user.uuid)
-        if AccessType.XHTTP in user.access:
-            clients.append(
-                {
-                    "email": ns.user_email(user.username),
-                    "id": str(user_base),
-                    "flow": flow,
-                }
-            )
-        if AccessType.SERVER in user.access:
-            clients.append(
-                {
-                    "email": ns.server_email(user.username),
-                    "id": str(ns.server_uuid(user.username, user_base=user_base)),
-                    "flow": flow,
-                }
-            )
-        if user.guests and AccessType.XHTTP in user.access:
-            for label in user.guests:
-                clients.append(
-                    {
-                        "email": ns.guest_email(label, user.username),
-                        "id": str(ns.guest_uuid(label, user.username, user_base=user_base)),
-                        "flow": flow,
-                    }
-                )
-    for user in users:
-        if user.portals:
-            user_base = ns.user_uuid(user.username, override=user.uuid)
-            for portal in user.portals:
-                pt = portal_tag(portal.label)
-                clients.append(
-                    {
-                        "email": ns.portal_email(portal.label, user.username),
-                        "id": str(ns.portal_uuid(portal.label, user.username, user_base=user_base)),
-                        "flow": flow,
-                        "reverse": {"tag": pt},
-                    }
-                )
-    return clients
-
-
-def _get_hub_access_clients(
-    users: list[User],
-    ns: Namespace,
-    access_type: AccessType,
-    flow: str,
-    include_server: bool = False,
-) -> list[dict]:
-    """Clients (user, optional server, guests) for hub inbound gated on single access type."""
-
-    clients = []
-    for u in users:
-        if access_type not in u.access:
-            continue
-        user_base = ns.user_uuid(u.username, override=u.uuid)
-        clients.append({"id": str(user_base), "email": ns.user_email(u.username), "flow": flow})
-        if include_server and AccessType.SERVER in u.access:
-            clients.append(
-                {
-                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
-                    "email": ns.server_email(u.username),
-                    "flow": flow,
-                }
-            )
-        for label in u.guests:
-            clients.append(
-                {
-                    "id": str(ns.guest_uuid(label, u.username, user_base=user_base)),
-                    "email": ns.guest_email(label, u.username),
-                    "flow": flow,
-                }
-            )
-    return clients
-
-
-def get_hub_cdn_clients(
-    users: list[User],
-    ns: Namespace,
-    flow: str = VLESS_FLOW,
-) -> list[dict]:
-    """Clients for hub cdn-xhttp inbound."""
-
-    return _get_hub_access_clients(users, ns, AccessType.CDN, flow, include_server=True)
-
-
-def get_hub_xdns_clients(
-    users: list[User],
-    ns: Namespace,
-) -> list[dict]:
-    """Clients for hub xdns inbound.
-
-    xdns runs over non-TLS mKCP, where xtls-rprx-vision is useless, so flow is empty.
-    """
-
-    return _get_hub_access_clients(users, ns, AccessType.XDNS, flow="")
-
-
-def get_hub_short_ids(groups: list, ns: Namespace) -> list[str]:
-    """Hub node shortIds = group shortIds only (identical across all hub nodes in the region)."""
-
-    return [ns.group_short_id(group) for group in groups]
-
-
-def get_hub_user_short_ids(users: list[User], ns: Namespace) -> list[str]:
-    """One shortId per user that has guests."""
-
-    seen: set[str] = set()
-    result: list[str] = []
-    for user in users:
-        if not user.guests:
-            continue
-        if AccessType.XHTTP not in user.access and AccessType.CDN not in user.access:
-            continue
-        sid = ns.user_short_id(user.username)
-        if sid not in seen:
-            seen.add(sid)
-            result.append(sid)
-    return result
-
-
-def get_exit_short_id(node: Node, ns: Namespace) -> str:
-    """Exit node gets a single shortId."""
-
-    return ns.exit_short_id(node.id)
-
-
 def _resolve_fallback_tag(region: Region) -> str:
     if not region.nodes:
-        raise ValueError(f"Region {region.id!r} has no nodes")
+        raise DeriveError(f"Region {region.id!r} has no nodes")
     if region.lb_fallback is None:
         # first primary node as fallback
         primary = [n for n in region.nodes if n.lb_role != LbRole.BACKUP]
@@ -206,7 +34,7 @@ def _build_strategy(region: Region) -> dict:
     """Build strategy for balancer with leastLoad settings when applicable."""
 
     strategy: dict = {"type": region.lb_strategy}
-    if region.lb_strategy == "leastLoad":
+    if region.lb_strategy == LbStrategy.LEAST_LOAD:
         s = region.lb_least_load or LeastLoadSettings()
         strategy["settings"] = s.xray_settings
     return strategy
@@ -248,7 +76,7 @@ def region_outbound_tag(region: Region) -> str:
     if region.lb_strategy is not None:
         return f"{TagPrefix.LB}{region.id}"
     if not region.nodes:
-        raise ValueError(f"Region {region.id!r} has no nodes")
+        raise DeriveError(f"Region {region.id!r} has no nodes")
     primary = [n for n in region.nodes if n.lb_role != LbRole.BACKUP]
     return primary[0].id if primary else region.nodes[0].id
 
@@ -257,7 +85,7 @@ def region_warp_outbound_tag(region: Region) -> str:
     if region.lb_strategy is not None:
         return f"{TagPrefix.LB_WARP}{region.id}"
     if not region.nodes:
-        raise ValueError(f"Region {region.id!r} has no nodes")
+        raise DeriveError(f"Region {region.id!r} has no nodes")
     primary = [n for n in region.nodes if n.lb_role != LbRole.BACKUP]
     node = primary[0] if primary else region.nodes[0]
     return f"{TagPrefix.WARP}{node.id}"
@@ -274,6 +102,42 @@ def _route_user_filter(route: HubRoute, ns: Namespace) -> dict:
     if route.proxy_users:
         emails.extend(route.proxy_users)
     return {"user": emails} if emails else {}
+
+
+def _append_route_rules(
+    rules: list[dict],
+    route: HubRoute,
+    uf: dict,
+    out_key: str,
+    out_tag: str,
+    *,
+    include_ips: bool = True,
+) -> None:
+    """Append route's domain / ip / bare-user-filter rules pointing at one outbound."""
+
+    if route.domains:
+        rules.append(
+            {
+                "domain": route.domains,
+                **uf,
+                out_key: out_tag,
+            }
+        )
+    if include_ips and route.ips:
+        rules.append(
+            {
+                "ip": route.ips,
+                **uf,
+                out_key: out_tag,
+            }
+        )
+    if not route.domains and not route.ips and uf:
+        rules.append(
+            {
+                **uf,
+                out_key: out_tag,
+            }
+        )
 
 
 def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
@@ -322,21 +186,14 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
         if route.destination != SpecialDestination.BLOCKED:
             continue
         uf = _route_user_filter(route, ns)
-        if route.domains:
-            rules.append(
-                {
-                    "domain": route.domains,
-                    **uf,
-                    "outboundTag": SpecialDestination.BLOCKED,
-                }
-            )
-        if not route.domains and not route.ips and uf:
-            rules.append(
-                {
-                    **uf,
-                    "outboundTag": SpecialDestination.BLOCKED,
-                }
-            )
+        _append_route_rules(
+            rules,
+            route,
+            uf,
+            "outboundTag",
+            SpecialDestination.BLOCKED,
+            include_ips=False,
+        )
 
     # 5 & 6. Portal domain + IP routes (per user, with user filter)
     for user in users:
@@ -381,58 +238,14 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
         else:
             continue  # Validated earlier; shouldn't happen
         uf = _route_user_filter(route, ns)
-        if route.domains:
-            rules.append(
-                {
-                    "domain": route.domains,
-                    **uf,
-                    out_key: out_tag,
-                }
-            )
-        if route.ips:
-            rules.append(
-                {
-                    "ip": route.ips,
-                    **uf,
-                    out_key: out_tag,
-                }
-            )
-        if not route.domains and not route.ips and uf:
-            rules.append(
-                {
-                    **uf,
-                    out_key: out_tag,
-                }
-            )
+        _append_route_rules(rules, route, uf, out_key, out_tag)
 
     # 8 & 9. Direct domain + IP routes
     for route in routing.hub_routes:
         if route.destination != SpecialDestination.DIRECT:
             continue
         uf = _route_user_filter(route, ns)
-        if route.domains:
-            rules.append(
-                {
-                    "domain": route.domains,
-                    **uf,
-                    "outboundTag": SpecialDestination.DIRECT,
-                }
-            )
-        if route.ips:
-            rules.append(
-                {
-                    "ip": route.ips,
-                    **uf,
-                    "outboundTag": SpecialDestination.DIRECT,
-                }
-            )
-        if not route.domains and not route.ips and uf:
-            rules.append(
-                {
-                    **uf,
-                    "outboundTag": SpecialDestination.DIRECT,
-                }
-            )
+        _append_route_rules(rules, route, uf, "outboundTag", SpecialDestination.DIRECT)
 
     # 10. Blocked IP rules
     for route in routing.hub_routes:

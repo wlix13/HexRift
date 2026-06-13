@@ -1,19 +1,13 @@
-from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import (
     build_balancers,
     build_burst_observatory_selectors,
     build_hub_routing_rules,
-    get_hub_cdn_clients,
-    get_hub_user_short_ids,
-    get_hub_vless_clients,
-    get_hub_xdns_clients,
     region_outbound_tag,
     region_warp_outbound_tag,
 )
 from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
-from hexrift.components.schema.models.users import Portal, PortalRoutes, User
-from hexrift.constants import AccessType, LbRole, RegionType
+from hexrift.constants import LbRole, RegionType
 
 
 def _minimal_cfg_dict(**overrides) -> dict:
@@ -117,23 +111,6 @@ def _make_region(
         routing=None,
         warp=warp,
         nodes=nodes,
-    )
-
-
-def _make_user(
-    username: str = "alice",
-    group: str = "grp1",
-    access: list[str] | None = None,
-    guests: list[str] | None = None,
-    portals: list[Portal] | None = None,
-) -> User:
-    return User.model_construct(
-        username=username,
-        group=group,
-        access=[AccessType(a) for a in (access or ["xhttp"])],
-        uuid=None,
-        guests=guests or [],
-        portals=portals or [],
     )
 
 
@@ -355,7 +332,6 @@ class TestBuildBalancers:
             keys=None,
             exit_connections=None,
             proxy_inbound=None,
-            mtproto=None,
             ipv6=None,
         )
         n_backup = Node.model_construct(
@@ -366,7 +342,6 @@ class TestBuildBalancers:
             keys=None,
             exit_connections=None,
             proxy_inbound=None,
-            mtproto=None,
             ipv6=None,
         )
         r = _make_region(region_id="exit1", lb_strategy="random", nodes=[n_primary, n_backup], lb_fallback="n2")
@@ -378,156 +353,6 @@ class TestBuildBalancers:
         r.lb_least_load = LeastLoadSettings()
         result = build_balancers([r])
         assert "settings" in result[0]["strategy"]
-
-
-class TestGetHubVlessClients:
-    def test_portal_client_has_reverse_field(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp"], portals=[Portal(label="home", routes=PortalRoutes())])
-        clients = get_hub_vless_clients([u], ns)
-        portal_client = next((c for c in clients if c["email"] == "home-portal@alice"), None)
-        assert portal_client is not None
-        assert portal_client.get("reverse") == {"tag": "home-portal"}
-
-    def test_portal_client_present_per_portal(self):
-        ns = Namespace("t.ns")
-        u = _make_user(
-            "alice",
-            access=["xhttp"],
-            portals=[
-                Portal(label="home", routes=PortalRoutes()),
-                Portal(label="k2", routes=PortalRoutes()),
-            ],
-        )
-        clients = get_hub_vless_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "home-portal@alice" in emails
-        assert "k2-portal@alice" in emails
-
-    def test_portal_client_reverse_tag_matches_label(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp"], portals=[Portal(label="k2", routes=PortalRoutes())])
-        clients = get_hub_vless_clients([u], ns)
-        k2_client = next(c for c in clients if c["email"] == "k2-portal@alice")
-        assert k2_client["reverse"] == {"tag": "k2-portal"}
-
-    def test_non_portal_clients_have_no_reverse_field(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp", "server"])
-        clients = get_hub_vless_clients([u], ns)
-        assert clients
-        for c in clients:
-            assert "reverse" not in c
-
-
-class TestGetHubCdnClients:
-    def test_cdn_user_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp", "cdn"])
-        clients = get_hub_cdn_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "alice@t.ns" in emails
-
-    def test_non_cdn_user_excluded(self):
-        ns = Namespace("t.ns")
-        u = _make_user("bob", access=["xhttp"])
-        clients = get_hub_cdn_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "bob@t.ns" not in emails
-
-    def test_cdn_user_guests_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp", "cdn"], guests=["laptop"])
-        clients = get_hub_cdn_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "laptop@alice" in emails
-
-    def test_cdn_server_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp", "cdn", "server"])
-        clients = get_hub_cdn_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "alice-server@alice" in emails
-
-
-class TestGetHubXdnsClients:
-    def test_xdns_user_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user(
-            "alice",
-            access=["xhttp", "xdns"],
-        )
-        clients = get_hub_xdns_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "alice@t.ns" in emails
-
-    def test_non_xdns_user_excluded(self):
-        ns = Namespace("t.ns")
-        u = _make_user(
-            "bob",
-            access=["xhttp"],
-        )
-        clients = get_hub_xdns_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "bob@t.ns" not in emails
-
-    def test_xdns_user_guests_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user(
-            "alice",
-            access=["xhttp", "xdns"],
-            guests=["laptop"],
-        )
-        clients = get_hub_xdns_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "laptop@alice" in emails
-
-    def test_server_and_portal_variants_excluded(self):
-        ns = Namespace("t.ns")
-        u = _make_user(
-            "alice",
-            access=["xhttp", "server", "xdns"],
-            portals=[Portal(label="home", routes=PortalRoutes())],
-        )
-        clients = get_hub_xdns_clients([u], ns)
-        emails = [c["email"] for c in clients]
-        assert "alice@t.ns" in emails
-        assert "alice-server@alice" not in emails
-        assert "home-portal@alice" not in emails
-
-    def test_clients_have_empty_flow(self):
-        # xdns runs over non-TLS mKCP, where xtls-rprx-vision is invalid.
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp", "xdns"], guests=["laptop"])
-        clients = get_hub_xdns_clients([u], ns)
-        assert clients  # sanity
-        assert all(c["flow"] == "" for c in clients)
-
-
-class TestGetHubUserShortIds:
-    def test_user_without_guests_skipped(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["xhttp"], guests=[])
-        result = get_hub_user_short_ids([u], ns)
-        assert result == []
-
-    def test_user_with_guests_included(self):
-        ns = Namespace("t.ns")
-        u = _make_user("bob", access=["xhttp"], guests=["laptop", "phone"])
-        result = get_hub_user_short_ids([u], ns)
-        assert len(result) == 1  # one short_id per user
-
-    def test_dedup_same_user(self):
-        ns = Namespace("t.ns")
-        u = _make_user("bob", access=["xhttp", "cdn"], guests=["laptop"])
-        result = get_hub_user_short_ids([u], ns)
-        assert len(result) == 1
-
-    def test_no_xhttp_and_no_cdn_skipped(self):
-        ns = Namespace("t.ns")
-        u = _make_user("alice", access=["proxy"], guests=["laptop"])
-        result = get_hub_user_short_ids([u], ns)
-        assert result == []
 
 
 class TestRegionOutboundTag:

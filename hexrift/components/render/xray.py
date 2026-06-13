@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
+import json
 import re
 
-import orjson
-
-from hexrift.components.keys.reality import x25519_urlsafe_to_std
-from hexrift.components.render.context import ExitContext, HubContext, HubOutboundContext
 from hexrift.constants import (
     WARP_VLESS_ROUTE,
-    Socket,
+    AccessType,
+    RegionType,
     SpecialDestination,
     XrayNetwork,
     XrayProtocol,
     XraySecurity,
 )
-from hexrift.shared.xhttp import XHTTP_EXTRA, XHTTP_EXTRA_CDN, XMUX
-from hexrift.shared.xray import LOG, MKCP_SETTINGS_XDNS, SNIFFING, make_dns, make_inbound_sockopt, make_sockopt
+from hexrift.inbounds.base import InboundContext, SharedContext
+from hexrift.inbounds.context import ExitContext, HubContext, HubOutboundContext
+from hexrift.inbounds.registry import specs_for
+from hexrift.shared.xhttp import make_xhttp_settings
+from hexrift.shared.xray_defaults import (
+    LOG,
+    make_dns,
+    make_sockopt,
+)
 
 
 def _warp_outbound(ipv6: bool) -> dict:
@@ -33,53 +38,26 @@ def _warp_outbound(ipv6: bool) -> dict:
     }
 
 
-def _xhttp_settings(host: str, path: str, mode: str = "auto", cdn: bool = False) -> dict:
-    return {
-        "host": host,
-        "path": path,
-        "mode": mode,
-        "extra": XHTTP_EXTRA_CDN if cdn else XHTTP_EXTRA,
-        "xmux": XMUX,
-    }
+def _build_inbounds(role: RegionType, slots: dict[AccessType, InboundContext], shared: SharedContext) -> list[dict]:
+    inbounds: list[dict] = []
+    for spec in specs_for(role):
+        spec_ctx = spec.narrow(slots)
+        if spec_ctx is not None:
+            inbounds.append(spec.fragment(spec_ctx, shared))
+    return inbounds
 
 
 def build_exit_config(ctx: ExitContext) -> dict:
-    # Available inbounds
-    direct_inbound = {
-        "tag": "direct-xhttp",
-        "listen": Socket.VLESS_REALITY,
-        "protocol": XrayProtocol.VLESS,
-        "settings": {
-            "clients": ctx.direct_clients,
-            "decryption": ctx.decryption,
-        },
-        "streamSettings": {
-            "network": XrayNetwork.XHTTP,
-            "security": XraySecurity.REALITY,
-            "xhttpSettings": _xhttp_settings(ctx.reality_xhttp_host, ctx.reality_xhttp_path),
-            "realitySettings": {
-                "xver": 0,
-                "show": False,
-                "maxTimeDiff": 60000,
-                "dest": ctx.reality_dest,
-                "serverNames": ctx.reality_server_names,
-                "privateKey": ctx.reality_private_key,
-                "shortIds": [ctx.reality_short_id],
-                "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
-                "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
-            },
-            "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
-        },
-        "sniffing": SNIFFING,
-    }
+    shared = ctx.shared
+    inbounds = _build_inbounds(RegionType.EXIT, ctx.slots, shared)
 
     dns_direct_ips = ["127.0.0.1", "::1"]
-    if ctx.dns_address not in dns_direct_ips:
-        dns_direct_ips.append(ctx.dns_address)
+    if shared.dns_address not in dns_direct_ips:
+        dns_direct_ips.append(shared.dns_address)
     routing_rules: list[dict] = [
         {
             "ip": list(dns_direct_ips),
-            "port": ctx.dns_port,
+            "port": shared.dns_port,
             "outboundTag": SpecialDestination.DIRECT,
         },
     ]
@@ -111,93 +89,26 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _warp_outbound(ctx.ipv6),
+            _warp_outbound(shared.ipv6),
         ]
     )
 
-    inbounds: list[dict] = [direct_inbound]
-    if ctx.cdn_xhttp_host and ctx.cdn_xhttp_path:
-        inbounds.append(
-            {
-                "tag": "cdn-xhttp",
-                "listen": Socket.VLESS_TLS,
-                "protocol": XrayProtocol.VLESS,
-                "settings": {
-                    "clients": ctx.cdn_clients,
-                    "decryption": ctx.decryption,
-                },
-                "streamSettings": {
-                    "network": XrayNetwork.XHTTP,
-                    "security": XraySecurity.NONE,
-                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
-                    "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
-                },
-                "sniffing": SNIFFING,
-            }
-        )
-    config: dict = {
+    return {
         "log": LOG,
+        "inbounds": inbounds,
+        "outbounds": outbounds,
+        "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "rules": routing_rules,
+        },
+        "dns": make_dns(shared.dns_address, shared.dns_port),
     }
-
-    config.update(
-        {
-            "inbounds": inbounds,
-            "outbounds": outbounds,
-            "routing": {
-                "domainStrategy": "IPIfNonMatch",
-                "rules": routing_rules,
-            },
-            "dns": make_dns(ctx.dns_address, ctx.dns_port),
-        }
-    )
-
-    return config
 
 
 def build_hub_config(ctx: HubContext) -> dict:
-    # Available inbounds
-    direct_inbound = {
-        "tag": "direct-xhttp",
-        "listen": Socket.VLESS_REALITY,
-        "protocol": XrayProtocol.VLESS,
-        "settings": {
-            "clients": ctx.vless_clients,
-            "decryption": ctx.decryption,
-        },
-        "streamSettings": {
-            "network": XrayNetwork.XHTTP,
-            "security": XraySecurity.REALITY,
-            "xhttpSettings": _xhttp_settings(ctx.reality_xhttp_host, ctx.reality_xhttp_path),
-            "realitySettings": {
-                "xver": 0,
-                "show": False,
-                "maxTimeDiff": 60000,
-                "dest": ctx.reality_dest,
-                "serverNames": ctx.reality_server_names,
-                "privateKey": ctx.reality_private_key,
-                "shortIds": ctx.reality_short_ids,
-                "limitFallbackUpload": ctx.reality_fallback_limits.xray_settings,
-                "limitFallbackDownload": ctx.reality_fallback_limits.xray_settings,
-            },
-            "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
-        },
-        "sniffing": SNIFFING,
-    }
+    shared = ctx.shared
+    inbounds = _build_inbounds(RegionType.HUB, ctx.slots, shared)
 
-    proxy_inbound = {
-        "tag": "mixed-inbound",
-        "listen": Socket.MIXED,
-        "port": 80,
-        "protocol": XrayProtocol.MIXED,
-        "settings": {
-            "auth": "password",
-            "accounts": ctx.proxy_inbound_accounts,
-            "allowTransparent": True,
-            "udp": True,
-            "ip": "127.0.0.1",
-        },
-        "sniffing": SNIFFING,
-    }
     # Build outbounds list
     outbounds: list[dict] = []
 
@@ -224,14 +135,14 @@ def build_hub_config(ctx: HubContext) -> dict:
             "streamSettings": {
                 "network": XrayNetwork.XHTTP,
                 "security": XraySecurity.REALITY,
-                "xhttpSettings": _xhttp_settings(ob.xhttp_host, ob.xhttp_path),
+                "xhttpSettings": make_xhttp_settings(ob.xhttp_host, ob.xhttp_path),
                 "realitySettings": {
                     "publicKey": ob.public_key,
                     "fingerprint": ob.fingerprint,
                     "serverName": ob.server_name,
                     "shortId": ob.short_id,
                 },
-                "sockopt": make_sockopt(ctx.ipv6),
+                "sockopt": make_sockopt(shared.ipv6),
             },
         }
 
@@ -250,94 +161,21 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _warp_outbound(ctx.ipv6),
+            _warp_outbound(shared.ipv6),
         ]
     )
 
-    inbounds: list[dict] = [direct_inbound]
-    if ctx.cdn_xhttp_host and ctx.cdn_xhttp_path:
-        inbounds.append(
-            {
-                "tag": "cdn-xhttp",
-                "listen": Socket.VLESS_TLS,
-                "protocol": XrayProtocol.VLESS,
-                "settings": {
-                    "clients": ctx.cdn_clients,
-                    "decryption": ctx.decryption,
-                },
-                "streamSettings": {
-                    "network": XrayNetwork.XHTTP,
-                    "security": XraySecurity.NONE,
-                    "xhttpSettings": _xhttp_settings(ctx.cdn_xhttp_host, ctx.cdn_xhttp_path, cdn=True),
-                    "sockopt": make_inbound_sockopt(ctx.ipv6, ctx.trusted_forwarded_headers),
-                },
-                "sniffing": SNIFFING,
-            }
-        )
-    if ctx.proxy_inbound:
-        inbounds.append(proxy_inbound)
-
-    if ctx.xdns is not None and ctx.xdns_clients:
-        inbounds.append(
-            {
-                "tag": "xdns",
-                "listen": "0.0.0.0",  # noqa: S104
-                "port": ctx.xdns.port,
-                "protocol": XrayProtocol.VLESS,
-                "settings": {
-                    "clients": ctx.xdns_clients,
-                    "decryption": ctx.decryption,
-                },
-                "streamSettings": {
-                    "network": XrayNetwork.MKCP,
-                    "kcpSettings": MKCP_SETTINGS_XDNS,
-                    "finalmask": {
-                        "udp": [
-                            {
-                                "type": "xdns",
-                                "settings": {
-                                    "domains": ctx.xdns.domains,
-                                },
-                            },
-                        ],
-                    },
-                    "sockopt": make_sockopt(ctx.ipv6),
-                },
-                "sniffing": SNIFFING,
-            }
-        )
-
-    if ctx.wireguard is not None and ctx.wireguard_peers:
-        inbounds.append(
-            {
-                "tag": "wireguard-in",
-                "listen": "0.0.0.0",  # noqa: S104
-                "port": ctx.wireguard.port,
-                "protocol": XrayProtocol.WIREGUARD,
-                "settings": {
-                    "secretKey": x25519_urlsafe_to_std(ctx.reality_private_key),
-                    "mtu": ctx.wireguard.mtu,
-                    "peers": ctx.wireguard_peers,
-                },
-                "sniffing": SNIFFING,
-            }
-        )
-
     config: dict = {
         "log": LOG,
+        "inbounds": inbounds,
+        "outbounds": outbounds,
+        "routing": {
+            "domainStrategy": "IPIfNonMatch",
+            "balancers": ctx.balancers,
+            "rules": ctx.routing_rules,
+        },
+        "dns": make_dns(shared.dns_address, shared.dns_port),
     }
-    config.update(
-        {
-            "inbounds": inbounds,
-            "outbounds": outbounds,
-            "routing": {
-                "domainStrategy": "IPIfNonMatch",
-                "balancers": ctx.balancers,
-                "rules": ctx.routing_rules,
-            },
-            "dns": make_dns(ctx.dns_address, ctx.dns_port),
-        }
-    )
 
     if ctx.observatory_selectors:
         config["burstObservatory"] = {
@@ -356,11 +194,11 @@ def build_hub_config(ctx: HubContext) -> dict:
 
 
 def serialize_config(config: dict, compact: bool = True) -> bytes:
-    raw = orjson.dumps(config, option=orjson.OPT_INDENT_2 | orjson.OPT_NON_STR_KEYS).decode()
+    raw = json.dumps(config, indent=2, ensure_ascii=False)
     if not compact:
         return (raw + "\n").encode()
     # Collapse arrays whose items are all simple scalars (strings/numbers/booleans)
-    # that orjson expanded across multiple lines back to single line.
+    # that json.dumps(indent=2) expanded across multiple lines back to a single line.
     scalar = r'(?:"[^"]*"|-?\d+(?:\.\d+)?|true|false|null)'
 
     def _collapse(m: re.Match) -> str:

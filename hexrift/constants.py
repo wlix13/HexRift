@@ -1,6 +1,26 @@
 """Centralized constants and enums for HexRift."""
 
+import re
 from enum import StrEnum
+
+
+HTTP_HEADER_TOKEN_RE = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+"""RFC 9110 token (field-name) syntax: tchar+."""
+
+DURATION_PATTERN = r"^\d+(ms|s|m|h)$"
+"""Duration string: integer + ms/s/m/h unit (e.g. `15s`, `600s`)."""
+
+RTT_PATTERN = r"^\d+(ms|s)$"
+"""Round-trip-time string: integer + ms/s unit (e.g. `750ms`)."""
+
+IDENTIFIER_PATTERN = r"^[A-Za-z0-9_-]+$"
+"""Safe identifier charset for ids, usernames, labels, guests."""
+
+DNS_NAME_PATTERN = r"^[A-Za-z0-9_.-]+$"
+"""DNS-name charset for namespace, hostnames, and domains."""
+
+SHORT_ID_PATTERN = r"^[0-9a-fA-F]*$"
+"""Reality shortId: hex digits only."""
 
 
 class RegionType(StrEnum):
@@ -23,6 +43,30 @@ class LbRole(StrEnum):
     """Load balancer node roles."""
 
     BACKUP = "backup"
+
+
+class LbStrategy(StrEnum):
+    """Load balancer selection strategies."""
+
+    RANDOM = "random"
+    ROUND_ROBIN = "roundRobin"
+    LEAST_PING = "leastPing"
+    LEAST_LOAD = "leastLoad"
+
+
+class TlsFingerprint(StrEnum):
+    """uTLS client fingerprints."""
+
+    CHROME = "chrome"
+    FIREFOX = "firefox"
+    SAFARI = "safari"
+    IOS = "ios"
+    ANDROID = "android"
+    EDGE = "edge"
+    FP_360 = "360"
+    QQ = "qq"
+    RANDOM = "random"
+    RANDOMIZED = "randomized"
 
 
 class XrayProtocol(StrEnum):

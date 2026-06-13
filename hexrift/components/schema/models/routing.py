@@ -1,12 +1,14 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from hexrift.components.schema.models.fields import NonBlankList
+
 
 class ExitRoute(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     destination: str
-    domains: list[str] | None = None
-    ips: list[str] | None = None
+    domains: NonBlankList | None = None
+    ips: NonBlankList | None = None
 
     @model_validator(mode="after")
     def validate_matchers(self):
@@ -19,8 +21,8 @@ class HubRoute(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     destination: str
-    domains: list[str] | None = None
-    ips: list[str] | None = None
+    domains: NonBlankList | None = None
+    ips: NonBlankList | None = None
     users: list[str] | None = None
     proxy_users: list[str] | None = None
 

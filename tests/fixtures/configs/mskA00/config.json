@@ -186,6 +186,29 @@
       }
     },
     {
+      "tag": "mixed-inbound",
+      "listen": "0.0.0.0",
+      "port": 80,
+      "protocol": "mixed",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "alice",
+            "pass": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6"
+          }
+        ],
+        "allowTransparent": true,
+        "udp": true,
+        "ip": "127.0.0.1"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": true
+      }
+    },
+    {
       "tag": "xdns",
       "listen": "0.0.0.0",
       "port": 53,
