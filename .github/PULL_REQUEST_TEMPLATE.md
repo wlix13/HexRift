@@ -1,17 +1,23 @@
-## Pull request type
+<!--
+PR TITLE: write a short, meaningful summary of the change as a whole, in the
+imperative mood - don't leave the auto-filled first-commit message. Examples:
+  * Add Trojan inbound type
+  * Improve CI/CD caching and test matrix
+  * Fix shortId collision in identity derivation
+Individual commits should still follow Conventional Commits (see CONTRIBUTING.md);
+on merge/rebase those commits drive the release changelog.
+-->
 
-<!-- Please check ONE that best describes this PR -->
+## Type of change
 
-- [ ] **Bug fix** (fixes an issue in config generation or CLI behavior)
-- [ ] **New feature** (adds new generation capability or CLI command)
+<!-- Please check all that apply - this drives the PR's type labels. -->
+
+- [ ] **Bug fix** (fixes an issue in config generation or CLI behaviour)
+- [ ] **Feature** (adds new generation capability or CLI command)
 - [ ] **Enhancement** (improves existing generation logic or output)
-- [ ] **Core** (changes to the Component/Controller framework or app structure)
-- [ ] **Templates** (updates to Xray or HAProxy Jinja2 templates)
-- [ ] **Schema** (changes to topology YAML models or validation)
-- [ ] **Documentation** (updates to guides or configuration docs)
-- [ ] **Security** (security-related improvements)
-- [ ] **Dependencies** (updates to dependencies)
-- [ ] **CI/CD** (changes to workflows or automation)
+- [ ] **Refactor** (restructures code without changing behaviour)
+- [ ] **Breaking change** (changes existing configs, CLI usage, or generated output)
+- [ ] **Security** (security-related fix or hardening)
 
 ## Description
 

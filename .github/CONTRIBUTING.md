@@ -102,3 +102,23 @@ Here's a few examples of good commit messages:
 - `fix(alerting): Remove bad parameter from Slack alerting provider`
 - `test(security): Add tests for basic auth with bcrypt`
 - `docs: Add paragraph on running the application locally`
+
+## Pull requests
+
+The **pull request title** should be a short, meaningful summary of the change as a
+whole, written in the imperative mood. GitHub pre-fills it with your first commit
+message — please replace that with something descriptive. Examples:
+
+- `Add Trojan inbound type`
+- `Improve CI/CD caching and test matrix`
+- `Fix shortId collision in identity derivation`
+
+A good title reads cleanly in the PR list and the project history. The individual
+**commits** inside the PR still follow Conventional Commits (see [Commits](#commits));
+because PRs are merged with a merge/rebase strategy, those commit messages — not the
+title — drive the release changelog, so the title itself does not need a `type:` prefix.
+
+PRs are labelled automatically from the files they touch (e.g. `inbounds`, `render`,
+`ci-cd`, `docs`) and from the **Type of change** checklist in the PR template — tick the
+boxes that apply and the matching `feature` / `bug` / `enhancement` / `refactor` /
+`breaking-change` / `security` label is added. Dependabot PRs are labelled `dependencies`.

@@ -9,7 +9,7 @@
 
 - name: "enhancement"
   description: "Improvement to existing functionality"
-  color: "a2eeef"
+  color: "0e8a16"
 
 - name: "docs"
   description: "Documentation updates"
@@ -26,6 +26,26 @@
 - name: "schema"
   description: "Topology YAML models or validation"
   color: "1d76db"
+
+- name: "derive"
+  description: "Deterministic identity, defaults, topology & WireGuard derivation"
+  color: "fbca04"
+
+- name: "keys"
+  description: "Keypair generation, storage & reality keys"
+  color: "d4c5f9"
+
+- name: "render"
+  description: "Xray JSON & HAProxy config rendering"
+  color: "bfd4f2"
+
+- name: "inbounds"
+  description: "Inbound specs (xhttp, cdn, proxy, xdns, wireguard)"
+  color: "5319e7"
+
+- name: "shared"
+  description: "Shared crypto, files & template helpers"
+  color: "bfdadc"
 
 - name: "security"
   description: "Security-related changes"
@@ -55,6 +75,10 @@
   description: "Changes to dependencies"
   color: "a569bd"
 
+- name: "automated"
+  description: "Automated changes (bots, scheduled workflows)"
+  color: "ededed"
+
 # PR Labels
 - name: "duplicate"
   description: "This issue or PR already exists"
@@ -67,7 +91,3 @@
 - name: "wontfix"
   description: "This will not be worked on"
   color: "ffffff"
-
-- name: "skip-changelog"
-  description: "Exclude from changelog"
-  color: "d4c5f9"
