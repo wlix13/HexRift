@@ -2,14 +2,15 @@ import ipaddress
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from hexrift.components.schema.models.fields import DnsName
 from hexrift.constants import DEFAULT_TRUSTED_HEADER, HTTP_HEADER_TOKEN_RE
 
 
 class CdnConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    exit_domain: str
-    hub_domain: str
+    exit_domain: DnsName
+    hub_domain: DnsName
     trusted_forwarded_headers: list[str] = Field(default_factory=lambda: [DEFAULT_TRUSTED_HEADER])
 
     @field_validator("trusted_forwarded_headers")
@@ -42,7 +43,7 @@ class DnsServerConfig(BaseModel):
 class GlobalConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    namespace: str
-    aphelion_domain: str
+    namespace: DnsName
+    aphelion_domain: DnsName
     cdn: CdnConfig | None = None
     dns: DnsServerConfig = Field(default_factory=DnsServerConfig)

@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
+
+from hexrift.components.schema.models.fields import DnsName, HostPort, NonBlankList, XrayPath
 
 
 class RealityFallbackLimits(BaseModel):
@@ -20,18 +22,8 @@ class RealityFallbackLimits(BaseModel):
 class RealityConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    dest: str
-    server_names: list[str] | None = Field(default=None, min_length=1)
-    xhttp_host: str | None = None
-    xhttp_path: str
+    dest: HostPort
+    server_names: NonBlankList | None = Field(default=None, min_length=1)
+    xhttp_host: DnsName | None = None
+    xhttp_path: XrayPath
     fallback_limits: RealityFallbackLimits = Field(default_factory=RealityFallbackLimits)
-
-    @field_validator("server_names")
-    @classmethod
-    def validate_server_names(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        stripped = [name.strip() for name in v]
-        if any(not name for name in stripped):
-            raise ValueError("server_names entries must be non-empty")
-        return stripped

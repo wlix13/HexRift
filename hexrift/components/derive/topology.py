@@ -6,7 +6,7 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.regions import LeastLoadSettings, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
-from hexrift.constants import LbRole, RegionType, SpecialDestination, TagPrefix, TagSuffix
+from hexrift.constants import LbRole, LbStrategy, RegionType, SpecialDestination, TagPrefix, TagSuffix
 from hexrift.errors import DeriveError
 
 
@@ -34,7 +34,7 @@ def _build_strategy(region: Region) -> dict:
     """Build strategy for balancer with leastLoad settings when applicable."""
 
     strategy: dict = {"type": region.lb_strategy}
-    if region.lb_strategy == "leastLoad":
+    if region.lb_strategy == LbStrategy.LEAST_LOAD:
         s = region.lb_least_load or LeastLoadSettings()
         strategy["settings"] = s.xray_settings
     return strategy

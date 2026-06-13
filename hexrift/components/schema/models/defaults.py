@@ -1,16 +1,17 @@
 from pydantic import BaseModel, ConfigDict, Field
 
+from hexrift.components.schema.models.fields import Duration
 from hexrift.components.schema.models.regions import WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.constants import AuthMethod
+from hexrift.constants import AuthMethod, HandshakeMethod, TlsFingerprint
 
 
 class ObservatoryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sampling: int = Field(default=8, ge=1, le=24)
-    interval: str = Field(default="15s", pattern=r"^\d+(ms|s|m|h)$")
-    timeout: str = Field(default="5s", pattern=r"^\d+(ms|s|m|h)$")
+    interval: Duration = "15s"
+    timeout: Duration = "5s"
     concurrency: bool = True
 
 
@@ -19,7 +20,7 @@ class KeysConfig(BaseModel):
 
     enabled: bool = True
     mode: str
-    session_time: str
+    session_time: Duration
     auth: AuthMethod = AuthMethod.MLKEM768
     padding: str | None = None
 
@@ -27,8 +28,8 @@ class KeysConfig(BaseModel):
 class ExitConnectionsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    method: str
-    fingerprint: str = "edge"
+    method: HandshakeMethod
+    fingerprint: TlsFingerprint = TlsFingerprint.EDGE
 
 
 class ExitDefaults(BaseModel):
