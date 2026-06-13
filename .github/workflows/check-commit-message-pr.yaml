@@ -8,15 +8,21 @@ on:
       - reopened
       - synchronize
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check-commit-message:
     name: 🔍 Check commit message in PR
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Check for fixup commits
         uses: gsactions/commit-message-checker@v2

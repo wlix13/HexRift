@@ -5,11 +5,15 @@ on:
     paths:
       - "hexrift/components/schema/schema.json"
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: 🚫 Block manual schema.json edits
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Fail — schema.json must not be edited manually
         run: |
