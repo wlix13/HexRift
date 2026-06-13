@@ -32,9 +32,9 @@ docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
 tests = [ "pytest", "pytest-cov", "pytest-sugar" ]
 
 [tool.hatch]
-build.targets.wheel.packages = [ "hexrift" ]
-metadata.allow-direct-references = true
 version.path = "hexrift/__init__.py"
+metadata.allow-direct-references = true
+build.targets.wheel.packages = [ "hexrift" ]
 
 [tool.ruff]
 line-length = 120
@@ -51,9 +51,9 @@ environment.root = [ "." ]
 ini_options.testpaths = [ "tests" ]
 ini_options.addopts = "-ra -q --tb=short"
 ini_options.markers = [
-  "unit: pure unit tests, no I/O",
   "component: controller-level tests with tmp_path",
   "integration: full pipeline against real topology",
+  "unit: pure unit tests, no I/O",
 ]
 
 [tool.poe]
