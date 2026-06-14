@@ -1,0 +1,26 @@
+# Changelog
+
+## [0.9.0](https://github.com/wlix13/HexRift/compare/v0.8.0...v0.9.0) (2026-06-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **render:** rename command `portal-gen` to `gen-portal`
+* topology.yaml no longer accepts `mtproto`; configs that set it will fail schema validation. Remove all mtproto keys before upgrading.
+
+### Features
+
+* **constants:** add new constants and patterns; refactor schema models ([012d85a](https://github.com/wlix13/HexRift/commit/012d85a1fc2ad9f5520a8d54f9a1536f05983795))
+* **docs:** add documentation for WireGuard and XDNS support ([8c30615](https://github.com/wlix13/HexRift/commit/8c30615afdff2de6204e5fba4f16fc22a810ae13))
+* **inbounds:** introduce inbound spec base, registry, and modules ([a8a65b6](https://github.com/wlix13/HexRift/commit/a8a65b6f3c846db8d88792cfe21eb8d440b580d4))
+
+
+### Documentation
+
+* **readme:** add Codecov coverage badge ([cee2e46](https://github.com/wlix13/HexRift/commit/cee2e4617271cf05d09c552997104de48653ef3a))
+
+
+### Code Refactoring
+
+* remove mtproto support ([d91ab0b](https://github.com/wlix13/HexRift/commit/d91ab0b6249d3884b0623ef32bb9e5d266dc7118))
+* **render:** consolidate render pipeline and drop context module ([baf32ed](https://github.com/wlix13/HexRift/commit/baf32ed41d533658af0497faee1e1d6a6251259d))
