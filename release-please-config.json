@@ -6,6 +6,7 @@
   "bump-patch-for-minor-pre-major": true,
   "packages": {
     ".": {
+      "draft": true,
       "extra-files": [
         {
           "type": "generic",
