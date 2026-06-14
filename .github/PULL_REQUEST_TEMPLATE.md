@@ -45,8 +45,3 @@ on merge/rebase those commits drive the release changelog.
 - [ ] Self-review completed
 - [ ] Linter and type checker pass (`uv run ruff check .` and `uv run ty check`)
 - [ ] Documentation updated (if applicable)
-
-### Version Bumping
-
-<!-- If changing generation behavior or CLI behavior don't forget to bump all version -->
-- [ ] Version bumped in `__init__.py`

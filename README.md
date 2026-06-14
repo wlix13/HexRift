@@ -9,6 +9,9 @@
 
 Config generator for the **Conglomerate** distributed proxy network. Takes a topology definition and produces Xray JSON configs and HAProxy configs for every node. Hub nodes additionally support WireGuard and XDNS inbounds.
 
+> [!WARNING]
+> **HexRift is in active development.** Until the `v1.0.0` release, the CLI, topology schema, and generated config output may change at any time — breaking changes can land in **any** release, including patch versions. Pin an exact version (e.g. `hexrift==0.8.0`) and check the [release notes](https://github.com/wlix13/HexRift/releases) before upgrading.
+
 ## Installation
 
 ```bash
