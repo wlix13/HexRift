@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from hexrift.constants import DEFAULT_TRUSTED_HEADER
+
 
 LOG = {
     "loglevel": "none",
@@ -58,5 +60,5 @@ def make_sockopt(ipv6: bool) -> dict:
 def make_inbound_sockopt(ipv6: bool, trusted_headers: list[str]) -> dict:
     return {
         **make_sockopt(ipv6),
-        **({"trustedXForwardedFor": trusted_headers} if trusted_headers else {}),
+        "trustedXForwardedFor": trusted_headers or [DEFAULT_TRUSTED_HEADER],
     }
