@@ -303,6 +303,21 @@ class TestBuildHubRoutingRules:
         assert last["network"] == "TCP,UDP"
         assert "outboundTag" in last or "balancerTag" in last
 
+    def test_default_rule_special_destination_direct(self):
+        cfg = _make_cfg(hub_default="direct")
+        rules = build_hub_routing_rules(cfg)
+        assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
+
+    def test_all_in_one_no_exit_regions(self):
+        d = _minimal_cfg_dict()
+        # Drop exit regions: all-in-one hub egresses everything itself
+        d["regions"] = [r for r in d["regions"] if r["type"] == "hub"]
+        d["routing"]["hub_default"] = "direct"
+        cfg = ConglomerateConfig.model_validate(d)
+        rules = build_hub_routing_rules(cfg)
+        assert [r for r in rules if "vlessRoute" in r] == []
+        assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
+
 
 class TestBuildBalancers:
     def test_empty_when_no_lb_strategy(self):

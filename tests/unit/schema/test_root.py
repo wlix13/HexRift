@@ -214,6 +214,23 @@ def test_hub_default_not_valid_region():
         ConglomerateConfig.model_validate(d)
 
 
+def test_hub_default_direct_valid():
+    d = copy.deepcopy(_valid_config())
+    d["routing"]["hub_default"] = "direct"
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.routing.hub_default == "direct"
+
+
+def test_all_in_one_hub_only_no_exit_regions_valid():
+    d = copy.deepcopy(_valid_config())
+    # All-in-one: only a hub region, everything egresses direct, no exits.
+    d["regions"] = [r for r in d["regions"] if r["type"] == "hub"]
+    d["routing"]["hub_default"] = "direct"
+    cfg = ConglomerateConfig.model_validate(d)
+    assert [r.id for r in cfg.regions] == ["hub1"]
+    assert cfg.routing.hub_default == "direct"
+
+
 def test_exit_routes_global_invalid_destination():
     d = copy.deepcopy(_valid_config())
     d["routing"]["exit_routes_global"] = [
