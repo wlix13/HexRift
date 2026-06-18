@@ -1,0 +1,15 @@
+#---------------------------------------------------------------------
+#  HAProxy DISABLED for this node.
+#  Xray binds :443 directly.
+#  This is a no-op config: nothing is bound, so managed HAProxy
+#  service starts cleanly without conflicting with Xray on :443.
+#---------------------------------------------------------------------
+global
+  log /dev/log local0
+  daemon
+  maxconn 20000
+
+defaults
+  timeout connect 5s
+  timeout client  3600s
+  timeout server  3600s

@@ -20,6 +20,9 @@ def _safe_header(headers: list[str]) -> str:
 
 
 def render_haproxy(ctx: ExitContext | HubContext) -> str:
+    if not ctx.shared.haproxy:
+        return jinja_env("haproxy").get_template("haproxy_disabled.cfg.j2").render()
+
     node_type = RegionType.HUB if isinstance(ctx, HubContext) else RegionType.EXIT
     cdn = CDN_SPEC.narrow(ctx.slots)
     template = jinja_env("haproxy").get_template("haproxy.cfg.j2")

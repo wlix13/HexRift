@@ -36,6 +36,7 @@ class ExitDefaults(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ipv6: bool
+    haproxy: bool = True
     keys: KeysConfig
 
 
@@ -44,6 +45,7 @@ class HubDefaults(BaseModel):
 
     proxy_inbound: bool = False
     ipv6: bool
+    haproxy: bool = True
     keys: KeysConfig
     exit_connections: ExitConnectionsConfig
     reality: RealityConfig

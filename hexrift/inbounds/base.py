@@ -32,6 +32,7 @@ class SharedContext:
     dns_address: str
     dns_port: int
     trusted_forwarded_headers: list[str]
+    haproxy: bool
 
 
 @dataclass(frozen=True)

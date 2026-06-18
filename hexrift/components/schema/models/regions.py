@@ -106,6 +106,7 @@ class Node(BaseModel):
     id: Identifier
     hostname: DnsName
     ipv6: bool | None = None
+    haproxy: bool | None = None
     lb_role: LbRole | None = None
     reality: RealityConfig | None = None
     keys: NodeKeysOverride | None = None

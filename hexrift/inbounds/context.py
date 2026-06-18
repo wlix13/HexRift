@@ -8,6 +8,7 @@ from hexrift.components.derive.defaults import (
     derive_server_names,
     derive_xhttp_host,
     resolve_exit_connections,
+    resolve_node_haproxy,
     resolve_node_ipv6,
     resolve_node_reality,
 )
@@ -78,6 +79,7 @@ def _make_shared(config: ConglomerateConfig, region: Region, node: Node, node_ke
         dns_address=config.global_.dns.address,
         dns_port=config.global_.dns.port,
         trusted_forwarded_headers=config.global_.cdn.trusted_forwarded_headers if config.global_.cdn else [],
+        haproxy=resolve_node_haproxy(node, region, config.defaults),
     )
 
 
