@@ -77,6 +77,13 @@ hexrift share alice --all-guests --bare | clip
 hexrift share alice --wg
 ```
 
+## Topology options
+
+Beyond the basic hub/exit split:
+
+- **HAProxy-less nodes** - by default every node runs HAProxy on `:443` in front of Xray. Set `haproxy: false` to drop HAProxy and have Xray's Reality inbound bind `0.0.0.0:443` (or `[::]:443` when ipv6 is supported) directly. `build --haproxy` then emits a no-op stub `haproxy.cfg` so managed HAProxy service stays up without touching `:443`. CDN (`cdn_xhttp_path`) needs HAProxy TLS termination and cannot be combined with `haproxy: false`.
+- **All-in-one node** - set `routing.hub_default: direct` to make a hub egress everything itself (`direct` outbound) instead of routing to exit region. This allows topology with hub node(s) and **no exit regions** - single node clients connect to that proxies straight to the internet. `hub_routes` still apply for per-domain/user exceptions.
+
 ## Architecture
 
 ```bash
@@ -89,9 +96,9 @@ hexrift/
     render/     # Xray config builder + HAProxy Jinja2 templates
   core/         # BaseApplication / Component / Controller framework
   shared/       # Cross-component helpers (crypto encoding, Xray/xhttp constants)
-  templates/
-    haproxy/    # haproxy.cfg.j2
-    wireguard/  # client.conf.j2
+  templates/    # Jinja2 stubs
+    haproxy/
+    wireguard/
 ```
 
 ### Derivation
