@@ -98,3 +98,26 @@ class TestHubHaproxy:
     def test_ends_with_newline(self):
         result = render_haproxy(_hub_ctx())
         assert result.endswith("\n")
+
+
+class TestDisabledHaproxy:
+    def test_exit_direct_bind_returns_stub(self):
+        result = render_haproxy(_exit_ctx(shared=make_shared(haproxy=False)))
+        assert "DISABLED" in result
+        assert "frontend" not in result
+        assert "backend" not in result
+        assert "bind *:443" not in result
+
+    def test_hub_direct_bind_returns_stub(self):
+        result = render_haproxy(_hub_ctx(shared=make_shared(haproxy=False)))
+        assert "DISABLED" in result
+        assert "frontend" not in result
+
+    def test_stub_has_global_and_defaults(self):
+        result = render_haproxy(_exit_ctx(shared=make_shared(haproxy=False)))
+        assert "\nglobal\n" in result
+        assert "\ndefaults\n" in result
+
+    def test_stub_ends_with_newline(self):
+        result = render_haproxy(_exit_ctx(shared=make_shared(haproxy=False)))
+        assert result.endswith("\n")

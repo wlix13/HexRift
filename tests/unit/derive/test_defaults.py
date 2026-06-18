@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from hexrift.components.derive.defaults import (
     derive_server_names,
     derive_xhttp_host,
+    resolve_node_haproxy,
     resolve_node_ipv6,
     resolve_node_reality,
 )
@@ -120,6 +121,47 @@ class TestResolveNodeIpv6:
         node = Node(id="n", hostname="h")
         # defaults().hub.ipv6 = False
         assert resolve_node_ipv6(node, _hub_region(), _defaults()) is False
+
+
+class TestResolveNodeHaproxy:
+    def test_node_override_false(self):
+        node = Node(id="n", hostname="h", haproxy=False)
+        assert resolve_node_haproxy(node, _exit_region(), _defaults()) is False
+
+    def test_node_override_true_beats_default(self):
+        defaults = DefaultsConfig(
+            exit=ExitDefaults(ipv6=True, haproxy=False, keys=_EXIT_KEYS),
+            hub=HubDefaults(
+                ipv6=False,
+                keys=_HUB_KEYS,
+                exit_connections=_EXIT_CONNS,
+                reality=_HUB_REALITY,
+                observatory=ObservatoryConfig(),
+            ),
+        )
+        node = Node(id="n", hostname="h", haproxy=True)
+        assert resolve_node_haproxy(node, _exit_region(), defaults) is True
+
+    def test_default_true_when_none(self):
+        node = Node(id="n", hostname="h")
+        assert resolve_node_haproxy(node, _exit_region(), _defaults()) is True
+        assert resolve_node_haproxy(node, _hub_region(), _defaults()) is True
+
+    def test_exit_default_false_honored(self):
+        defaults = DefaultsConfig(
+            exit=ExitDefaults(ipv6=True, haproxy=False, keys=_EXIT_KEYS),
+            hub=HubDefaults(
+                ipv6=False,
+                keys=_HUB_KEYS,
+                exit_connections=_EXIT_CONNS,
+                reality=_HUB_REALITY,
+                observatory=ObservatoryConfig(),
+            ),
+        )
+        node = Node(id="n", hostname="h")
+        assert resolve_node_haproxy(node, _exit_region(), defaults) is False
+        # hub default still True
+        assert resolve_node_haproxy(node, _hub_region(), defaults) is True
 
 
 class TestDeriveServerNames:

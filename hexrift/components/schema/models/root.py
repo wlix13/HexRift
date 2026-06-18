@@ -40,6 +40,20 @@ class ConglomerateConfig(BaseModel):
                 if node.id in node_ids:
                     raise ValueError(f"Duplicate node id: {node.id!r}")
                 node_ids.add(node.id)
+                # CDN inbound requires HAProxy TLS termination
+                if self.global_.cdn and region.cdn_xhttp_path:
+                    eff_haproxy = (
+                        node.haproxy
+                        if node.haproxy is not None
+                        else (
+                            self.defaults.exit.haproxy if region.type == RegionType.EXIT else self.defaults.hub.haproxy
+                        )
+                    )
+                    if not eff_haproxy:
+                        raise ValueError(
+                            f"Node {node.id!r} disables haproxy but region {region.id!r} enables CDN"
+                            " (cdn_xhttp_path); CDN requires HAProxy TLS termination"
+                        )
             if region.type == RegionType.EXIT:
                 if region.vless_route is None:
                     raise ValueError(f"Exit region {region.id!r} must have vless_route")
@@ -92,10 +106,10 @@ class ConglomerateConfig(BaseModel):
             if user.group not in group_ids:
                 raise ValueError(f"User {user.username!r} references unknown group {user.group!r}")
 
-        # hub_default references valid region
+        # hub_default references valid region or special destination
         hub_default = self.routing.hub_default
-        if hub_default not in region_ids:
-            raise ValueError(f"hub_default {hub_default!r} is not a known region")
+        if hub_default not in (region_ids | SPECIAL_DESTINATIONS):
+            raise ValueError(f"hub_default {hub_default!r} is not a known region or special destination")
 
         # exit_routes_global destinations
         for route in self.routing.exit_routes_global:

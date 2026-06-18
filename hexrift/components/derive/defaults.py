@@ -30,6 +30,12 @@ def resolve_node_ipv6(node: Node, region: Region, defaults: DefaultsConfig) -> b
     return defaults.exit.ipv6 if region.type == RegionType.EXIT else defaults.hub.ipv6
 
 
+def resolve_node_haproxy(node: Node, region: Region, defaults: DefaultsConfig) -> bool:
+    if node.haproxy is not None:
+        return node.haproxy
+    return defaults.exit.haproxy if region.type == RegionType.EXIT else defaults.hub.haproxy
+
+
 def resolve_exit_connections(node: Node, defaults: DefaultsConfig) -> ExitConnectionsConfig:
     base = defaults.hub.exit_connections
     if node.exit_connections is None:

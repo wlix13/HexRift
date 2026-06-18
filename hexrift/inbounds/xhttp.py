@@ -140,33 +140,43 @@ class XhttpSpec(InboundSpec[XhttpContext]):
         )
 
     def fragment(self, ctx: XhttpContext, shared: SharedContext) -> dict:
-        return {
+        fragment: dict = {
             "tag": "direct-xhttp",
-            "listen": Socket.VLESS_REALITY,
-            "protocol": XrayProtocol.VLESS,
-            "settings": {
-                "clients": ctx.clients,
-                "decryption": shared.decryption,
-            },
-            "streamSettings": {
-                "network": XrayNetwork.XHTTP,
-                "security": XraySecurity.REALITY,
-                "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path),
-                "realitySettings": {
-                    "xver": 0,
-                    "show": False,
-                    "maxTimeDiff": 60000,
-                    "dest": ctx.dest,
-                    "serverNames": ctx.server_names,
-                    "privateKey": ctx.private_key,
-                    "shortIds": ctx.short_ids,
-                    "limitFallbackUpload": ctx.fallback_limits.xray_settings,
-                    "limitFallbackDownload": ctx.fallback_limits.xray_settings,
-                },
-                "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
-            },
-            "sniffing": SNIFFING,
         }
+        if shared.haproxy:
+            fragment["listen"] = Socket.VLESS_REALITY
+        else:
+            # Xray binds only IPv4 if `0.0.0.0`, dualstack if `::` (if no ipv6Only sockopt)
+            fragment["listen"] = "::" if shared.ipv6 else "0.0.0.0"  # noqa: S104
+            fragment["port"] = 443
+        fragment.update(
+            {
+                "protocol": XrayProtocol.VLESS,
+                "settings": {
+                    "clients": ctx.clients,
+                    "decryption": shared.decryption,
+                },
+                "streamSettings": {
+                    "network": XrayNetwork.XHTTP,
+                    "security": XraySecurity.REALITY,
+                    "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path),
+                    "realitySettings": {
+                        "xver": 0,
+                        "show": False,
+                        "maxTimeDiff": 60000,
+                        "dest": ctx.dest,
+                        "serverNames": ctx.server_names,
+                        "privateKey": ctx.private_key,
+                        "shortIds": ctx.short_ids,
+                        "limitFallbackUpload": ctx.fallback_limits.xray_settings,
+                        "limitFallbackDownload": ctx.fallback_limits.xray_settings,
+                    },
+                    "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
+                },
+                "sniffing": SNIFFING,
+            }
+        )
+        return fragment
 
 
 XHTTP_SPEC = XhttpSpec()

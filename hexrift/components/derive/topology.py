@@ -6,7 +6,15 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.regions import LeastLoadSettings, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
-from hexrift.constants import LbRole, LbStrategy, RegionType, SpecialDestination, TagPrefix, TagSuffix
+from hexrift.constants import (
+    SPECIAL_DESTINATIONS,
+    LbRole,
+    LbStrategy,
+    RegionType,
+    SpecialDestination,
+    TagPrefix,
+    TagSuffix,
+)
 from hexrift.errors import DeriveError
 
 
@@ -150,7 +158,6 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
     users = config.users
 
-    default_region = region_map[routing.hub_default]
     rules: list[dict] = []
 
     # 1. DNS localhost
@@ -260,15 +267,24 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             }
         )
 
-    # 11. Default fallthrough
-    def_tag = region_outbound_tag(default_region)
-    def_key = _balancer_key(default_region)
-    rules.append(
-        {
-            "network": "TCP,UDP",
-            def_key: def_tag,
-        }
-    )
+    # 11. Default fallthrough: region or special destination
+    if routing.hub_default in SPECIAL_DESTINATIONS:
+        rules.append(
+            {
+                "network": "TCP,UDP",
+                "outboundTag": routing.hub_default,
+            }
+        )
+    else:
+        default_region = region_map[routing.hub_default]
+        def_tag = region_outbound_tag(default_region)
+        def_key = _balancer_key(default_region)
+        rules.append(
+            {
+                "network": "TCP,UDP",
+                def_key: def_tag,
+            }
+        )
 
     return rules
 
