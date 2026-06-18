@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.1](https://github.com/wlix13/HexRift/compare/v0.9.0...v0.9.1) (2026-06-18)
+
+
+### Features
+
+* **haproxy:** add support for HAProxy-less topology ([8f43102](https://github.com/wlix13/HexRift/commit/8f431025747841277301cb3b117b3241792b1d05))
+
+
+### Bug Fixes
+
+* **xray_defaults:** set trusted_headers always ([69dec25](https://github.com/wlix13/HexRift/commit/69dec25566c8ecfa2548f3d00c3534caec0c8f0b))
+
+
+### Documentation
+
+* **README:** add paragraph about  HAProxy-less and all-in-one node topologies ([c4534b3](https://github.com/wlix13/HexRift/commit/c4534b36c0d627ee1998532684612caf5c34f085))
+
 ## [0.9.0](https://github.com/wlix13/HexRift/compare/v0.8.0...v0.9.0) (2026-06-14)
 
 
