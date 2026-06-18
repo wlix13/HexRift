@@ -1,4 +1,5 @@
 from hexrift.components.render.xray import build_exit_config, build_hub_config
+from hexrift.constants import Socket
 from tests.unit.render.helpers import default_slots, make_shared, make_wireguard, make_xdns
 from tests.unit.render.helpers import exit_ctx as _exit_ctx
 from tests.unit.render.helpers import hub_ctx as _hub_ctx
@@ -52,6 +53,32 @@ class TestXdnsWireguardInbounds:
         config = build_hub_config(_hub_ctx(slots=default_slots(wireguard=make_wireguard())))
         tags = [ib["tag"] for ib in config["inbounds"]]
         assert "wireguard-in" in tags
+
+
+class TestDirectBindReality:
+    @staticmethod
+    def _reality(config: dict) -> dict:
+        return next(ib for ib in config["inbounds"] if ib["tag"] == "direct-xhttp")
+
+    def test_haproxy_true_uses_unix_socket(self):
+        ib = self._reality(build_exit_config(_exit_ctx(shared=make_shared(haproxy=True))))
+        assert ib["listen"] == Socket.VLESS_REALITY
+        assert "port" not in ib
+
+    def test_haproxy_false_binds_ipv4_443(self):
+        ib = self._reality(build_exit_config(_exit_ctx(shared=make_shared(haproxy=False, ipv6=False))))
+        assert ib["listen"] == "0.0.0.0"  # noqa: S104
+        assert ib["port"] == 443
+
+    def test_haproxy_false_binds_dualstack_when_ipv6(self):
+        ib = self._reality(build_exit_config(_exit_ctx(shared=make_shared(haproxy=False, ipv6=True))))
+        assert ib["listen"] == "::"
+        assert ib["port"] == 443
+
+    def test_hub_direct_bind_binds_443(self):
+        ib = self._reality(build_hub_config(_hub_ctx(shared=make_shared(haproxy=False, ipv6=False))))
+        assert ib["listen"] == "0.0.0.0"  # noqa: S104
+        assert ib["port"] == 443
 
 
 class TestTrustedXForwardedFor:

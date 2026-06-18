@@ -231,6 +231,31 @@ def test_all_in_one_hub_only_no_exit_regions_valid():
     assert cfg.routing.hub_default == "direct"
 
 
+def test_haproxy_disabled_node_without_cdn_valid():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["nodes"][0]["haproxy"] = False
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.regions[0].nodes[0].haproxy is False
+
+
+def test_cdn_with_haproxy_disabled_node_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["global"]["cdn"] = {"exit_domain": "cdn-exit.test.ns", "hub_domain": "cdn-hub.test.ns"}
+    d["regions"][0]["cdn_xhttp_path"] = "/cdn/"
+    d["regions"][0]["nodes"][0]["haproxy"] = False
+    with pytest.raises(ValidationError, match="CDN requires HAProxy"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_cdn_with_haproxy_disabled_via_default_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["global"]["cdn"] = {"exit_domain": "cdn-exit.test.ns", "hub_domain": "cdn-hub.test.ns"}
+    d["defaults"]["exit"]["haproxy"] = False
+    d["regions"][0]["cdn_xhttp_path"] = "/cdn/"
+    with pytest.raises(ValidationError, match="CDN requires HAProxy"):
+        ConglomerateConfig.model_validate(d)
+
+
 def test_exit_routes_global_invalid_destination():
     d = copy.deepcopy(_valid_config())
     d["routing"]["exit_routes_global"] = [
