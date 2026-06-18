@@ -110,6 +110,11 @@
           "title": "Ipv6",
           "type": "boolean"
         },
+        "haproxy": {
+          "default": true,
+          "title": "Haproxy",
+          "type": "boolean"
+        },
         "keys": {
           "$ref": "#/$defs/KeysConfig"
         }
@@ -250,6 +255,11 @@
         },
         "ipv6": {
           "title": "Ipv6",
+          "type": "boolean"
+        },
+        "haproxy": {
+          "default": true,
+          "title": "Haproxy",
           "type": "boolean"
         },
         "keys": {
@@ -495,6 +505,18 @@
           ],
           "default": null,
           "title": "Ipv6"
+        },
+        "haproxy": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Haproxy"
         },
         "lb_role": {
           "anyOf": [
