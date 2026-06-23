@@ -7,7 +7,7 @@ from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType, XrayNetwork, XrayProtocol, XraySecurity
 from hexrift.errors import RenderError
 from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
-from hexrift.shared.xray_defaults import LOG, SNIFFING, make_sockopt
+from hexrift.shared.xray_defaults import LOG, make_sniffing, make_sockopt
 
 
 def build_portal_config(
@@ -54,7 +54,7 @@ def build_portal_config(
                         "encryption": keys.encryption,
                         "reverse": {
                             "tag": "direct",
-                            "sniffing": SNIFFING,
+                            "sniffing": make_sniffing(),
                         },
                     },
                     "streamSettings": {

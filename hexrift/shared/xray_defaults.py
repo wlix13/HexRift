@@ -12,11 +12,13 @@ LOG = {
     "dnsLog": False,
 }
 
-SNIFFING = {
-    "enabled": True,
-    "destOverride": ["http", "tls", "quic"],
-    "routeOnly": True,
-}
+
+def make_sniffing(route_only: bool = True) -> dict:
+    return {
+        "enabled": True,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": route_only,
+    }
 
 
 def make_dns(address: str, port: int) -> dict:
@@ -43,7 +45,7 @@ MKCP_SETTINGS_XDNS: dict = {
 def make_sockopt(ipv6: bool) -> dict:
     return {
         "tproxy": "off",
-        **({"domainStrategy": "UseIPv4"} if not ipv6 else {}),
+        "domainStrategy": "UseIPv6v4" if ipv6 else "UseIPv4",
         "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,

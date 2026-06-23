@@ -24,7 +24,7 @@ from hexrift.constants import (
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_exit_clients, get_hub_access_clients
 from hexrift.shared.xhttp import XHTTP_EXTRA_CDN, make_xhttp_settings
-from hexrift.shared.xray_defaults import SNIFFING, make_inbound_sockopt
+from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
 def get_hub_cdn_clients(
@@ -95,7 +95,7 @@ class CdnSpec(InboundSpec[CdnContext]):
                 "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path, cdn=True),
                 "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
             },
-            "sniffing": SNIFFING,
+            "sniffing": make_sniffing(shared.route_only),
         }
 
 

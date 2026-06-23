@@ -26,7 +26,7 @@ from hexrift.constants import (
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_exit_clients
 from hexrift.shared.xhttp import make_xhttp_settings
-from hexrift.shared.xray_defaults import SNIFFING, make_inbound_sockopt
+from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
 def get_hub_vless_clients(
@@ -173,7 +173,7 @@ class XhttpSpec(InboundSpec[XhttpContext]):
                     },
                     "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
                 },
-                "sniffing": SNIFFING,
+                "sniffing": make_sniffing(shared.route_only),
             }
         )
         return fragment

@@ -65,6 +65,7 @@
         },
         "sockopt": {
           "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
           "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,
@@ -81,7 +82,7 @@
       "sniffing": {
         "enabled": true,
         "destOverride": ["http", "tls", "quic"],
-        "routeOnly": true
+        "routeOnly": false
       }
     },
     {
@@ -129,6 +130,7 @@
         },
         "sockopt": {
           "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
           "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,
@@ -145,7 +147,7 @@
       "sniffing": {
         "enabled": true,
         "destOverride": ["http", "tls", "quic"],
-        "routeOnly": true
+        "routeOnly": false
       }
     }
   ],
@@ -153,7 +155,9 @@
     {
       "tag": "direct",
       "protocol": "freedom",
-      "settings": {}
+      "settings": {
+        "domainStrategy": "UseIPv6v4"
+      }
     },
     {
       "tag": "blocked",
@@ -166,6 +170,7 @@
       "streamSettings": {
         "sockopt": {
           "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
           "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,

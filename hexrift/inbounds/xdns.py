@@ -12,7 +12,7 @@ from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, RegionType, XrayNetwork, XrayProtocol
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_hub_access_clients
-from hexrift.shared.xray_defaults import MKCP_SETTINGS_XDNS, SNIFFING, make_sockopt
+from hexrift.shared.xray_defaults import MKCP_SETTINGS_XDNS, make_sniffing, make_sockopt
 
 
 def resolve_node_xdns(node: Node, defaults: DefaultsConfig) -> XdnsConfig | None:
@@ -76,7 +76,7 @@ class XdnsSpec(InboundSpec[XdnsContext]):
                 },
                 "sockopt": make_sockopt(shared.ipv6),
             },
-            "sniffing": SNIFFING,
+            "sniffing": make_sniffing(shared.route_only),
         }
 
 

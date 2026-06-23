@@ -82,7 +82,9 @@ def build_exit_config(ctx: ExitContext) -> dict:
             {
                 "tag": SpecialDestination.DIRECT,
                 "protocol": XrayProtocol.FREEDOM,
-                "settings": {},
+                "settings": {
+                    "domainStrategy": "UseIPv6v4" if shared.ipv6 else "UseIPv4",
+                },
             },
             {
                 "tag": SpecialDestination.BLOCKED,

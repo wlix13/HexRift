@@ -14,7 +14,7 @@ from hexrift.constants import AccessType, RegionType, XrayProtocol
 from hexrift.errors import DeriveError
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.shared.crypto import x25519_urlsafe_to_std
-from hexrift.shared.xray_defaults import SNIFFING
+from hexrift.shared.xray_defaults import make_sniffing
 
 
 def resolve_node_wireguard(node: Node, defaults: DefaultsConfig) -> WireguardConfig | None:
@@ -108,7 +108,7 @@ class WireguardSpec(InboundSpec[WireguardContext]):
                 "mtu": ctx.config.mtu,
                 "peers": ctx.peers,
             },
-            "sniffing": SNIFFING,
+            "sniffing": make_sniffing(shared.route_only),
         }
 
 
