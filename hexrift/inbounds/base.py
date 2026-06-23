@@ -33,6 +33,7 @@ class SharedContext:
     dns_port: int
     trusted_forwarded_headers: list[str]
     haproxy: bool
+    route_only: bool
 
 
 @dataclass(frozen=True)

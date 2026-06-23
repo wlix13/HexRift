@@ -9,7 +9,7 @@ from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.regions import Node
 from hexrift.constants import AccessType, RegionType, Socket, XrayProtocol
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
-from hexrift.shared.xray_defaults import SNIFFING
+from hexrift.shared.xray_defaults import make_sniffing
 
 
 def resolve_node_proxy_inbound(node: Node, defaults: DefaultsConfig) -> bool:
@@ -65,7 +65,7 @@ class ProxySpec(InboundSpec[ProxyContext]):
                 "udp": True,
                 "ip": "127.0.0.1",
             },
-            "sniffing": SNIFFING,
+            "sniffing": make_sniffing(shared.route_only),
         }
 
 

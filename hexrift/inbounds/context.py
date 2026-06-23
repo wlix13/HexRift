@@ -80,6 +80,7 @@ def _make_shared(config: ConglomerateConfig, region: Region, node: Node, node_ke
         dns_port=config.global_.dns.port,
         trusted_forwarded_headers=config.global_.cdn.trusted_forwarded_headers if config.global_.cdn else [],
         haproxy=resolve_node_haproxy(node, region, config.defaults),
+        route_only=region.type != RegionType.EXIT,
     )
 
 
