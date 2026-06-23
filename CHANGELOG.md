@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.0](https://github.com/wlix13/HexRift/compare/v0.9.1...v0.10.0) (2026-06-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **xray:** routeOnly is now set dynamically based on region type
+
+### Features
+
+* **xray:** replace SNIFFING with dynamic configuration based on region type ([4bb4f95](https://github.com/wlix13/HexRift/commit/4bb4f952fb48c7be83be76760bbf1d330d05c4d3))
+
 ## [0.9.1](https://github.com/wlix13/HexRift/compare/v0.9.0...v0.9.1) (2026-06-18)
 
 
