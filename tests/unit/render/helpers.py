@@ -23,6 +23,7 @@ def make_shared(**overrides: Any) -> SharedContext:
         "dns_port": 53,
         "trusted_forwarded_headers": [],
         "haproxy": True,
+        "route_only": True,
     }
     defaults.update(overrides)
     return SharedContext(**defaults)

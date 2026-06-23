@@ -100,3 +100,6 @@ class TestSharedContext:
 
     def test_trusted_headers_from_cdn(self):
         assert _shared(node_haproxy=True).trusted_forwarded_headers == ["X-Real-IP"]
+
+    def test_exit_route_only_false(self):
+        assert _shared(node_haproxy=None).route_only is False

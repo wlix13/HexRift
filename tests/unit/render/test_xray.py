@@ -33,6 +33,32 @@ class TestDnsPropagation:
         assert config["dns"]["useSystemHosts"] is True
 
 
+class TestExitIpv6Egress:
+    @staticmethod
+    def _direct(config: dict) -> dict:
+        return next(ob for ob in config["outbounds"] if ob["tag"] == "direct")
+
+    def test_exit_direct_prefers_ipv6_on_dualstack(self):
+        config = build_exit_config(_exit_ctx(shared=make_shared(ipv6=True)))
+        assert self._direct(config)["settings"]["domainStrategy"] == "UseIPv6v4"
+
+    def test_exit_direct_forces_ipv4_when_no_ipv6(self):
+        config = build_exit_config(_exit_ctx(shared=make_shared(ipv6=False)))
+        assert self._direct(config)["settings"]["domainStrategy"] == "UseIPv4"
+
+    def test_exit_inbound_route_only_false_overrides_dest(self):
+        # routeOnly:false lets exit re-resolve sniffed domain to pick IPv6
+        config = build_exit_config(_exit_ctx(shared=make_shared(route_only=False)))
+        for ib in config["inbounds"]:
+            assert ib["sniffing"]["routeOnly"] is False
+
+    def test_hub_inbound_keeps_route_only_true(self):
+        # hub must preserve destination for possible MTProto masquerade
+        config = build_hub_config(_hub_ctx(shared=make_shared(route_only=True)))
+        reality_ib = next(ib for ib in config["inbounds"] if ib["tag"] == "direct-xhttp")
+        assert reality_ib["sniffing"]["routeOnly"] is True
+
+
 class TestXdnsWireguardInbounds:
     def test_xdns_inbound_absent_without_slot(self):
         config = build_hub_config(_hub_ctx())
