@@ -21,6 +21,7 @@ from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import (
     LOG,
     make_dns,
+    make_dns_direct_rule,
     make_sockopt,
 )
 
@@ -51,15 +52,11 @@ def build_exit_config(ctx: ExitContext) -> dict:
     shared = ctx.shared
     inbounds = _build_inbounds(RegionType.EXIT, ctx.slots, shared)
 
-    dns_direct_ips = ["127.0.0.1", "::1"]
-    if shared.dns_address not in dns_direct_ips:
-        dns_direct_ips.append(shared.dns_address)
     routing_rules: list[dict] = [
-        {
-            "ip": list(dns_direct_ips),
-            "port": shared.dns_port,
-            "outboundTag": SpecialDestination.DIRECT,
-        },
+        make_dns_direct_rule(
+            shared.dns_address,
+            shared.dns_port,
+        ),
     ]
     routing_rules.extend(ctx.extra_routes)
     routing_rules.append(

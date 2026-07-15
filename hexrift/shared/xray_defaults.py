@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hexrift.constants import DEFAULT_TRUSTED_HEADER
+from hexrift.constants import DEFAULT_TRUSTED_HEADER, SpecialDestination
 
 
 LOG = {
@@ -31,6 +31,17 @@ def make_dns(address: str, port: int) -> dict:
         ],
         "enableParallelQuery": True,
         "useSystemHosts": True,
+    }
+
+
+def make_dns_direct_rule(address: str, port: int) -> dict:
+    ips = ["127.0.0.1", "::1"]
+    if address not in ips:
+        ips.append(address)
+    return {
+        "ip": ips,
+        "port": port,
+        "outboundTag": SpecialDestination.DIRECT,
     }
 
 

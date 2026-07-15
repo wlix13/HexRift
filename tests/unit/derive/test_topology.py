@@ -120,6 +120,17 @@ class TestBuildHubRoutingRules:
         rules = build_hub_routing_rules(cfg)
         assert rules[0] == {"ip": ["127.0.0.1", "::1"], "port": 53, "outboundTag": "direct"}
 
+    def test_dns_rule_covers_custom_dns_server(self):
+        d = _minimal_cfg_dict()
+        d["global"]["dns"] = {"address": "10.0.0.53", "port": 5353}
+        cfg = ConglomerateConfig.model_validate(d)
+        rules = build_hub_routing_rules(cfg)
+        assert rules[0] == {
+            "ip": ["127.0.0.1", "::1", "10.0.0.53"],
+            "port": 5353,
+            "outboundTag": "direct",
+        }
+
     def test_vless_route_rule_per_exit_region(self):
         cfg = _make_cfg()
         rules = build_hub_routing_rules(cfg)
