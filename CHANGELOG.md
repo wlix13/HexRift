@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/wlix13/HexRift/compare/v0.10.0...v0.10.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* **xray:** replace hardcoded DNS rules with dynamic generation ([c7e70a1](https://github.com/wlix13/HexRift/commit/c7e70a1fc189f2cf0025c04726c8fe31e361e055))
+
 ## [0.10.0](https://github.com/wlix13/HexRift/compare/v0.9.1...v0.10.0) (2026-06-23)
 
 
