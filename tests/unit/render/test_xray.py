@@ -22,6 +22,22 @@ class TestDnsPropagation:
         config = build_hub_config(_hub_ctx(shared=make_shared(dns_address="169.254.0.53", dns_port=5353)))
         assert config["dns"]["servers"] == [{"address": "169.254.0.53", "port": 5353}]
 
+    def test_exit_dns_direct_rule_default(self):
+        config = build_exit_config(_exit_ctx())
+        assert config["routing"]["rules"][0] == {
+            "ip": ["127.0.0.1", "::1"],
+            "port": 53,
+            "outboundTag": "direct",
+        }
+
+    def test_exit_dns_direct_rule_covers_custom_dns_server(self):
+        config = build_exit_config(_exit_ctx(shared=make_shared(dns_address="169.254.0.53", dns_port=5353)))
+        assert config["routing"]["rules"][0] == {
+            "ip": ["127.0.0.1", "::1", "169.254.0.53"],
+            "port": 5353,
+            "outboundTag": "direct",
+        }
+
     def test_exit_dns_extra_options_always_present(self):
         config = build_exit_config(_exit_ctx())
         assert config["dns"]["enableParallelQuery"] is True

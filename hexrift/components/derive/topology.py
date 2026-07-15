@@ -16,6 +16,7 @@ from hexrift.constants import (
     TagSuffix,
 )
 from hexrift.errors import DeriveError
+from hexrift.shared.xray_defaults import make_dns_direct_rule
 
 
 def portal_tag(label: str) -> str:
@@ -158,17 +159,13 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
     users = config.users
 
-    rules: list[dict] = []
-
     # 1. DNS localhost
-    rules.append(
-        {
-            "ip": ["127.0.0.1", "::1"],
-            "port": 53,
-            "outboundTag": SpecialDestination.DIRECT,
-        }
-    )
-
+    rules: list[dict] = [
+        make_dns_direct_rule(
+            config.global_.dns.address,
+            config.global_.dns.port,
+        )
+    ]
     # 2. vlessRoute per exit region
     for region in exit_regions:
         tag_key = _balancer_key(region)

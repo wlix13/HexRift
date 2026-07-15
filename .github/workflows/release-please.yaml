@@ -37,6 +37,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-pull-request: true
 
   build:
     name: 📦 Build distribution
@@ -170,3 +171,29 @@ jobs:
           done
           echo "Publishing release ${release_id}"
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false
+
+  release-pr:
+    name: 🤖 Open release PR
+    needs: [release-please, finalize-release]
+    if: |
+      always()
+      && needs.release-please.result == 'success'
+      && (needs.release-please.outputs.release_created != 'true' || needs.finalize-release.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
