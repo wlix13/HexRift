@@ -3,6 +3,15 @@
 from __future__ import annotations
 
 from hexrift.components.schema.models.defaults import DefaultsConfig, ExitConnectionsConfig
+from hexrift.components.schema.models.global_ import GlobalConfig
+from hexrift.components.schema.models.observability import (
+    LoggingConfig,
+    LoggingOverride,
+    MetricsConfig,
+    MetricsOverride,
+    ObservabilityConfig,
+    ObservabilityOverride,
+)
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import RegionType
@@ -34,6 +43,68 @@ def resolve_node_haproxy(node: Node, region: Region, defaults: DefaultsConfig) -
     if node.haproxy is not None:
         return node.haproxy
     return defaults.exit.haproxy if region.type == RegionType.EXIT else defaults.hub.haproxy
+
+
+def _overlay_metrics(
+    base: MetricsConfig,
+    override: MetricsOverride | None,
+) -> MetricsConfig:
+    if override is None:
+        return base
+    return MetricsConfig(
+        enabled=override.enabled if override.enabled is not None else base.enabled,
+        listen=override.listen if override.listen is not None else base.listen,
+        port=override.port if override.port is not None else base.port,
+        user_stats=override.user_stats if override.user_stats is not None else base.user_stats,
+        online=override.online if override.online is not None else base.online,
+    )
+
+
+def _overlay_logging(
+    base: LoggingConfig,
+    override: LoggingOverride | None,
+) -> LoggingConfig:
+    if override is None:
+        return base
+    return LoggingConfig(
+        loglevel=override.loglevel if override.loglevel is not None else base.loglevel,
+        access=override.access if override.access is not None else base.access,
+        error=override.error if override.error is not None else base.error,
+        dns_log=override.dns_log if override.dns_log is not None else base.dns_log,
+    )
+
+
+def resolve_node_observability(
+    node: Node,
+    region: Region,
+    defaults: DefaultsConfig,
+    global_: GlobalConfig,
+) -> ObservabilityConfig:
+    """Resolve observability config: node > defaults.<role> > global > built-in defaults."""
+
+    role_defaults = defaults.exit if region.type == RegionType.EXIT else defaults.hub
+    role_override: ObservabilityOverride | None = role_defaults.observability
+    node_override: ObservabilityOverride | None = node.observability
+
+    metrics = _overlay_metrics(
+        global_.observability.metrics,
+        role_override.metrics if role_override else None,
+    )
+    metrics = _overlay_metrics(
+        metrics,
+        node_override.metrics if node_override else None,
+    )
+
+    logging = _overlay_logging(
+        global_.observability.logging,
+        role_override.logging if role_override else None,
+    )
+    logging = _overlay_logging(
+        logging,
+        node_override.logging if node_override else None,
+    )
+
+    return ObservabilityConfig(metrics=metrics, logging=logging)
 
 
 def resolve_exit_connections(node: Node, defaults: DefaultsConfig) -> ExitConnectionsConfig:

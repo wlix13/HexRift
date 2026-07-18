@@ -3,11 +3,12 @@ from __future__ import annotations
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
+from hexrift.components.schema.models.observability import LoggingConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType, XrayNetwork, XrayProtocol, XraySecurity
 from hexrift.errors import RenderError
 from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
-from hexrift.shared.xray_defaults import LOG, make_sniffing, make_sockopt
+from hexrift.shared.xray_defaults import make_log, make_sniffing, make_sockopt
 
 
 def build_portal_config(
@@ -87,7 +88,7 @@ def build_portal_config(
     )
 
     return {
-        "log": LOG,
+        "log": make_log(LoggingConfig()),
         "outbounds": outbounds,
         "routing": {
             "domainStrategy": "IPIfNonMatch",

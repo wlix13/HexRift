@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+from hexrift.components.schema.models.observability import LoggingConfig
 from hexrift.constants import DEFAULT_TRUSTED_HEADER, SpecialDestination
 
 
-LOG = {
-    "loglevel": "none",
-    "access": "none",
-    "error": "none",
-    "dnsLog": False,
-}
+def make_log(logging: LoggingConfig) -> dict:
+    return {
+        "loglevel": logging.loglevel,
+        "access": logging.access,
+        "error": logging.error,
+        "dnsLog": logging.dns_log,
+    }
 
 
 def make_sniffing(route_only: bool = True) -> dict:

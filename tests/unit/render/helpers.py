@@ -1,6 +1,7 @@
 from typing import Any
 
 from hexrift.components.schema.models.defaults import ObservatoryConfig
+from hexrift.components.schema.models.observability import ObservabilityConfig
 from hexrift.components.schema.models.regions import WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import AccessType
@@ -24,6 +25,7 @@ def make_shared(**overrides: Any) -> SharedContext:
         "trusted_forwarded_headers": [],
         "haproxy": True,
         "route_only": True,
+        "observability": ObservabilityConfig(),
     }
     defaults.update(overrides)
     return SharedContext(**defaults)

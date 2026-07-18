@@ -9,6 +9,7 @@ from hexrift.components.schema.models.fields import (
     XrayPath,
     normalize_cidr_subnet,
 )
+from hexrift.components.schema.models.observability import ObservabilityOverride
 from hexrift.components.schema.models.routing import ExitRoute
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, LbRole, LbStrategy, RegionType, TlsFingerprint
@@ -114,6 +115,7 @@ class Node(BaseModel):
     proxy_inbound: bool | None = None
     xdns: XdnsConfig | None = None
     wireguard: NodeWireguardOverride | None = None
+    observability: ObservabilityOverride | None = None
 
 
 class Region(BaseModel):
