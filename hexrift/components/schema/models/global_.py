@@ -3,6 +3,7 @@ import ipaddress
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from hexrift.components.schema.models.fields import DnsName
+from hexrift.components.schema.models.observability import ObservabilityConfig
 from hexrift.constants import DEFAULT_TRUSTED_HEADER, HTTP_HEADER_TOKEN_RE
 
 
@@ -47,3 +48,4 @@ class GlobalConfig(BaseModel):
     aphelion_domain: DnsName
     cdn: CdnConfig | None = None
     dns: DnsServerConfig = Field(default_factory=DnsServerConfig)
+    observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)

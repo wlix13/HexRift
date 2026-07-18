@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 
+from hexrift.components.schema.models.observability import MetricsConfig
 from hexrift.constants import (
     WARP_VLESS_ROUTE,
     AccessType,
@@ -19,11 +20,43 @@ from hexrift.inbounds.context import ExitContext, HubContext, HubOutboundContext
 from hexrift.inbounds.registry import specs_for
 from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import (
-    LOG,
     make_dns,
     make_dns_direct_rule,
+    make_log,
     make_sockopt,
 )
+
+
+def _observability_blocks(metrics: MetricsConfig) -> dict:
+    """Build the stats/api/policy blocks."""
+
+    host = metrics.listen if metrics.listen.version == 4 else f"[{metrics.listen}]"
+
+    policy: dict = {}
+    levels: dict = {}
+    if metrics.user_stats:
+        levels["statsUserUplink"] = True
+        levels["statsUserDownlink"] = True
+    if metrics.online:
+        levels["statsUserOnline"] = True
+    if levels:
+        policy["levels"] = {"0": levels}
+    policy["system"] = {
+        "statsInboundUplink": True,
+        "statsInboundDownlink": True,
+        "statsOutboundUplink": True,
+        "statsOutboundDownlink": True,
+    }
+
+    return {
+        "stats": {},
+        "api": {
+            "tag": "api",
+            "listen": f"{host}:{metrics.port}",
+            "services": ["StatsService"],
+        },
+        "policy": policy,
+    }
 
 
 def _warp_outbound(ipv6: bool) -> dict:
@@ -92,8 +125,8 @@ def build_exit_config(ctx: ExitContext) -> dict:
         ]
     )
 
-    return {
-        "log": LOG,
+    config: dict = {
+        "log": make_log(shared.observability.logging),
         "inbounds": inbounds,
         "outbounds": outbounds,
         "routing": {
@@ -102,6 +135,11 @@ def build_exit_config(ctx: ExitContext) -> dict:
         },
         "dns": make_dns(shared.dns_address, shared.dns_port),
     }
+
+    if shared.observability.metrics.enabled:
+        config.update(_observability_blocks(shared.observability.metrics))
+
+    return config
 
 
 def build_hub_config(ctx: HubContext) -> dict:
@@ -165,7 +203,7 @@ def build_hub_config(ctx: HubContext) -> dict:
     )
 
     config: dict = {
-        "log": LOG,
+        "log": make_log(shared.observability.logging),
         "inbounds": inbounds,
         "outbounds": outbounds,
         "routing": {
@@ -188,6 +226,9 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "enableConcurrency": ctx.observatory.concurrency,
             },
         }
+
+    if shared.observability.metrics.enabled:
+        config.update(_observability_blocks(shared.observability.metrics))
 
     return config
 

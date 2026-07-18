@@ -10,6 +10,7 @@ from typing import ClassVar
 
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
+from hexrift.components.schema.models.observability import ObservabilityConfig
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, RegionType
@@ -34,6 +35,7 @@ class SharedContext:
     trusted_forwarded_headers: list[str]
     haproxy: bool
     route_only: bool
+    observability: ObservabilityConfig
 
 
 @dataclass(frozen=True)

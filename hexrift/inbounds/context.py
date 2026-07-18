@@ -10,6 +10,7 @@ from hexrift.components.derive.defaults import (
     resolve_exit_connections,
     resolve_node_haproxy,
     resolve_node_ipv6,
+    resolve_node_observability,
     resolve_node_reality,
 )
 from hexrift.components.derive.topology import (
@@ -81,6 +82,7 @@ def _make_shared(config: ConglomerateConfig, region: Region, node: Node, node_ke
         trusted_forwarded_headers=config.global_.cdn.trusted_forwarded_headers if config.global_.cdn else [],
         haproxy=resolve_node_haproxy(node, region, config.defaults),
         route_only=region.type != RegionType.EXIT,
+        observability=resolve_node_observability(node, region, config.defaults, config.global_),
     )
 
 

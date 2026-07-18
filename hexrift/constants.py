@@ -94,6 +94,16 @@ class XraySecurity(StrEnum):
     TLS = "tls"
 
 
+class LogLevel(StrEnum):
+    """Xray log verbosity levels."""
+
+    NONE = "none"
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 class SpecialDestination(StrEnum):
     """Special routing destinations (non-region, non-node)."""
 
