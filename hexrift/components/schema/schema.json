@@ -117,6 +117,17 @@
         },
         "keys": {
           "$ref": "#/$defs/KeysConfig"
+        },
+        "observability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -198,6 +209,9 @@
         },
         "dns": {
           "$ref": "#/$defs/DnsServerConfig"
+        },
+        "observability": {
+          "$ref": "#/$defs/ObservabilityConfig"
         }
       },
       "required": [
@@ -295,6 +309,17 @@
         },
         "observatory": {
           "$ref": "#/$defs/ObservatoryConfig"
+        },
+        "observability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -479,6 +504,203 @@
       "title": "LeastLoadSettings",
       "type": "object"
     },
+    "LogLevel": {
+      "description": "Xray log verbosity levels.",
+      "enum": [
+        "none",
+        "debug",
+        "info",
+        "warning",
+        "error"
+      ],
+      "title": "LogLevel",
+      "type": "string"
+    },
+    "LoggingConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "loglevel": {
+          "$ref": "#/$defs/LogLevel",
+          "default": "none"
+        },
+        "access": {
+          "default": "none",
+          "title": "Access",
+          "type": "string"
+        },
+        "error": {
+          "default": "none",
+          "title": "Error",
+          "type": "string"
+        },
+        "dns_log": {
+          "default": false,
+          "title": "Dns Log",
+          "type": "boolean"
+        }
+      },
+      "title": "LoggingConfig",
+      "type": "object"
+    },
+    "LoggingOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "loglevel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LogLevel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "access": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "dns_log": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dns Log"
+        }
+      },
+      "title": "LoggingOverride",
+      "type": "object"
+    },
+    "MetricsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "listen": {
+          "default": "127.0.0.1",
+          "format": "ipvanyaddress",
+          "title": "Listen",
+          "type": "string"
+        },
+        "port": {
+          "default": 10085,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "user_stats": {
+          "default": true,
+          "title": "User Stats",
+          "type": "boolean"
+        },
+        "online": {
+          "default": true,
+          "title": "Online",
+          "type": "boolean"
+        }
+      },
+      "title": "MetricsConfig",
+      "type": "object"
+    },
+    "MetricsOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "listen": {
+          "anyOf": [
+            {
+              "format": "ipvanyaddress",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Listen"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        },
+        "user_stats": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Stats"
+        },
+        "online": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Online"
+        }
+      },
+      "title": "MetricsOverride",
+      "type": "object"
+    },
     "Node": {
       "additionalProperties": false,
       "properties": {
@@ -589,6 +811,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/NodeWireguardOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityOverride"
             },
             {
               "type": "null"
@@ -782,6 +1015,48 @@
         }
       },
       "title": "NodeWireguardOverride",
+      "type": "object"
+    },
+    "ObservabilityConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "$ref": "#/$defs/MetricsConfig"
+        },
+        "logging": {
+          "$ref": "#/$defs/LoggingConfig"
+        }
+      },
+      "title": "ObservabilityConfig",
+      "type": "object"
+    },
+    "ObservabilityOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "logging": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LoggingOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ObservabilityOverride",
       "type": "object"
     },
     "ObservatoryConfig": {
