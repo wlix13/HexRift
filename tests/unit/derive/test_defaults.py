@@ -1,3 +1,5 @@
+from ipaddress import IPv4Address
+
 import pytest
 from pydantic import ValidationError
 
@@ -6,6 +8,7 @@ from hexrift.components.derive.defaults import (
     derive_xhttp_host,
     resolve_node_haproxy,
     resolve_node_ipv6,
+    resolve_node_observability,
     resolve_node_reality,
 )
 from hexrift.components.schema.models.defaults import (
@@ -16,9 +19,16 @@ from hexrift.components.schema.models.defaults import (
     KeysConfig,
     ObservatoryConfig,
 )
+from hexrift.components.schema.models.global_ import GlobalConfig
+from hexrift.components.schema.models.observability import (
+    LoggingOverride,
+    MetricsOverride,
+    ObservabilityConfig,
+    ObservabilityOverride,
+)
 from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.constants import AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
+from hexrift.constants import AuthMethod, HandshakeMethod, LogLevel, RegionType, TlsFingerprint
 from hexrift.errors import DeriveError
 
 
@@ -71,6 +81,14 @@ def _hub_region(**kwargs) -> Region:
     }
     defaults.update(kwargs)
     return Region.model_validate(defaults)
+
+
+def _global(observability: ObservabilityConfig | None = None) -> GlobalConfig:
+    return GlobalConfig(
+        namespace="test.ns",
+        aphelion_domain="ap.test.ns",
+        observability=observability if observability is not None else ObservabilityConfig(),
+    )
 
 
 class TestResolveNodeReality:
@@ -162,6 +180,156 @@ class TestResolveNodeHaproxy:
         assert resolve_node_haproxy(node, _exit_region(), defaults) is False
         # hub default still True
         assert resolve_node_haproxy(node, _hub_region(), defaults) is True
+
+
+class TestResolveNodeObservability:
+    def test_global_only_when_no_overrides(self):
+        global_ = _global(
+            ObservabilityConfig.model_validate(
+                {
+                    "metrics": {"enabled": True, "port": 9000},
+                    "logging": {"loglevel": "info"},
+                },
+            )
+        )
+        node = Node(id="n", hostname="h")
+        result = resolve_node_observability(node, _hub_region(), _defaults(), global_)
+        assert result.metrics.enabled is True
+        assert result.metrics.port == 9000
+        assert result.logging.loglevel is LogLevel.INFO
+
+    def test_built_in_defaults_when_nothing_configured(self):
+        node = Node(id="n", hostname="h")
+        result = resolve_node_observability(node, _hub_region(), _defaults(), _global())
+        assert result.metrics.enabled is False
+        assert result.metrics.listen == IPv4Address("127.0.0.1")
+        assert result.metrics.port == 10085
+        assert result.logging.loglevel is LogLevel.NONE
+
+    def test_role_override_beats_global(self):
+        global_ = _global(
+            ObservabilityConfig.model_validate(
+                {
+                    "metrics": {
+                        "enabled": False,
+                        "port": 9000,
+                    },
+                },
+            )
+        )
+        defaults = DefaultsConfig(
+            exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS),
+            hub=HubDefaults(
+                ipv6=False,
+                keys=_HUB_KEYS,
+                exit_connections=_EXIT_CONNS,
+                reality=_HUB_REALITY,
+                observatory=ObservatoryConfig(),
+                observability=ObservabilityOverride(metrics=MetricsOverride(enabled=True)),
+            ),
+        )
+        node = Node(id="n", hostname="h")
+        result = resolve_node_observability(node, _hub_region(), defaults, global_)
+        assert result.metrics.enabled is True  # role override wins
+        assert result.metrics.port == 9000  # inherited from global (role didn't set it)
+
+    def test_role_override_only_applies_to_matching_region_type(self):
+        defaults = DefaultsConfig(
+            exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS),
+            hub=HubDefaults(
+                ipv6=False,
+                keys=_HUB_KEYS,
+                exit_connections=_EXIT_CONNS,
+                reality=_HUB_REALITY,
+                observatory=ObservatoryConfig(),
+                observability=ObservabilityOverride(metrics=MetricsOverride(enabled=True)),
+            ),
+        )
+        node = Node(id="n", hostname="h")
+        # exit region: hub-scoped role override must not apply
+        result = resolve_node_observability(node, _exit_region(), defaults, _global())
+        assert result.metrics.enabled is False
+
+    def test_node_override_beats_role_and_global(self):
+        global_ = _global(
+            ObservabilityConfig.model_validate(
+                {
+                    "metrics": {
+                        "port": 9000,
+                    },
+                },
+            )
+        )
+        defaults = DefaultsConfig(
+            exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS),
+            hub=HubDefaults(
+                ipv6=False,
+                keys=_HUB_KEYS,
+                exit_connections=_EXIT_CONNS,
+                reality=_HUB_REALITY,
+                observatory=ObservatoryConfig(),
+                observability=ObservabilityOverride(
+                    metrics=MetricsOverride(
+                        enabled=True,
+                        port=9001,
+                    ),
+                ),
+            ),
+        )
+        node = Node(
+            id="n",
+            hostname="h",
+            observability=ObservabilityOverride(
+                metrics=MetricsOverride(
+                    port=9002,
+                ),
+            ),
+        )
+        result = resolve_node_observability(node, _hub_region(), defaults, global_)
+        assert result.metrics.enabled is True  # inherited from role (node didn't set it)
+        assert result.metrics.port == 9002  # node override wins over role and global
+
+    def test_none_fields_inherit_individually(self):
+        # node override only sets `online`; enabled/listen/port/user_stats fall through
+        # role -> global -> built-in default, and logging is untouched entirely.
+        global_ = _global(
+            ObservabilityConfig.model_validate(
+                {
+                    "metrics": {
+                        "enabled": True,
+                        "listen": "10.0.0.5",
+                        "port": 9000,
+                    },
+                },
+            )
+        )
+        node = Node(
+            id="n",
+            hostname="h",
+            observability=ObservabilityOverride(
+                metrics=MetricsOverride(online=False),
+            ),
+        )
+        result = resolve_node_observability(node, _hub_region(), _defaults(), global_)
+        assert result.metrics.enabled is True
+        assert result.metrics.listen == IPv4Address("10.0.0.5")
+        assert result.metrics.port == 9000
+        assert result.metrics.user_stats is True
+        assert result.metrics.online is False
+        assert result.logging.loglevel is LogLevel.NONE
+
+    def test_node_logging_override_independent_of_metrics(self):
+        node = Node(
+            id="n",
+            hostname="h",
+            observability=ObservabilityOverride(
+                logging=LoggingOverride(loglevel=LogLevel.WARNING),
+            ),
+        )
+        result = resolve_node_observability(node, _hub_region(), _defaults(), _global())
+        assert result.logging.loglevel is LogLevel.WARNING
+        assert result.logging.access == "none"
+        assert result.metrics.enabled is False
 
 
 class TestDeriveServerNames:

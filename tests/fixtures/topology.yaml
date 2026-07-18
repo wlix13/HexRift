@@ -29,6 +29,9 @@ defaults:
       domains: ["dns.google"]
     wireguard:
       subnet: "10.0.0.0/24"
+    observability:
+      metrics:
+        enabled: true
 
 groups:
   - id: main
@@ -66,6 +69,13 @@ regions:
         reality:
           dest: www.microsoft.com:443
           xhttp_path: /update/
+        observability:
+          metrics:
+            enabled: true
+            port: 10086
+            online: false
+          logging:
+            loglevel: warning
   - id: msk
     type: hub
     cdn_xhttp_path: /cdn/

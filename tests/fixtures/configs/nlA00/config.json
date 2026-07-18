@@ -1,6 +1,6 @@
 {
   "log": {
-    "loglevel": "none",
+    "loglevel": "warning",
     "access": "none",
     "error": "none",
     "dnsLog": false
@@ -209,5 +209,25 @@
     ],
     "enableParallelQuery": true,
     "useSystemHosts": true
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "listen": "127.0.0.1:10086",
+    "services": ["StatsService"]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
   }
 }

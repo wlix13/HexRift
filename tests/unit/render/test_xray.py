@@ -1,5 +1,6 @@
 from hexrift.components.render.xray import build_exit_config, build_hub_config
-from hexrift.constants import Socket
+from hexrift.components.schema.models.observability import LoggingConfig, MetricsConfig, ObservabilityConfig
+from hexrift.constants import LogLevel, Socket
 from tests.unit.render.helpers import default_slots, make_shared, make_wireguard, make_xdns
 from tests.unit.render.helpers import exit_ctx as _exit_ctx
 from tests.unit.render.helpers import hub_ctx as _hub_ctx
@@ -140,3 +141,124 @@ class TestTrustedXForwardedFor:
     def test_direct_bind_still_sets_xff(self):
         cfg = build_exit_config(_exit_ctx(shared=make_shared(haproxy=False, trusted_forwarded_headers=[])))
         assert self._xff(cfg) == ["X-Real-IP"]
+
+
+class TestLogRendering:
+    def test_exit_default_log_matches_prior_hardcoded_block(self):
+        config = build_exit_config(_exit_ctx())
+        assert config["log"] == {
+            "loglevel": "none",
+            "access": "none",
+            "error": "none",
+            "dnsLog": False,
+        }
+
+    def test_hub_default_log_matches_prior_hardcoded_block(self):
+        config = build_hub_config(_hub_ctx())
+        assert config["log"] == {
+            "loglevel": "none",
+            "access": "none",
+            "error": "none",
+            "dnsLog": False,
+        }
+
+    def test_exit_log_override_renders(self):
+        observability = ObservabilityConfig(
+            logging=LoggingConfig(
+                loglevel=LogLevel.WARNING,
+                access="/var/log/xray/access.log",
+                dns_log=True,
+            )
+        )
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["log"] == {
+            "loglevel": "warning",
+            "access": "/var/log/xray/access.log",
+            "error": "none",
+            "dnsLog": True,
+        }
+
+    def test_hub_log_override_renders(self):
+        observability = ObservabilityConfig(logging=LoggingConfig(loglevel=LogLevel.ERROR))
+        config = build_hub_config(_hub_ctx(shared=make_shared(observability=observability)))
+        assert config["log"]["loglevel"] == "error"
+
+
+class TestStatsApiPolicyBlocks:
+    def test_exit_blocks_absent_when_disabled(self):
+        config = build_exit_config(_exit_ctx())
+        assert "stats" not in config
+        assert "api" not in config
+        assert "policy" not in config
+
+    def test_hub_blocks_absent_when_disabled(self):
+        config = build_hub_config(_hub_ctx())
+        assert "stats" not in config
+        assert "api" not in config
+        assert "policy" not in config
+
+    def test_exit_blocks_present_when_enabled(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["stats"] == {}
+        assert config["api"] == {
+            "tag": "api",
+            "listen": "127.0.0.1:10085",
+            "services": ["StatsService"],
+        }
+        assert config["policy"]["system"] == {
+            "statsInboundUplink": True,
+            "statsInboundDownlink": True,
+            "statsOutboundUplink": True,
+            "statsOutboundDownlink": True,
+        }
+        assert config["policy"]["levels"] == {
+            "0": {
+                "statsUserUplink": True,
+                "statsUserDownlink": True,
+                "statsUserOnline": True,
+            },
+        }
+
+    def test_hub_blocks_present_when_enabled(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, port=9000))
+        config = build_hub_config(_hub_ctx(shared=make_shared(observability=observability)))
+        assert config["api"]["listen"] == "127.0.0.1:9000"
+        assert config["stats"] == {}
+
+    def test_levels_key_omitted_when_user_stats_and_online_both_false(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, user_stats=False, online=False))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert "levels" not in config["policy"]
+        assert "system" in config["policy"]
+
+    def test_levels_key_present_with_only_user_stats(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, user_stats=True, online=False))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["policy"]["levels"] == {"0": {"statsUserUplink": True, "statsUserDownlink": True}}
+
+    def test_levels_key_present_with_only_online(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, user_stats=False, online=True))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["policy"]["levels"] == {"0": {"statsUserOnline": True}}
+
+    def test_ipv4_listen_not_bracketed(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, listen="10.0.0.5"))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["api"]["listen"] == "10.0.0.5:10085"
+
+    def test_ipv6_listen_bracketed(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True, listen="::1"))
+        config = build_exit_config(_exit_ctx(shared=make_shared(observability=observability)))
+        assert config["api"]["listen"] == "[::1]:10085"
+
+    def test_hub_blocks_inserted_after_burst_observatory(self):
+        observability = ObservabilityConfig(metrics=MetricsConfig(enabled=True))
+        config = build_hub_config(
+            _hub_ctx(
+                shared=make_shared(observability=observability),
+                observatory_selectors=["exit1"],
+            )
+        )
+        keys = list(config.keys())
+        assert keys.index("burstObservatory") < keys.index("stats")
