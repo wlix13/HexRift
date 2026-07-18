@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/wlix13/HexRift/compare/v0.10.1...v0.10.2) (2026-07-18)
+
+
+### Features
+
+* **observability:** opt-in Xray stats API and logging control ([9889c6d](https://github.com/wlix13/HexRift/commit/9889c6d27123fa73f5a940030376e719400df18c))
+
 ## [0.10.1](https://github.com/wlix13/HexRift/compare/v0.10.0...v0.10.1) (2026-07-15)
 
 
