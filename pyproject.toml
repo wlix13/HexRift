@@ -29,7 +29,14 @@ scripts.hexrift = "hexrift.__main__:main"
 [dependency-groups]
 dev = [ "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
-tests = [ "pytest", "pytest-cov", "pytest-sugar" ]
+tests = [
+  "hypothesis",
+  "polyfactory",
+  "pytest",
+  "pytest-cov",
+  "pytest-randomly",
+  "pytest-sugar",
+]
 
 [tool.hatch]
 version.path = "hexrift/__init__.py"
@@ -53,7 +60,7 @@ environment.root = [ "." ]
 
 [tool.pytest]
 ini_options.testpaths = [ "tests" ]
-ini_options.addopts = "-ra -q --tb=short"
+ini_options.addopts = "-ra -q --tb=short --strict-markers"
 ini_options.markers = [
   "component: controller-level tests with tmp_path",
   "integration: full pipeline against real topology",

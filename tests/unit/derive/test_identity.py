@@ -1,6 +1,8 @@
 import uuid
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.groups import Group
@@ -8,6 +10,8 @@ from hexrift.constants import SHORT_ID_LENGTH, WARP_UUID_SEGMENT
 
 
 NS_NAME = "test.conglomerate.example"
+
+_text = st.text(alphabet=st.characters(codec="utf-8"), min_size=1, max_size=32)
 
 
 @pytest.fixture
@@ -38,6 +42,16 @@ class TestUserUuid:
 
     def test_different_users_differ(self, ns: Namespace):
         assert ns.user_uuid("alice") != ns.user_uuid("bob")
+
+    @given(_text, _text)
+    def test_user_uuid_is_scoped_to_its_namespace(self, name: str, username: str):
+        other = Namespace(name + "-other")
+        assert Namespace(name).user_uuid(username) != other.user_uuid(username)
+
+    @given(_text, _text)
+    def test_override_always_wins_for_any_input(self, name: str, username: str):
+        fixed = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        assert Namespace(name).user_uuid(username, override=fixed) == fixed
 
 
 class TestServerUuid:
@@ -141,6 +155,13 @@ class TestShortIds:
         sid = ns.group_short_id(g)
         assert len(sid) == SHORT_ID_LENGTH
         int(sid, 16)
+
+    @given(_text, _text)
+    def test_hub_and_exit_short_ids_are_fixed_length_hex(self, name: str, node_id: str):
+        ns = Namespace(name)
+        for sid in (ns.hub_short_id(node_id), ns.exit_short_id(node_id)):
+            assert len(sid) == SHORT_ID_LENGTH
+            int(sid, 16)  # raises ValueError if the digest slice is not hex
 
 
 class TestEmails:
