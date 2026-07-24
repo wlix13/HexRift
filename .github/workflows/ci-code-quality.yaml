@@ -41,6 +41,12 @@ jobs:
       - name: Type check
         run: uv run ty check
 
+      - name: Check import contracts
+        run: uv run lint-imports
+
+      - name: Check dependency hygiene
+        run: uv run deptry .
+
   hooks:
     name: 🪝 prek hooks
     runs-on: ubuntu-latest

@@ -27,7 +27,7 @@ dependencies = [
 scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
-dev = [ "poethepoet", "prek", "ruff", "ty" ]
+dev = [ "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
 tests = [ "pytest", "pytest-cov", "pytest-sugar" ]
 
@@ -44,6 +44,10 @@ lint.per-file-ignores."tests/*" = [
 ]
 lint.isort.lines-after-imports = 2
 
+[tool.deptry]
+package_module_name_map.mkdocs-material = [ "material" ]
+package_module_name_map.mkdocs-static-i18n = [ "mkdocs_static_i18n" ]
+
 [tool.ty]
 environment.root = [ "." ]
 
@@ -56,12 +60,88 @@ ini_options.markers = [
   "unit: pure unit tests, no I/O",
 ]
 
+[tool.importlinter]
+root_package = "hexrift"
+
+[[tool.importlinter.contracts]]
+name = "feature spine (render -> inbounds -> derive/keys -> schema)"
+type = "layers"
+layers = [
+  "hexrift.components.render",
+  "hexrift.inbounds",
+  "hexrift.components.derive | hexrift.components.keys",
+  "hexrift.components.schema",
+]
+ignore_imports = [
+  # Registry dependency injection: every component's controller/component names HexRiftApp
+  # under TYPE_CHECKING purely to type `self.app`
+  "hexrift.components.*.controller -> hexrift.app",
+  "hexrift.components.*.component -> hexrift.app",
+  # derive's controller assembles user-facing share URLs from inbound spec builders
+  # (single sanctioned edge from derive up into inbounds).
+  "hexrift.components.derive.controller -> hexrift.inbounds.cdn",
+  "hexrift.components.derive.controller -> hexrift.inbounds.wireguard",
+  "hexrift.components.derive.controller -> hexrift.inbounds.xhttp",
+]
+
+[[tool.importlinter.contracts]]
+name = "constants and errors are dependency-free"
+type = "forbidden"
+source_modules = [ "hexrift.constants", "hexrift.errors" ]
+forbidden_modules = [
+  "hexrift.app",
+  "hexrift.components",
+  "hexrift.core",
+  "hexrift.inbounds",
+  "hexrift.shared",
+]
+
+[[tool.importlinter.contracts]]
+name = "schema models are pure data"
+type = "forbidden"
+source_modules = [ "hexrift.components.schema.models" ]
+forbidden_modules = [
+  "hexrift.app",
+  "hexrift.components.schema.component",
+  "hexrift.components.schema.controller",
+  "hexrift.core",
+  "hexrift.shared",
+]
+
+[[tool.importlinter.contracts]]
+name = "core framework never imports feature code"
+type = "forbidden"
+source_modules = [ "hexrift.core" ]
+forbidden_modules = [
+  "hexrift.app",
+  "hexrift.components",
+  "hexrift.inbounds",
+  "hexrift.shared",
+]
+
+[[tool.importlinter.contracts]]
+name = "shared utilities stay below the feature layers"
+type = "forbidden"
+source_modules = [ "hexrift.shared" ]
+forbidden_modules = [
+  "hexrift.app",
+  "hexrift.components.derive",
+  "hexrift.components.keys",
+  "hexrift.components.render",
+  "hexrift.components.schema.component",
+  "hexrift.components.schema.controller",
+  "hexrift.core",
+  "hexrift.inbounds",
+]
+
 [tool.poe]
 tasks.format = "uv run ruff format ."
 tasks.check-format = "uv run ruff format --check ."
 tasks.lint = "uv run ruff check ."
 tasks.typecheck = "uv run --group dev --group tests ty check"
-tasks.check = [ "check-format", "lint", "typecheck" ]
+tasks.lint-imports = "uv run --group dev lint-imports"
+tasks.deptry = "uv run --group dev deptry ."
+tasks.check = [ "check-format", "lint", "typecheck", "lint-imports", "deptry" ]
 tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
 tasks.tests = "uv run --group tests pytest"
 tasks.coverage = "uv run --group tests pytest --cov=hexrift --cov-report=term --cov-report=html"
