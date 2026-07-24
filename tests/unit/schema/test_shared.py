@@ -1,7 +1,12 @@
 import pytest
+from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import ValidationError
 
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, RealityFallbackLimits
+
+
+class _FallbackLimitsFactory(ModelFactory[RealityFallbackLimits]):
+    """polyfactory infers ints for all three (unconstrained) fields."""
 
 
 class TestRealityConfigServerNames:
@@ -44,3 +49,14 @@ class TestRealityConfigPaths:
         assert RealityConfig(dest="a.com:443", xhttp_path="/x/", xhttp_host="cdn.a.com").xhttp_host == "cdn.a.com"
         with pytest.raises(ValidationError):
             RealityConfig(dest="a.com:443", xhttp_path="/x/", xhttp_host="bad host")
+
+
+class TestRealityFallbackLimitsRoundTrip:
+    def test_dump_reload_is_the_identity(self):
+        for model in _FallbackLimitsFactory.batch(25):
+            assert RealityFallbackLimits.model_validate(model.model_dump()) == model
+
+    def test_xray_settings_exposes_stable_keys(self):
+        model = _FallbackLimitsFactory.build()
+        expected = {"afterBytes", "bytesPerSec", "burstBytesPerSec"}
+        assert set(model.xray_settings) == expected
