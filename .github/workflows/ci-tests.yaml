@@ -97,3 +97,16 @@ jobs:
 
       - name: Validate package metadata
         run: uvx twine check --strict dist/*
+
+  tests-gate:
+    name: ✅ Tests passed
+    if: always()
+    needs: [tests, tests-windows, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any test job did not pass
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::one or more test jobs failed or were cancelled"
+          exit 1
