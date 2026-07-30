@@ -118,9 +118,13 @@ Source: `hexrift/components/keys/store.py`, `reality.py`, `decryption.py`.
 ```yaml
 reality_private_key: "<base64url-no-padding>"   # x25519 private key (32 bytes)
 reality_public_key:  "<base64url-no-padding>"   # x25519 public key (32 bytes)
-decryption: "mlkem768x25519plus.rprx_vision.12h.{private_key_b64}"   # server inbound
-encryption: "mlkem768x25519plus.rprx_vision.0rtt.{public_key_b64}"   # client outbound
+decryption: "mlkem768x25519plus.native.600s.{server_key_b64}"   # server inbound
+encryption: "mlkem768x25519plus.native.0rtt.{client_key_b64}"   # client outbound
 ```
+
+`mode` comes from `defaults.*.keys.mode` and must be one of `native`, `xorpub`, or `random` —
+Xray rejects anything else. `session_time` must be an integer with an `s` suffix (or a
+`from-to` range such as `300-600s`); units other than seconds do not parse.
 
 ### Key string format
 
@@ -133,6 +137,10 @@ File permissions are set to `0o600` (owner read/write only).
 
 !!! info "Hub key sharing"
     Hub nodes in the same region share the same keypair. `gen-keys` detects this automatically and only generates one file.
+
+See [Transport Internals](transport-internals.md) for what `auth`, `mode`, `session_time`, and
+`padding` actually change in Xray, and for the VLESS-encryption ↔ Vision dependency that
+`NodeKeys.flow` enforces.
 
 ---
 

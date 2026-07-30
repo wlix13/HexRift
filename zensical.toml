@@ -15,6 +15,7 @@ nav = [
   { "CLI Reference" = "cli-reference.md" },
   { "Topology Schema" = "topology-schema.md" },
   { "Architecture" = "architecture.md" },
+  { "Transport Internals" = "transport-internals.md" },
 ]
 
 [project.theme]
