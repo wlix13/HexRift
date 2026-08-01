@@ -111,6 +111,38 @@ class TestBuildPortalRules:
         portal = _portal(routes={"domains": ["regexp:^nas\\..*\\.lan$"]})
         assert build_portal_rules(portal, "home-portal")[0]["domain"] == ["regexp:^nas\\..*\\.lan$"]
 
+    def test_publish_ip_target_is_port_pinned(self):
+        portal = _portal(
+            publish=[
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                }
+            ]
+        )
+        assert build_portal_rules(portal, "home-portal")[-2] == {
+            "inboundTag": ["home-portal"],
+            "ip": ["192.168.1.10"],
+            "port": 443,
+            "outboundTag": "direct",
+        }
+
+    def test_publish_domain_target_is_port_pinned(self):
+        portal = _portal(
+            publish=[
+                {
+                    "port": 8443,
+                    "target": "nas.home.lan:5001",
+                }
+            ]
+        )
+        assert build_portal_rules(portal, "home-portal")[-2] == {
+            "inboundTag": ["home-portal"],
+            "domain": ["full:nas.home.lan"],
+            "port": 5001,
+            "outboundTag": "direct",
+        }
+
     def test_non_strict_emits_single_catchall(self):
         assert build_portal_rules(_portal(strict=False), "home-portal") == [
             {

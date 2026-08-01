@@ -22,7 +22,9 @@ class Portal:
     uuid: str
     email: str
     short_id: str
+    strict: bool = True
     users: list[str] = field(default_factory=list)
+    publish: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

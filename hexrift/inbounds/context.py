@@ -17,6 +17,7 @@ from hexrift.components.derive.topology import (
     build_balancers,
     build_burst_observatory_selectors,
     build_hub_routing_rules,
+    resolve_node_publishes,
 )
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.defaults import ObservatoryConfig
@@ -24,6 +25,7 @@ from hexrift.components.schema.models.regions import Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, LbRole, RegionType, TagPrefix
 from hexrift.inbounds.base import InboundContext, InboundEnv, SharedContext
+from hexrift.inbounds.forward import forward_fragment
 from hexrift.inbounds.registry import build_slots
 
 
@@ -57,6 +59,7 @@ class HubOutboundContext:
 class HubContext:
     shared: SharedContext
     slots: dict[AccessType, InboundContext]
+    forward_inbounds: list[dict]  # dokodemo-door fragments, one per published portal port
 
     # Outbounds
     outbounds: list[HubOutboundContext]  # one per exit node (normal)
@@ -135,6 +138,7 @@ def build_hub_context(
     exit_node_keys: dict[str, NodeKeys],  # {exitNodeId: NodeKeys}
 ) -> HubContext:
     env = InboundEnv(config, region, node, node_keys)
+    shared = _make_shared(config, region, node, node_keys)
     ns = env.ns
 
     # Build exit outbounds
@@ -193,13 +197,16 @@ def build_hub_context(
                     )
                 )
 
+    published = resolve_node_publishes(config, node)
+
     return HubContext(
-        shared=_make_shared(config, region, node, node_keys),
+        shared=shared,
         slots=build_slots(env),
+        forward_inbounds=[forward_fragment(pub, shared) for pub in published],
         outbounds=outbounds,
         warp_outbounds=warp_outbounds,
         balancers=build_balancers(exit_regions),
-        routing_rules=build_hub_routing_rules(config),
+        routing_rules=build_hub_routing_rules(config, published),
         observatory_selectors=build_burst_observatory_selectors(exit_regions),
         observatory=config.defaults.hub.observatory,
     )

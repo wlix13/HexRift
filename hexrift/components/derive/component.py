@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rich_click as click
+from rich.markup import escape
 from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
@@ -25,6 +26,10 @@ _ACCESS_STYLE = {
     AccessType.WIREGUARD: "green",
     AccessType.XDNS: "magenta",
 }
+
+
+def _strict_label(strict: bool) -> str:
+    return "[green]on[/green]" if strict else "[red]off[/red]"
 
 
 class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
@@ -253,12 +258,18 @@ def _print_topology(app: HexRiftApp) -> None:
                 u_node.add(f"[bold green]guests[/bold green] {labels}")
     app.console.print(user_tree)
 
-    if cfg.portals:
+    portals = app.derive.derive_portals()
+    if portals:
         app.console.print()
         portal_tree = Tree("[bold cyan]Portals[/bold cyan]")
-        for portal in cfg.portals:
+        for portal in portals:
             members = ", ".join(portal.users)
-            portal_tree.add(f"[bold yellow]{portal.id}[/bold yellow]  [dim]users:[/dim] {members}")
+            p_node = portal_tree.add(
+                f"[bold yellow]{portal.id}[/bold yellow]  [dim]users:[/dim] {members}"
+                f"  [dim]strict:[/dim] {_strict_label(portal.strict)}"
+            )
+            for entry in portal.publish:
+                p_node.add(f"[bold green]publish[/bold green] {escape(entry)}")
         app.console.print(portal_tree)
 
 
@@ -324,8 +335,19 @@ def _print_portals(app: HexRiftApp) -> None:
     table.add_column("Email")
     table.add_column("ShortId")
     table.add_column("Users")
+    table.add_column("Strict")
+    table.add_column("Publish")
     for row in rows:
-        table.add_row(row.id, row.tag, row.uuid, row.email, row.short_id, ", ".join(row.users))
+        table.add_row(
+            row.id,
+            row.tag,
+            row.uuid,
+            row.email,
+            row.short_id,
+            ", ".join(row.users),
+            _strict_label(row.strict),
+            "\n".join(escape(entry) for entry in row.publish) or "—",
+        )
     app.console.print(table)
 
 

@@ -343,7 +343,7 @@ class TestDeriveServerNames:
 
     def test_dest_without_port_rejected(self):
         # reality dest must be host:port; a port-less dest is now rejected at the model level.
-        with pytest.raises(ValidationError, match="host:port"):
+        with pytest.raises(ValidationError, match="should match pattern"):
             RealityConfig(dest="vk.com", xhttp_path="/p/")
 
     def test_ipv6_bracketed_dest(self):

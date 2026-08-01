@@ -330,6 +330,68 @@
         "destOverride": ["http", "tls", "quic"],
         "routeOnly": true
       }
+    },
+    {
+      "tag": "home-publish-8443",
+      "listen": "::",
+      "port": 8443,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "192.168.1.10",
+        "port": 443,
+        "network": "tcp",
+        "followRedirect": false
+      },
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": false
+      }
+    },
+    {
+      "tag": "home-publish-9000",
+      "listen": "::",
+      "port": 9000,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "nas.home.arpa",
+        "port": 5000,
+        "network": "tcp,udp",
+        "followRedirect": false
+      },
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      },
+      "sniffing": {
+        "enabled": false
+      }
     }
   ],
   "outbounds": [
@@ -433,6 +495,19 @@
     "domainStrategy": "IPIfNonMatch",
     "balancers": [],
     "rules": [
+      {
+        "inboundTag": ["home-publish-8443"],
+        "source": ["203.0.113.7/32"],
+        "outboundTag": "home-portal"
+      },
+      {
+        "inboundTag": ["home-publish-8443"],
+        "outboundTag": "blocked"
+      },
+      {
+        "inboundTag": ["home-publish-9000"],
+        "outboundTag": "home-portal"
+      },
       {
         "ip": ["127.0.0.1", "::1"],
         "port": 53,

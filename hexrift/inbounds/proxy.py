@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hexrift.components.schema.models.resolve import resolve_node_proxy_inbound
-from hexrift.constants import AccessType, RegionType, Socket, XrayProtocol
+from hexrift.constants import PROXY_INBOUND_PORT, AccessType, RegionType, Socket, XrayProtocol
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.shared.xray_defaults import make_sniffing
 
@@ -49,7 +49,7 @@ class ProxySpec(InboundSpec[ProxyContext]):
         return {
             "tag": "mixed-inbound",
             "listen": Socket.MIXED,
-            "port": 80,
+            "port": PROXY_INBOUND_PORT,
             "protocol": XrayProtocol.MIXED,
             "settings": {
                 "auth": "password",

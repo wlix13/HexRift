@@ -95,6 +95,18 @@
       },
       {
         "inboundTag": ["home-portal"],
+        "ip": ["192.168.1.10"],
+        "port": 443,
+        "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["home-portal"],
+        "domain": ["full:nas.home.arpa"],
+        "port": 5000,
+        "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["home-portal"],
         "outboundTag": "blocked"
       },
       {

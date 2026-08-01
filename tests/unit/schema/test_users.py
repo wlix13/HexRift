@@ -77,7 +77,7 @@ class TestUser:
             )
 
     def test_invalid_guest_rejected(self):
-        with pytest.raises(ValidationError, match="invalid identifier"):
+        with pytest.raises(ValidationError, match="should match pattern"):
             User.model_validate(
                 {
                     "username": "alice",

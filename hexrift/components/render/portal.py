@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from typing import TYPE_CHECKING
 
 from hexrift.components.derive.defaults import (
@@ -84,6 +85,14 @@ def reverse_dial_outbound(
     }
 
 
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
 def build_portal_rules(portal: Portal, reverse_tag: str) -> list[dict]:
     """Build portal-side rules for traffic emerging from reverse tunnel."""
 
@@ -109,6 +118,17 @@ def build_portal_rules(portal: Portal, reverse_tag: str) -> list[dict]:
             {
                 "inboundTag": [reverse_tag],
                 "ip": portal.routes.ips,
+                "outboundTag": SpecialDestination.DIRECT,
+            }
+        )
+    for entry in portal.publish:
+        host, port = entry.target_host_port
+        matcher = {"ip": [host]} if _is_ip_literal(host) else {"domain": [f"full:{host}"]}
+        rules.append(
+            {
+                "inboundTag": [reverse_tag],
+                **matcher,
+                "port": port,
                 "outboundTag": SpecialDestination.DIRECT,
             }
         )

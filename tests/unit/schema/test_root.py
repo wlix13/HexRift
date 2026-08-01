@@ -451,11 +451,309 @@ def test_portal_with_unresolvable_wireguard_does_not_leak_derive_error():
     assert cfg.portals[0].users == ["alice"]
 
 
+def _config_with_publish(publish: list[dict]) -> dict:
+    d = copy.deepcopy(_valid_config())
+    d["portals"] = [
+        {
+            "id": "home",
+            "users": ["alice"],
+            "routes": {"domains": ["home.example.com"]},
+            "publish": publish,
+        },
+    ]
+    return d
+
+
+def test_portal_publish_valid():
+    cfg = ConglomerateConfig.model_validate(_config_with_publish([{"port": 8443, "target": "192.168.1.10:443"}]))
+    assert cfg.portals[0].publish[0].port == 8443
+
+
+def test_portal_publish_unknown_node():
+    d = _config_with_publish(
+        [
+            {
+                "port": 8443,
+                "target": "1.2.3.4:443",
+                "nodes": ["ghost"],
+            },
+        ]
+    )
+    with pytest.raises(ValidationError, match="references unknown node"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_exit_node_rejected():
+    d = _config_with_publish(
+        [
+            {
+                "port": 8443,
+                "target": "1.2.3.4:443",
+                "nodes": ["exitN1"],
+            },
+        ]
+    )
+    with pytest.raises(ValidationError, match="outside a hub region"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_reality_port_reserved():
+    d = _config_with_publish(
+        [
+            {
+                "port": 443,
+                "target": "1.2.3.4:443",
+            },
+        ]
+    )
+    with pytest.raises(ValidationError, match="already binds it for the reality inbound"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_proxy_port_reserved():
+    d = _config_with_publish(
+        [
+            {
+                "port": 80,
+                "target": "1.2.3.4:80",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["proxy_inbound"] = True
+    with pytest.raises(ValidationError, match="already binds it for the proxy inbound"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_proxy_port_free_when_node_disables():
+    d = _config_with_publish(
+        [
+            {
+                "port": 80,
+                "target": "1.2.3.4:80",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["proxy_inbound"] = True
+    d["regions"][1]["nodes"][0]["proxy_inbound"] = False
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].publish[0].port == 80
+
+
+def test_portal_publish_xdns_port_reserved():
+    d = _config_with_publish(
+        [
+            {
+                "port": 5353,
+                "target": "1.2.3.4:53",
+                "network": "udp",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["xdns"] = {"domains": ["dns.example.com"], "port": 5353}
+    d["users"][0]["access"] = ["xhttp", "xdns"]
+    with pytest.raises(ValidationError, match="already binds it for the xdns inbound"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_tcp_free_on_udp_only_xdns_port():
+    # xdns listens over mkcp (UDP), so the TCP socket on the same port is free
+    d = _config_with_publish(
+        [
+            {
+                "port": 5353,
+                "target": "1.2.3.4:53",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["xdns"] = {"domains": ["dns.example.com"], "port": 5353}
+    d["users"][0]["access"] = ["xhttp", "xdns"]
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].publish[0].port == 5353
+
+
+def test_portal_publish_xdns_port_free_without_xdns_users():
+    # No user carries xdns access, so the node renders no xdns inbound and the port is free
+    d = _config_with_publish(
+        [
+            {
+                "port": 5353,
+                "target": "1.2.3.4:53",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["xdns"] = {"domains": ["dns.example.com"], "port": 5353}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].publish[0].port == 5353
+
+
+def test_portal_publish_wireguard_port_reserved():
+    d = _config_with_publish(
+        [
+            {
+                "port": 51820,
+                "target": "1.2.3.4:51820",
+                "network": "tcp,udp",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["wireguard"] = {"port": 51820, "subnet": "10.0.0.0/24"}
+    d["users"][0]["access"] = ["xhttp", "wireguard"]
+    with pytest.raises(ValidationError, match="already binds it for the wireguard inbound"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_wireguard_node_port_override_reserved():
+    d = _config_with_publish(
+        [
+            {"port": 51820, "target": "1.2.3.4:51820", "network": "udp"},
+            {"port": 51821, "target": "1.2.3.4:51821", "network": "udp"},
+        ],
+    )
+    d["defaults"]["hub"]["wireguard"] = {"port": 51820, "subnet": "10.0.0.0/24"}
+    d["regions"][1]["nodes"][0]["wireguard"] = {"port": 51821}
+    d["users"][0]["access"] = ["xhttp", "wireguard"]
+    with pytest.raises(
+        ValidationError, match="udp port 51821 on node 'hubN1', which already binds it for the wireguard"
+    ):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_wireguard_port_free_when_node_disables():
+    d = _config_with_publish(
+        [
+            {
+                "port": 51820,
+                "target": "1.2.3.4:51820",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["wireguard"] = {"port": 51820, "subnet": "10.0.0.0/24"}
+    d["regions"][1]["nodes"][0]["wireguard"] = {"enabled": False}
+    d["users"][0]["access"] = ["xhttp", "wireguard"]
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].publish[0].port == 51820
+
+
+def test_portal_publish_wireguard_port_free_without_wireguard_users():
+    d = _config_with_publish(
+        [
+            {
+                "port": 51820,
+                "target": "1.2.3.4:51820",
+            },
+        ]
+    )
+    d["defaults"]["hub"]["wireguard"] = {"port": 51820, "subnet": "10.0.0.0/24"}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].publish[0].port == 51820
+
+
+def test_portal_publish_metrics_port_reserved():
+    d = _config_with_publish(
+        [
+            {
+                "port": 10085,
+                "target": "1.2.3.4:80",
+            },
+        ]
+    )
+    d["global"]["observability"] = {"metrics": {"enabled": True}}
+    with pytest.raises(ValidationError, match="already binds it for the metrics api listener"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_metrics_node_port_override_reserved():
+    d = _config_with_publish(
+        [
+            {"port": 10085, "target": "1.2.3.4:80"},
+            {"port": 20085, "target": "1.2.3.4:81"},
+        ],
+    )
+    d["defaults"]["hub"]["observability"] = {"metrics": {"enabled": True, "port": 20086}}
+    d["regions"][1]["nodes"][0]["observability"] = {"metrics": {"port": 20085}}
+    with pytest.raises(ValidationError, match="port 20085 on node 'hubN1', which already binds it for the metrics"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_metrics_port_free_when_disabled():
+    cfg = ConglomerateConfig.model_validate(_config_with_publish([{"port": 10085, "target": "1.2.3.4:80"}]))
+    assert cfg.portals[0].publish[0].port == 10085
+
+
 def test_portal_without_any_hub_node_rejected():
-    d = _config_with_portal(["xhttp"])
+    d = _config_with_publish([{"port": 8443, "target": "192.168.1.10:443"}])
     d["regions"] = [r for r in d["regions"] if r["type"] != "hub"]
     d["routing"]["hub_default"] = "exit1"
     with pytest.raises(ValidationError, match="Portals require at least one hub node"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_same_port_different_transport_rejected():
+    # Both entries would render inbounds tagged "{id}-publish-{port}"
+    d = _config_with_publish(
+        [
+            {"port": 9000, "target": "192.168.1.10:443", "network": "tcp"},
+            {"port": 9000, "target": "192.168.1.11:443", "network": "udp"},
+        ],
+    )
+    with pytest.raises(ValidationError, match="more than once"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_duplicate_port_same_portal():
+    d = _config_with_publish(
+        [
+            {"port": 8443, "target": "192.168.1.10:443"},
+            {"port": 8443, "target": "192.168.1.11:443"},
+        ],
+    )
+    with pytest.raises(ValidationError, match="on node 'hubN1' more than once"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_duplicate_port_disjoint_nodes_valid():
+    d = _config_with_publish(
+        [
+            {"port": 8443, "target": "192.168.1.10:443", "nodes": ["hubN1"]},
+            {"port": 8443, "target": "192.168.1.11:443", "nodes": ["hubN2"]},
+        ],
+    )
+    d["regions"][1]["nodes"].append({"id": "hubN2", "hostname": "hubN2.ap.test.ns"})
+    cfg = ConglomerateConfig.model_validate(d)
+    assert [p.port for p in cfg.portals[0].publish] == [8443, 8443]
+
+
+def test_portal_publish_duplicate_port_intersecting_nodes_rejected():
+    d = _config_with_publish(
+        [
+            {"port": 8443, "target": "192.168.1.10:443", "nodes": ["hubN1"]},
+            {"port": 8443, "target": "192.168.1.11:443"},
+        ],
+    )
+    d["regions"][1]["nodes"].append({"id": "hubN2", "hostname": "hubN2.ap.test.ns"})
+    with pytest.raises(ValidationError, match="on node 'hubN1' more than once"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_publish_duplicate_port_across_portals():
+    d = _config_with_publish(
+        [
+            {
+                "port": 8443,
+                "target": "192.168.1.10:443",
+            },
+        ]
+    )
+    d["users"].append({"username": "bob", "group": "grp1", "access": ["xhttp"]})
+    d["portals"].append(
+        {
+            "id": "office",
+            "users": ["bob"],
+            "routes": {"domains": ["office.example.com"]},
+            "publish": [{"port": 8443, "target": "10.0.0.5:443"}],
+        },
+    )
+    with pytest.raises(ValidationError, match="already published by portal 'home'"):
         ConglomerateConfig.model_validate(d)
 
 

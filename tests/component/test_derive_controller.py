@@ -94,6 +94,13 @@ class TestDerivePortals:
         portal = next(p for p in app.derive.derive_portals() if p.id == "home")
         assert portal.uuid == str(ns.portal_uuid("home"))
 
+    def test_portal_published_ports_formatted(self, app: HexRiftApp):
+        portal = next(p for p in app.derive.derive_portals() if p.id == "home")
+        assert portal.publish == [
+            "8443/tcp -> 192.168.1.10:443  allow: 203.0.113.7/32  nodes: all",
+            "9000/tcp,udp -> nas.home.arpa:5000  allow: any  nodes: all",
+        ]
+
 
 class TestDeriveGroups:
     def test_returns_all_groups(self, app: HexRiftApp):

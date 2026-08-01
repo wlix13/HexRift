@@ -14,6 +14,7 @@ from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.shared import RealityConfig, RealityFallbackLimits
 from hexrift.constants import (
+    REALITY_INBOUND_PORT,
     VLESS_FLOW,
     AccessType,
     RegionType,
@@ -159,7 +160,7 @@ class XhttpSpec(InboundSpec[XhttpContext]):
         else:
             # Xray binds only IPv4 if `0.0.0.0`, dualstack if `::` (if no ipv6Only sockopt)
             fragment["listen"] = "::" if shared.ipv6 else "0.0.0.0"  # noqa: S104
-            fragment["port"] = 443
+            fragment["port"] = REALITY_INBOUND_PORT
         fragment.update(
             {
                 "protocol": XrayProtocol.VLESS,

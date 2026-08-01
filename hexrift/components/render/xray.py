@@ -146,6 +146,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
 def build_hub_config(ctx: HubContext) -> dict:
     shared = ctx.shared
     inbounds = _build_inbounds(RegionType.HUB, ctx.slots, shared)
+    inbounds.extend(ctx.forward_inbounds)
 
     # Build outbounds list
     outbounds: list[dict] = []
