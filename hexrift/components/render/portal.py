@@ -116,7 +116,10 @@ def build_portal_config(
         {
             "tag": "direct",
             "protocol": XrayProtocol.FREEDOM,
-            "settings": {},
+            # Xray blackholes vless-reverse traffic unless freedom carries explicit allow rule
+            "settings": {
+                "finalRules": [{"action": "allow"}],
+            },
         },
     )
 

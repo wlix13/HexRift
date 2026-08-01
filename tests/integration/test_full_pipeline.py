@@ -439,6 +439,13 @@ def test_portal_outbound_has_reverse_sniffing():
 
 
 @pytest.mark.integration
+def test_portal_direct_outbound_allows_reverse_traffic():
+    cfg = json.loads(serialize_config(_build_portal()))
+    direct = next(o for o in cfg["outbounds"] if o["tag"] == "direct")
+    assert direct["settings"]["finalRules"] == [{"action": "allow"}]
+
+
+@pytest.mark.integration
 def test_portal_routing_rules():
     cfg = json.loads(serialize_config(_build_portal()))
     rules = cfg["routing"]["rules"]
