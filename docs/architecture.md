@@ -50,6 +50,9 @@ CLI command invoked
 
 All identifiers (UUIDs, shortIds, emails) are derived from the topology — never randomly generated. Re-running always produces the same output for the same `namespace` and names.
 
+!!! danger "`namespace` seeds every identity"
+    `global.namespace` feeds the namespace UUID that every user, guest, server, group and hub-exit identifier derives from. Changing it re-derives all of them at once, so every issued client config stops authenticating until it is reissued. Renaming a user or a node has the same effect for that one identity. Pin an existing value with `users[].uuid` / `groups[].short_id` when a name has to change but the credential must not.
+
 Source: `hexrift/components/derive/identity.py` — `Namespace` class.
 
 ### UUID derivation
@@ -149,6 +152,7 @@ hexrift/components/myfeature/
 # hexrift/components/myfeature/controller.py
 from hexrift.core.controller import BaseController
 
+
 class MyController(BaseController["HexRiftApp"]):
     def do_something(self) -> None:
         cfg = self.app.schema.config  # access other components
@@ -162,6 +166,7 @@ class MyController(BaseController["HexRiftApp"]):
 import rich_click as click
 from hexrift.core.component import BaseComponent
 from .controller import MyController
+
 
 class MyComponent(BaseComponent["HexRiftApp", MyController]):
     name = "myfeature"
@@ -182,6 +187,7 @@ class MyComponent(BaseComponent["HexRiftApp", MyController]):
 ```python
 # hexrift/app.py
 from hexrift.components.myfeature.component import MyComponent
+
 
 class HexRiftApp(BaseApplication["HexRiftApp"]):
     default_components = [..., MyComponent]

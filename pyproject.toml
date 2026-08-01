@@ -28,7 +28,7 @@ scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
 dev = [ "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
-docs = [ "mkdocs-material[i18n]", "mkdocs-static-i18n" ]
+docs = [ "zensical" ]
 tests = [
   "hypothesis",
   "polyfactory",
@@ -50,10 +50,6 @@ lint.per-file-ignores."tests/*" = [
   "S101", # Use of `assert` detected
 ]
 lint.isort.lines-after-imports = 2
-
-[tool.deptry]
-package_module_name_map.mkdocs-material = [ "material" ]
-package_module_name_map.mkdocs-static-i18n = [ "mkdocs_static_i18n" ]
 
 [tool.ty]
 environment.root = [ "." ]
@@ -149,6 +145,7 @@ tasks.typecheck = "uv run --group dev --group tests ty check"
 tasks.lint-imports = "uv run --group dev lint-imports"
 tasks.deptry = "uv run --group dev deptry ."
 tasks.check = [ "check-format", "lint", "typecheck", "lint-imports", "deptry" ]
-tasks.docs = "uv run --group docs mkdocs serve -f mkdocs.yaml"
+tasks.docs = "uv run --group docs zensical build --clean --strict"
+tasks."docs:dev" = "uv run --group docs zensical serve"
 tasks.tests = "uv run --group tests pytest"
 tasks.coverage = "uv run --group tests pytest --cov=hexrift --cov-report=term --cov-report=html"

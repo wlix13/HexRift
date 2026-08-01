@@ -6,7 +6,10 @@ on:
       - main
     paths:
       - "docs/**"
-      - "mkdocs.yaml"
+      - "zensical.toml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/ci-docs.yaml"
 
 permissions:
   contents: read
@@ -30,7 +33,5 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      - run: uv sync --only-group docs
-
       - name: Build documentation
-        run: uv run mkdocs build --strict
+        run: uv run --group docs zensical build --clean --strict
