@@ -90,7 +90,7 @@ def strip_non_blank(value: list[str]) -> list[str]:
 
 
 Identifier = Annotated[str, StringConstraints(pattern=IDENTIFIER_PATTERN, min_length=1)]
-"""Safe identifier (ids, usernames, portal labels)."""
+"""Safe identifier (ids, usernames, portal ids)."""
 
 DnsName = Annotated[str, StringConstraints(pattern=DNS_NAME_PATTERN, min_length=1)]
 """DNS name (namespace, hostnames, domains)."""

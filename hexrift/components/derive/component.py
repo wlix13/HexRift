@@ -35,7 +35,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
         @base.command()
-        @click.argument("entity", type=click.Choice(["users", "groups", "nodes", "all"]))
+        @click.argument("entity", type=click.Choice(["users", "groups", "portals", "nodes", "all"]))
         @click.pass_obj
         def derive(app: HexRiftApp, entity: str) -> None:
             """Show derived identifiers (UUIDs, shortIds, emails)."""
@@ -44,6 +44,8 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                 _print_users(app)
             if entity in ("groups", "all"):
                 _print_groups(app)
+            if entity in ("portals", "all"):
+                _print_portals(app)
             if entity in ("nodes", "all"):
                 _print_nodes(app)
 
@@ -243,13 +245,18 @@ def _print_topology(app: HexRiftApp) -> None:
         for user in groups_map[group_id]:
             badges = " ".join(f"[{_ACCESS_STYLE.get(a, 'white')}]{a}[/]" for a in user.access)
             u_node = g_branch.add(f"[bold]{user.username}[/bold]  {badges}")
-            if user.portals:
-                labels = ", ".join(p.label for p in user.portals)
-                u_node.add(f"[bold yellow]portals[/bold yellow] {labels}")
             if user.guests:
                 labels = ", ".join(user.guests)
                 u_node.add(f"[bold green]guests[/bold green] {labels}")
     app.console.print(user_tree)
+
+    if cfg.portals:
+        app.console.print()
+        portal_tree = Tree("[bold cyan]Portals[/bold cyan]")
+        for portal in cfg.portals:
+            members = ", ".join(portal.users)
+            portal_tree.add(f"[bold yellow]{portal.id}[/bold yellow]  [dim]users:[/dim] {members}")
+        app.console.print(portal_tree)
 
 
 def _print_share_urls(
@@ -302,6 +309,20 @@ def _print_groups(app: HexRiftApp) -> None:
     table.add_column("ShortId")
     for row in rows:
         table.add_row(row.id, row.short_id)
+    app.console.print(table)
+
+
+def _print_portals(app: HexRiftApp) -> None:
+    rows = app.derive.derive_portals()
+    table = Table(title="Portals", show_header=True, header_style="bold cyan")
+    table.add_column("ID", style="bold")
+    table.add_column("Tag")
+    table.add_column("UUID")
+    table.add_column("Email")
+    table.add_column("Group")
+    table.add_column("Users")
+    for row in rows:
+        table.add_row(row.id, row.tag, row.uuid, row.email, row.group, ", ".join(row.users))
     app.console.print(table)
 
 

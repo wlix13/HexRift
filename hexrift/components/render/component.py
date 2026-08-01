@@ -120,9 +120,13 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
                 app.console.print(Syntax(result, "diff", theme="monokai"))
 
         @base.command("gen-portal")
-        @click.argument("username")
-        @click.option("--label", "-l", default=None, help="Portal label (default: all portals for user).")
-        @click.option("--group", "-g", default=None, help="Group ID for shortId (default: user's own group).")
+        @click.argument("portal_id", required=False, default="")
+        @click.option(
+            "--all",
+            "all_portals",
+            is_flag=True,
+            help="Build bridge configs for all portals.",
+        )
         @click.option("--fp", default=None, help="TLS fingerprint (default: from config).")
         @click.option(
             "--out-dir",
@@ -139,30 +143,40 @@ class RenderComponent(BaseComponent["HexRiftApp", RenderController]):
         @click.pass_obj
         def gen_portal(
             app: HexRiftApp,
-            username: str,
-            label: str | None,
-            group: str | None,
+            portal_id: str,
+            all_portals: bool,
             fp: str | None,
             out_dir: Path,
             keys_dir: Path,
         ) -> None:
-            """Generate Xray config.json for portal client."""
+            """Generate Xray config.json for portal bridge client(s)."""
 
-            fingerprint = fp or app.schema.config.defaults.hub.exit_connections.fingerprint
+            if not all_portals and not portal_id:
+                raise click.UsageError("Provide PORTAL_ID or --all.")
+            if all_portals and portal_id:
+                raise click.UsageError("Provide either PORTAL_ID or --all, not both.")
 
-            def report(lbl: str, error: Exception | None) -> None:
+            cfg = app.schema.config
+            if all_portals:
+                if not cfg.portals:
+                    raise RenderError("No portals configured.")
+                portal_ids = [p.id for p in cfg.portals]
+            else:
+                portal_ids = [portal_id]
+
+            fingerprint = fp or cfg.defaults.hub.exit_connections.fingerprint
+
+            def report(pid: str, error: Exception | None) -> None:
                 if error is None:
-                    app.console.print(f"  [green]built[/green]  {out_dir}/{username}-{lbl}.json")
+                    app.console.print(f"  [green]built[/green]  {out_dir}/{pid}/config.json")
                 else:
-                    app.console.print(f"  [red]error[/red]  {username}/{lbl}: {error}")
+                    app.console.print(f"  [red]error[/red]  {pid}: {error}")
 
             result = app.render.gen_portals(
-                username,
-                label,
+                portal_ids,
                 out_dir,
                 keys_dir,
                 fingerprint,
-                group_id=group,
                 on_item=report,
             )
 

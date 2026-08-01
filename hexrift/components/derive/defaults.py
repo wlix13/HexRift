@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hexrift.components.schema.models.defaults import DefaultsConfig, ExitConnectionsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.observability import (
@@ -18,6 +20,11 @@ from hexrift.constants import RegionType
 from hexrift.errors import DeriveError
 
 
+if TYPE_CHECKING:
+    from hexrift.components.schema.models.portals import Portal
+    from hexrift.components.schema.models.users import User
+
+
 def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -> RealityConfig:
     if node.reality is not None:
         return node.reality
@@ -31,6 +38,20 @@ def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -
             fallback_limits=dr.fallback_limits,
         )
     raise DeriveError(f"Exit node {node.id!r} must have a reality config")
+
+
+def resolve_portal_group(portal: Portal, users: list[User]) -> str:
+    """Group whose shortId the portal bridge dials with.
+
+    Members sharing one group is a config invariant enforced in `ConglomerateConfig`,
+    which requires `portals[].group` as soon as they span more than one.
+    """
+
+    if portal.group is not None:
+        return portal.group
+    members = set(portal.users)
+    member_groups = {u.group for u in users if u.username in members}
+    return next(iter(member_groups))
 
 
 def resolve_node_ipv6(node: Node, region: Region, defaults: DefaultsConfig) -> bool:

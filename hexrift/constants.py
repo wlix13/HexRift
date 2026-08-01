@@ -141,7 +141,6 @@ class TagSuffix(StrEnum):
 class UserSuffix(StrEnum):
     """User tag suffixes."""
 
-    PORTAL = "-portal"
     SERVER = "-server"
 
 

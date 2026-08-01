@@ -3,10 +3,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
+from hexrift.components.schema.models.portals import Portal
 from hexrift.components.schema.models.regions import Region
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
-from hexrift.constants import SPECIAL_DESTINATIONS, RegionType
+from hexrift.constants import SPECIAL_DESTINATIONS, RegionType, TagPrefix, TagSuffix
 
 
 class ConglomerateConfig(BaseModel):
@@ -14,6 +15,7 @@ class ConglomerateConfig(BaseModel):
     defaults: DefaultsConfig
     groups: list[Group]
     users: list[User]
+    portals: list[Portal] = []
     routing: RoutingConfig
     regions: list[Region]
 
@@ -105,6 +107,55 @@ class ConglomerateConfig(BaseModel):
             usernames.add(user.username)
             if user.group not in group_ids:
                 raise ValueError(f"User {user.username!r} references unknown group {user.group!r}")
+
+        # Portals: unique ids kept out of node/region namespaces
+        derived_tags = set(node_ids) | SPECIAL_DESTINATIONS
+        for node_id in node_ids:
+            derived_tags.add(f"{TagPrefix.BACKUP}{node_id}")
+            derived_tags.add(f"{TagPrefix.WARP}{node_id}")
+            derived_tags.add(f"{TagPrefix.WARP}{TagPrefix.BACKUP}{node_id}")
+        for region in self.regions:
+            derived_tags.add(f"{TagPrefix.LB}{region.id}")
+            derived_tags.add(f"{TagPrefix.LB_WARP}{region.id}")
+        exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
+        user_groups = {u.username: u.group for u in self.users}
+        user_override_uuids = {u.uuid for u in self.users if u.uuid is not None}
+        seen_portal_ids: set[str] = set()
+        seen_portal_uuids: set = set()
+        for portal in self.portals:
+            if portal.id in seen_portal_ids:
+                raise ValueError(f"Duplicate portal id: {portal.id!r}")
+            seen_portal_ids.add(portal.id)
+            if portal.id in node_ids or portal.id in region_ids or portal.id in SPECIAL_DESTINATIONS:
+                raise ValueError(f"Portal id {portal.id!r} collides with a node id, region id, or special destination")
+            tag = f"{portal.id}{TagSuffix.PORTAL}"
+            if tag in derived_tags:
+                raise ValueError(f"Portal {portal.id!r} tag {tag!r} collides with a derived outbound tag")
+            for region_id in exit_region_ids:
+                if tag.startswith(region_id) or tag.startswith(f"{TagPrefix.WARP}{region_id}"):
+                    raise ValueError(
+                        f"Portal {portal.id!r} tag {tag!r} starts with exit region {region_id!r};"
+                        " balancer and observatory selectors match tag prefixes — rename the portal"
+                    )
+            for username in portal.users:
+                if username not in usernames:
+                    raise ValueError(f"Portal {portal.id!r} references unknown user {username!r}")
+            if portal.group is not None:
+                if portal.group not in group_ids:
+                    raise ValueError(f"Portal {portal.id!r} references unknown group {portal.group!r}")
+            else:
+                member_groups = {user_groups[u] for u in portal.users}
+                if len(member_groups) > 1:
+                    raise ValueError(
+                        f"Portal {portal.id!r} members span groups {sorted(member_groups)};"
+                        " set portals[].group explicitly"
+                    )
+            if portal.uuid is not None:
+                if portal.uuid in user_override_uuids:
+                    raise ValueError(f"Portal {portal.id!r} uuid override collides with a user uuid override")
+                if portal.uuid in seen_portal_uuids:
+                    raise ValueError(f"Portal {portal.id!r} uuid override collides with another portal")
+                seen_portal_uuids.add(portal.uuid)
 
         # hub_default references valid region or special destination
         hub_default = self.routing.hub_default

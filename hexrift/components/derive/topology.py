@@ -19,10 +19,10 @@ from hexrift.errors import DeriveError
 from hexrift.shared.xray_defaults import make_dns_direct_rule
 
 
-def portal_tag(label: str) -> str:
-    """Get tag for portal."""
+def portal_tag(portal_id: str) -> str:
+    """Get outbound tag for portal."""
 
-    return f"{label}{TagSuffix.PORTAL}"
+    return f"{portal_id}{TagSuffix.PORTAL}"
 
 
 def _resolve_fallback_tag(region: Region) -> str:
@@ -157,7 +157,6 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
     region_map = {r.id: r for r in config.regions}
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
-    users = config.users
 
     # 1. DNS localhost
     rules: list[dict] = [
@@ -199,30 +198,26 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
             include_ips=False,
         )
 
-    # 5 & 6. Portal domain + IP routes (per user, with user filter)
-    for user in users:
-        if not user.portals:
-            continue
-        u_email = ns.user_email(user.username)
-        uf = {"user": [u_email]}
-        for portal in user.portals:
-            pt = portal_tag(portal.label)
-            if portal.routes.domains:
-                rules.append(
-                    {
-                        "domain": portal.routes.domains,
-                        **uf,
-                        "outboundTag": pt,
-                    }
-                )
-            if portal.routes.ips:
-                rules.append(
-                    {
-                        "ip": portal.routes.ips,
-                        **uf,
-                        "outboundTag": pt,
-                    }
-                )
+    # 5 & 6. Portal domain + IP routes (filtered to each portal's member users)
+    for portal in config.portals:
+        uf = {"user": [ns.user_email(u) for u in portal.users]}
+        pt = portal_tag(portal.id)
+        if portal.routes.domains:
+            rules.append(
+                {
+                    "domain": portal.routes.domains,
+                    **uf,
+                    "outboundTag": pt,
+                }
+            )
+        if portal.routes.ips:
+            rules.append(
+                {
+                    "ip": portal.routes.ips,
+                    **uf,
+                    "outboundTag": pt,
+                }
+            )
 
     # 7. hub_routes (non-blocked, non-direct, non-warp-only)
     for route in routing.hub_routes:

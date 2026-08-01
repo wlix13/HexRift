@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from urllib.parse import quote
 from uuid import UUID
 
@@ -13,7 +13,6 @@ from hexrift.components.derive.topology import portal_tag
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.shared import RealityConfig, RealityFallbackLimits
-from hexrift.components.schema.models.users import User
 from hexrift.constants import (
     VLESS_FLOW,
     AccessType,
@@ -29,8 +28,14 @@ from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
+if TYPE_CHECKING:
+    from hexrift.components.schema.models.portals import Portal
+    from hexrift.components.schema.models.users import User
+
+
 def get_hub_vless_clients(
     users: list[User],
+    portals: list[Portal],
     ns: Namespace,
     flow: str = VLESS_FLOW,
 ) -> list[ClientEntry]:
@@ -64,19 +69,15 @@ def get_hub_vless_clients(
                         "flow": flow,
                     }
                 )
-    for user in users:
-        if user.portals:
-            user_base = ns.user_uuid(user.username, override=user.uuid)
-            for portal in user.portals:
-                pt = portal_tag(portal.label)
-                clients.append(
-                    {
-                        "email": ns.portal_email(portal.label, user.username),
-                        "id": str(ns.portal_uuid(portal.label, user.username, user_base=user_base)),
-                        "flow": flow,
-                        "reverse": {"tag": pt},
-                    }
-                )
+    for portal in portals:
+        clients.append(
+            {
+                "email": ns.portal_email(portal.id),
+                "id": str(ns.portal_uuid(portal.id, override=portal.uuid)),
+                "flow": flow,
+                "reverse": {"tag": portal_tag(portal.id)},
+            }
+        )
     return clients
 
 
@@ -84,6 +85,12 @@ def get_hub_short_ids(groups: list[Group], ns: Namespace) -> list[str]:
     """Hub node shortIds = group shortIds only."""
 
     return [ns.group_short_id(group) for group in groups]
+
+
+def get_hub_portal_short_ids(portals: list[Portal], ns: Namespace) -> list[str]:
+    """One shortId per portal."""
+
+    return [ns.portal_short_id(portal.id) for portal in portals]
 
 
 def get_hub_user_short_ids(users: list[User], ns: Namespace) -> list[str]:
@@ -126,8 +133,12 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             clients = get_exit_clients(env.hub_nodes, env.node, env.ns, flow=env.node_keys.flow)
             short_ids = [env.ns.exit_short_id(env.node.id)]
         else:
-            clients = get_hub_vless_clients(env.config.users, env.ns, flow=env.node_keys.flow)
-            short_ids = get_hub_short_ids(env.config.groups, env.ns) + get_hub_user_short_ids(env.config.users, env.ns)
+            clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)
+            short_ids = (
+                get_hub_short_ids(env.config.groups, env.ns)
+                + get_hub_portal_short_ids(env.config.portals, env.ns)
+                + get_hub_user_short_ids(env.config.users, env.ns)
+            )
         return XhttpContext(
             clients=clients,
             short_ids=short_ids,

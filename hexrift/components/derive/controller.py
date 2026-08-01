@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hexrift.components.derive import views
-from hexrift.components.derive.defaults import resolve_node_reality
+from hexrift.components.derive.defaults import resolve_node_reality, resolve_portal_group
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.derive.wireguard import (
@@ -108,15 +108,6 @@ class DeriveController(BaseController["HexRiftApp"]):
                 )
                 for label in user.guests
             ]
-            portals = [
-                views.Portal(
-                    label=p.label,
-                    tag=portal_tag(p.label),
-                    uuid=str(ns.portal_uuid(p.label, user.username, user_base=user_base)),
-                    email=ns.portal_email(p.label, user.username),
-                )
-                for p in user.portals
-            ]
             rows.append(
                 views.User(
                     username=user.username,
@@ -127,10 +118,24 @@ class DeriveController(BaseController["HexRiftApp"]):
                     server_uuid=server_uuid,
                     server_email=server_email,
                     guests=guests,
-                    portals=portals,
                 )
             )
         return rows
+
+    def derive_portals(self) -> list[views.Portal]:
+        cfg = self.app.schema.config
+        ns = Namespace(cfg.global_.namespace)
+        return [
+            views.Portal(
+                id=p.id,
+                tag=portal_tag(p.id),
+                uuid=str(ns.portal_uuid(p.id, override=p.uuid)),
+                email=ns.portal_email(p.id),
+                group=resolve_portal_group(p, cfg.users),
+                users=list(p.users),
+            )
+            for p in cfg.portals
+        ]
 
     def derive_groups(self) -> list[views.Group]:
         cfg = self.app.schema.config

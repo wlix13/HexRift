@@ -33,9 +33,10 @@ class Namespace:
     def server_email(username: str) -> str:
         return f"{username}{UserSuffix.SERVER}@{username}"
 
-    @staticmethod
-    def portal_email(label: str, username: str) -> str:
-        return f"{label}{UserSuffix.PORTAL}@{username}"
+    def portal_email(self, portal_id: str) -> str:
+        """Portal email; the `portal.` subdomain keeps it disjoint from every other email."""
+
+        return f"{portal_id}@portal.{self.name}"
 
     @staticmethod
     def guest_email(label: str, username: str) -> str:
@@ -52,8 +53,10 @@ class Namespace:
     def guest_uuid(self, label: str, username: str, user_base: uuid.UUID | None = None) -> uuid.UUID:
         return uuid.uuid5(user_base or self.user_uuid(username), label)
 
-    def portal_uuid(self, label: str, username: str, user_base: uuid.UUID | None = None) -> uuid.UUID:
-        return uuid.uuid5(user_base or self.user_uuid(username), f"{label}{UserSuffix.PORTAL}")
+    def portal_uuid(self, portal_id: str, override: uuid.UUID | None = None) -> uuid.UUID:
+        if override is not None:
+            return override
+        return uuid.uuid5(self._uuid, f"portal/{portal_id}")
 
     def hub_exit_uuid(self, hub_id: str, exit_id: str) -> uuid.UUID:
         return uuid.uuid5(self._uuid, f"{hub_id}-{exit_id}")
