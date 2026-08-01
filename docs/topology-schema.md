@@ -11,6 +11,7 @@ global:    # GlobalConfig
 defaults:  # DefaultsConfig
 groups:    # list[Group]
 users:     # list[User]
+portals:   # list[Portal]  (optional)
 routing:   # RoutingConfig
 regions:   # list[Region]
 ```
@@ -138,7 +139,6 @@ groups:
 | `group` | `str` | yes | Must reference an existing `groups[].id` |
 | `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy`, `wireguard`, `xdns` |
 | `uuid` | `UUID` | no | Override auto-derived UUID |
-| `portals` | `list[Portal]` | no | Portal (site-to-site tunnel) definitions |
 | `guests` | `list[str]` | no | Guest identity labels |
 
 ### Access types
@@ -155,12 +155,28 @@ groups:
 !!! warning "Proxy trust level"
     `proxy` is the lower-trust one. It exists for clients that speak nothing but SOCKS/HTTP like Telegram client, scraper, some appliance with proxy field and no VPN support - as it authenticates with username and password over plaintext inbound rather than with Reality handshake. Treat it as a way to give a simple app an exit, not as a general-purpose identity.
 
-### `Portal`
+**Example:**
+
+```yaml
+users:
+  - username: alice
+    group: staff
+    access: [xhttp, cdn]
+    guests: [alice-phone, alice-tablet]
+```
+
+---
+
+## `portals`
+
+Site-to-site reverse tunnels. A portal is a machine (e.g. a home server) that dials every hub with a dedicated identity and opens a reverse tunnel; hub traffic from the portal's member users that matches `routes` is sent backward through that tunnel and egresses on the portal machine. Several machines may run the same portal config — Xray pools their tunnels and load-balances across them.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `label` | `str` | yes | Portal label (used in UUID derivation) |
+| `id` | `str` | yes | Unique portal identifier; the hub outbound tag is `{id}-portal` |
+| `users` | `list[str]` | yes | Usernames allowed to route through this portal (at least one); usernames only — guests are not accepted |
 | `routes` | `PortalRoutes` | yes | Traffic selectors for this portal |
+| `uuid` | `UUID` | no | Override auto-derived portal UUID |
 
 ### `PortalRoutes`
 
@@ -171,19 +187,25 @@ groups:
 
 At least one matcher is required.
 
+Portal ids must not collide with node or region ids, and the derived `{id}-portal` tag must not start with an exit region id (balancer selectors are prefix matches). The portal UUID is derived as `UUID5(namespace_uuid, "portal/{id}")` and is reverse-only: Xray rejects forward proxying with it. If no portal machine is connected, matching traffic is dropped (no fallback to the default route).
+
+A portal dials with its own shortId, `SHA256("{id}.portal.{namespace}")[:16]`, which every hub node accepts alongside the group and per-user ones. Its identity is therefore independent of the groups its members belong to, and rotating one portal's shortId leaves every other portal and user untouched.
+
+Members are selected by `user_email` in the hub routing rule, so each one needs an access type that carries it — `xhttp`, `cdn`, `xdns`, or `wireguard` — **and** that access type has to render on a hub node. Declaring `cdn` without a `global.cdn` block, or `wireguard`/`xdns` without the matching config, emits no inbound carrying the member's identity, so the rule would match no traffic; both cases are rejected at validation time.
+
+A `proxy`-only or `server`-only member is rejected as well.
+
+Only a member's own identity routes into the portal. Guests (`{label}@{username}`) and server identities (`{username}-server@{username}`) are separate emails that the rule never matches, so a guest cannot reach a portal even when its user is a member. Listing a guest label in `portals[].users` is not a way around this - this is made for security by design.
+
 **Example:**
 
 ```yaml
-users:
-  - username: alice
-    group: staff
-    access: [xhttp, cdn]
-    portals:
-      - label: office
-        routes:
-          domains: [internal.example.com]
-          ips: [10.0.0.0/8]
-    guests: [alice-phone, alice-tablet]
+portals:
+  - id: home
+    users: [alice, bob]
+    routes:
+      domains: [internal.example.com]
+      ips: [10.0.0.0/8]
 ```
 
 ---

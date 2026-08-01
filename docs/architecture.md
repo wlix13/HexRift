@@ -51,7 +51,7 @@ CLI command invoked
 All identifiers (UUIDs, shortIds, emails) are derived from the topology — never randomly generated. Re-running always produces the same output for the same `namespace` and names.
 
 !!! danger "`namespace` seeds every identity"
-    `global.namespace` feeds the namespace UUID that every user, guest, server, group and hub-exit identifier derives from. Changing it re-derives all of them at once, so every issued client config stops authenticating until it is reissued. Renaming a user or a node has the same effect for that one identity. Pin an existing value with `users[].uuid` / `groups[].short_id` when a name has to change but the credential must not.
+    `global.namespace` feeds the namespace UUID that every user, guest, server, group and hub-exit identifier derives from. Changing it re-derives all of them at once, so every issued client config stops authenticating until it is reissued. Renaming a user or a node has the same effect for that one identity. Pin an existing value with `users[].uuid`, `portals[].uuid` or `groups[].short_id` when a name has to change but the credential must not.
 
 Source: `hexrift/components/derive/identity.py` — `Namespace` class.
 
@@ -63,11 +63,13 @@ Source: `hexrift/components/derive/identity.py` — `Namespace` class.
 | User UUID | `UUID5(namespace_uuid, username)` |
 | Server UUID | `UUID5(user_uuid, "{username}-server")` |
 | Guest UUID | `UUID5(user_uuid, guest_label)` |
-| Portal UUID | `UUID5(user_uuid, "{label}-portal")` |
+| Portal UUID | `UUID5(namespace_uuid, "portal/{id}")` |
 | Hub-Exit UUID | `UUID5(namespace_uuid, "{hub_id}-{exit_id}")` |
 | Warp UUID | Hub-Exit UUID with 3rd segment replaced by `ffff` |
 
-A user's UUID can be overridden in the YAML with `users[].uuid`.
+The `portal/` seed prefix contains a character that is illegal in identifiers, so a portal UUID can never collide with a user or hub-exit UUID.
+
+A user's UUID can be overridden with `users[].uuid`, a portal's with `portals[].uuid`. An override that lands on any other identity is rejected: Xray matches an inbound client by `id` alone, so a duplicate would silently disable one of the two.
 
 ### ShortId derivation
 
@@ -79,6 +81,7 @@ ShortIds are the first 16 hex characters of a SHA-256 hash:
 | Hub shortId | `"{node_id}.hub.{namespace}"` |
 | Exit shortId | `"{node_id}.exit.{namespace}"` |
 | User shortId | `"{username}.user.{namespace}"` |
+| Portal shortId | `"{portal_id}.portal.{namespace}"` |
 
 ### Email derivation
 
@@ -86,7 +89,7 @@ ShortIds are the first 16 hex characters of a SHA-256 hash:
 |-------|--------|
 | User | `{username}@{namespace}` |
 | Server | `{username}-server@{username}` |
-| Portal | `{label}-portal@{username}` |
+| Portal | `{id}@portal.{namespace}` |
 | Guest | `{label}@{username}` |
 | Hub-Exit | `{hub_id}-{exit_id}@{namespace}` |
 | Warp | `warp-{hub_id}-{exit_id}@{namespace}` |

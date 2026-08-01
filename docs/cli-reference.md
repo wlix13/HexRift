@@ -59,6 +59,7 @@ Show derived identifiers in a table.
 |----------|-------------|
 | `users` | UUIDs, emails, server UUIDs, and guest shortIds for every user |
 | `groups` | ShortIds for every group |
+| `portals` | Tags, UUIDs, emails, shortIds, and member users for every portal |
 | `nodes` | ShortIds / hub-exit UUIDs for every node |
 | `all` | All of the above |
 
@@ -250,25 +251,23 @@ hexrift build euH00 --xray --keys-dir /etc/hexrift/keys --out-dir /etc/xray
 ## gen-portal
 
 ```bash
-hexrift gen-portal <USERNAME> [options]
+hexrift gen-portal <PORTAL_ID> [options]
+hexrift gen-portal --all [options]
 ```
 
-Generate the Xray portal client `config.json` for a user's portal(s). With no `--label`, a config is
-generated for every portal the user has; pass `--label` to target a single portal. Each file is written
-to `<out-dir>/<username>-<label>.json` with `0o600` permissions (it embeds the reality private key).
+Generate the Xray bridge `config.json` for portal(s) declared in the top-level `portals:` section. Each config is written to `<out-dir>/<portal-id>/config.json` with `0o600` permissions (it embeds key material). Deploy it on the portal machine; several machines may run the same config — the hubs pool their tunnels.
 
 **Arguments:**
 
 | Argument | Description |
 |----------|-------------|
-| `USERNAME` | User whose portal config(s) to generate |
+| `PORTAL_ID` | Portal to generate (or pass `--all`) |
 
 **Options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--label`, `-l LABEL` | all portals | Generate only the named portal |
-| `--group`, `-g ID` | user's own group | Group whose shortId the portal uses |
+| `--all` | — | Generate configs for every portal |
 | `--fp FINGERPRINT` | from config | Client TLS fingerprint |
 | `--out-dir PATH` | `configs/portals` | Output directory |
 | `--keys-dir PATH` | `keys` | Directory containing key files |
@@ -276,11 +275,11 @@ to `<out-dir>/<username>-<label>.json` with `0o600` permissions (it embeds the r
 **Examples:**
 
 ```bash
-# All portals for a user
-hexrift gen-portal alice
+# All portals
+hexrift gen-portal --all
 
 # A single portal, into a custom directory
-hexrift gen-portal alice --label home --out-dir ./portals
+hexrift gen-portal home --out-dir ./portals
 ```
 
 ---
