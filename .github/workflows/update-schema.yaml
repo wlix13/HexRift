@@ -7,6 +7,7 @@ on:
     paths:
       - "hexrift/components/schema/models/**"
       - "hexrift/constants.py"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -42,6 +43,7 @@ jobs:
           " > hexrift/components/schema/schema.json
 
       - name: Open PR with updated schema
+        id: schema-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           commit-message: "chore(schema): update schema.json"
@@ -52,3 +54,9 @@ jobs:
           body: "Automated schema update triggered by changes to schema models."
           labels: automated
           add-paths: hexrift/components/schema/schema.json
+
+      - name: Rebase the PR branch onto main
+        if: steps.schema-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr update-branch --rebase chore/update-schema
