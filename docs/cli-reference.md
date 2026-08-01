@@ -41,7 +41,7 @@ Valid — conglomerate.yaml
 hexrift show
 ```
 
-Visualize the full network topology as a tree: global settings, regions, nodes, users (by group), portals, and guests.
+Visualize the full network topology as a tree: global settings, regions, nodes, users (by group), portals, and guests. Each portal lists its members, its `strict` state, and one line per published port carrying that port's source allowlist and node scope.
 
 ---
 
@@ -59,7 +59,7 @@ Show derived identifiers in a table.
 |----------|-------------|
 | `users` | UUIDs, emails, server UUIDs, and guest shortIds for every user |
 | `groups` | ShortIds for every group |
-| `portals` | Tags, UUIDs, emails, shortIds, and member users for every portal |
+| `portals` | Tags, UUIDs, emails, short IDs, member users, `strict` state, and published ports (`port/network -> target  allow: …  nodes: …`, where `allow: any` means open to the internet and `nodes: all` means every hub node binds it) for every portal |
 | `nodes` | ShortIds / hub-exit UUIDs for every node |
 | `all` | All of the above |
 
@@ -257,6 +257,8 @@ hexrift gen-portal --all [options]
 
 Generate the Xray bridge `config.json` for portal(s) declared in the top-level `portals:` section. Each config is written to `<out-dir>/<portal-id>/config.json` with `0o600` permissions (it embeds key material). Deploy it on the portal machine; several machines may run the same config — the hubs pool their tunnels.
 
+Unless the portal sets [`strict: false`](topology-schema.md#strict), the generated routing mirrors the portal's `routes` and `publish` matchers and blackholes everything else, so the config has to be regenerated whenever those matchers change.
+
 **Arguments:**
 
 | Argument | Description |
@@ -281,6 +283,9 @@ hexrift gen-portal --all
 # A single portal, into a custom directory
 hexrift gen-portal home --out-dir ./portals
 ```
+
+!!! danger "Published ports"
+    A portal's [`publish`](topology-schema.md#portalpublish) entries make hub nodes bind ports that reach into the portal-side network with no authentication and no user check — `portals[].users` does not apply to them. `allow: any` (as shown by [`derive portals`](#derive)) means no allowlist was configured, so the published port is exposed publicly and the target service's own authentication is the only line of defense; configure `allow` with restrictive trusted source IP ranges instead. Give a published service its own portal id rather than sharing one config across pooled machines.
 
 ---
 
