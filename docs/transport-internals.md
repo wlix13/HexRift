@@ -199,6 +199,26 @@ Read as `probability-from-to`. These fragment the encryption handshake across wr
 
 ---
 
+## Freedom blocks by default, and what it blocks depends on the inbound
+
+A `freedom` outbound picks a default rule from the name of the inbound that fed it (`proxy/freedom/freedom.go:154-168`):
+
+| `inbound.Name` | Default rule | Set at |
+|---|---|---|
+| `vless-reverse` | block everything | `proxy/vless/outbound/outbound.go:103` |
+| `vless`, `vmess`, `trojan`, `hysteria`, `wireguard`, `shadowsocks*` | block private IPs | e.g. `proxy/vless/inbound/inbound.go:536` |
+| anything else, including `mixed` (which is `socks`, `infra/conf/xray.go:27`) | none | `proxy/socks/server.go:68` |
+
+Two consequences fall out of that table, in opposite directions.
+
+Traffic emerging from a reverse tunnel is `vless-reverse`, so on a portal machine the default is **block everything** — the routing rules can hand a connection to `direct` and freedom will still blackhole it, logging `blocked target: …, blackholing connection for …` (`freedom.go:335-338`, `:354`). Portal configs therefore declare `"settings": {"finalRules": [{"action": "allow"}]}`. Configured rules are consulted before the default and the first match wins (`matchFinalRule`, `:187-197`), and an empty rule matches every network, port and address (`buildFinalRule` `:103-121`, `matchPort` `:130-135`, `matchIP` `:136-142`). A leading blanket allow also stops freedom resolving a domain purely to evaluate rules (`shouldResolveDomainBeforeFinalRules`, `:171-185`).
+
+On a hub the opposite applies: user traffic arrives over `vless` or `wireguard`, so `direct` already refuses RFC1918 destinations — reaching a private network is what portals are for. The `mixed` proxy inbound is the exception, since `socks` matches no case and gets no default rule at all.
+
+`finalRules` cannot express what a portal is confined to. The config accepts `action`, `network`, `port`, `ip` and `blockDelay` (`infra/conf/freedom.go:46-52`) and `ip` goes through an IP matcher, so CIDRs and `geoip:` entries only — a portal routed by domain has no expressible form, and freedom would resolve the name and match the resolved address instead. Confinement stays in the routing rules, which match domains natively.
+
+---
+
 ## Reverse tunnels are health-checked outside `subjectSelector`
 
 Every time a portal machine establishes its reverse mux, the hub's VLESS inbound probes that tag directly (`proxy/vless/inbound/inbound.go:665`):
