@@ -2,27 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from hexrift.components.schema.models.defaults import DefaultsConfig, ExitConnectionsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.observability import (
     LoggingConfig,
     LoggingOverride,
-    MetricsConfig,
-    MetricsOverride,
     ObservabilityConfig,
     ObservabilityOverride,
 )
 from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.resolve import resolve_node_metrics
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import RegionType
 from hexrift.errors import DeriveError
-
-
-if TYPE_CHECKING:
-    from hexrift.components.schema.models.portals import Portal
-    from hexrift.components.schema.models.users import User
 
 
 def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -> RealityConfig:
@@ -40,20 +32,6 @@ def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -
     raise DeriveError(f"Exit node {node.id!r} must have a reality config")
 
 
-def resolve_portal_group(portal: Portal, users: list[User]) -> str:
-    """Group whose shortId the portal bridge dials with.
-
-    Members sharing one group is a config invariant enforced in `ConglomerateConfig`,
-    which requires `portals[].group` as soon as they span more than one.
-    """
-
-    if portal.group is not None:
-        return portal.group
-    members = set(portal.users)
-    member_groups = {u.group for u in users if u.username in members}
-    return next(iter(member_groups))
-
-
 def resolve_node_ipv6(node: Node, region: Region, defaults: DefaultsConfig) -> bool:
     if node.ipv6 is not None:
         return node.ipv6
@@ -64,21 +42,6 @@ def resolve_node_haproxy(node: Node, region: Region, defaults: DefaultsConfig) -
     if node.haproxy is not None:
         return node.haproxy
     return defaults.exit.haproxy if region.type == RegionType.EXIT else defaults.hub.haproxy
-
-
-def _overlay_metrics(
-    base: MetricsConfig,
-    override: MetricsOverride | None,
-) -> MetricsConfig:
-    if override is None:
-        return base
-    return MetricsConfig(
-        enabled=override.enabled if override.enabled is not None else base.enabled,
-        listen=override.listen if override.listen is not None else base.listen,
-        port=override.port if override.port is not None else base.port,
-        user_stats=override.user_stats if override.user_stats is not None else base.user_stats,
-        online=override.online if override.online is not None else base.online,
-    )
 
 
 def _overlay_logging(
@@ -107,14 +70,7 @@ def resolve_node_observability(
     role_override: ObservabilityOverride | None = role_defaults.observability
     node_override: ObservabilityOverride | None = node.observability
 
-    metrics = _overlay_metrics(
-        global_.observability.metrics,
-        role_override.metrics if role_override else None,
-    )
-    metrics = _overlay_metrics(
-        metrics,
-        node_override.metrics if node_override else None,
-    )
+    metrics = resolve_node_metrics(node, region, defaults, global_)
 
     logging = _overlay_logging(
         global_.observability.logging,

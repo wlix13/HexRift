@@ -6,17 +6,13 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.defaults import DefaultsConfig
-from hexrift.components.schema.models.regions import Node, XdnsConfig
+from hexrift.components.schema.models.regions import XdnsConfig
+from hexrift.components.schema.models.resolve import resolve_node_xdns
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, RegionType, XrayNetwork, XrayProtocol
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_hub_access_clients
 from hexrift.shared.xray_defaults import MKCP_SETTINGS_XDNS, make_sniffing, make_sockopt
-
-
-def resolve_node_xdns(node: Node, defaults: DefaultsConfig) -> XdnsConfig | None:
-    return node.xdns if node.xdns is not None else defaults.hub.xdns
 
 
 def get_hub_xdns_clients(
