@@ -152,6 +152,7 @@ hexrift/components/myfeature/
 # hexrift/components/myfeature/controller.py
 from hexrift.core.controller import BaseController
 
+
 class MyController(BaseController["HexRiftApp"]):
     def do_something(self) -> None:
         cfg = self.app.schema.config  # access other components
@@ -165,6 +166,7 @@ class MyController(BaseController["HexRiftApp"]):
 import rich_click as click
 from hexrift.core.component import BaseComponent
 from .controller import MyController
+
 
 class MyComponent(BaseComponent["HexRiftApp", MyController]):
     name = "myfeature"
@@ -185,6 +187,7 @@ class MyComponent(BaseComponent["HexRiftApp", MyController]):
 ```python
 # hexrift/app.py
 from hexrift.components.myfeature.component import MyComponent
+
 
 class HexRiftApp(BaseApplication["HexRiftApp"]):
     default_components = [..., MyComponent]

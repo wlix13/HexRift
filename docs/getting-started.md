@@ -203,7 +203,6 @@ uv run prek run --all-files      # run all hooks
 For building docs locally:
 
 ```bash
-uv sync --group docs
-uv run mkdocs serve              # http://127.0.0.1:8000
-uv run mkdocs build --strict     # static site → site/
+uv run poe docs                  # strict build (what CI runs) → site/
+uv run poe docs:dev              # live-reload server → http://127.0.0.1:8000
 ```

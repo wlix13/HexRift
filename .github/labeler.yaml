@@ -18,7 +18,7 @@ labels:
   - label: "docs"
     files:
       - "^docs/"
-      - '^mkdocs\.yaml$'
+      - '^zensical\.toml$'
       - '^README\.md$'
   - label: "ci-cd"
     files:
