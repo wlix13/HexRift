@@ -1093,18 +1093,40 @@
     "Portal": {
       "additionalProperties": false,
       "properties": {
-        "label": {
+        "id": {
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_-]+$",
-          "title": "Label",
+          "title": "Id",
           "type": "string"
+        },
+        "users": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Users",
+          "type": "array"
         },
         "routes": {
           "$ref": "#/$defs/PortalRoutes"
+        },
+        "uuid": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uuid"
         }
       },
       "required": [
-        "label",
+        "id",
+        "users",
         "routes"
       ],
       "title": "Portal",
@@ -1466,14 +1488,6 @@
           "default": null,
           "title": "Uuid"
         },
-        "portals": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/Portal"
-          },
-          "title": "Portals",
-          "type": "array"
-        },
         "guests": {
           "default": [],
           "items": {
@@ -1591,6 +1605,14 @@
         "$ref": "#/$defs/User"
       },
       "title": "Users",
+      "type": "array"
+    },
+    "portals": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Portal"
+      },
+      "title": "Portals",
       "type": "array"
     },
     "routing": {
