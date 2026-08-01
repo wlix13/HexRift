@@ -18,9 +18,7 @@
         "reverse": {
           "tag": "office-portal",
           "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls", "quic"],
-            "routeOnly": true
+            "enabled": false
           }
         }
       },
@@ -80,14 +78,24 @@
           }
         ]
       }
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
     }
   ],
   "routing": {
-    "domainStrategy": "IPIfNonMatch",
+    "domainStrategy": "IPOnDemand",
     "rules": [
       {
         "inboundTag": ["office-portal"],
+        "ip": ["10.10.0.0/16"],
         "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["office-portal"],
+        "outboundTag": "blocked"
       },
       {
         "network": "TCP,UDP",

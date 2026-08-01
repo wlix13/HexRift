@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hexrift.components.derive.defaults import (
     derive_server_names,
     derive_xhttp_host,
@@ -10,10 +12,21 @@ from hexrift.components.derive.topology import portal_tag
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import LoggingConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
-from hexrift.constants import RegionType, XrayNetwork, XrayProtocol, XraySecurity
+from hexrift.constants import (
+    DomainStrategy,
+    RegionType,
+    SpecialDestination,
+    XrayNetwork,
+    XrayProtocol,
+    XraySecurity,
+)
 from hexrift.errors import RenderError
 from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
 from hexrift.shared.xray_defaults import make_log, make_sniffing, make_sockopt
+
+
+if TYPE_CHECKING:
+    from hexrift.components.schema.models.portals import Portal
 
 
 def reverse_dial_outbound(
@@ -31,6 +44,7 @@ def reverse_dial_outbound(
     xhttp_host: str,
     xhttp_path: str,
     reverse_tag: str,
+    sniffing: bool = True,
 ) -> dict:
     """VLESS outbound that dials hub node and opens reverse tunnel."""
 
@@ -45,7 +59,8 @@ def reverse_dial_outbound(
             "encryption": encryption,
             "reverse": {
                 "tag": reverse_tag,
-                "sniffing": make_sniffing(),
+                # routeOnly sniffing routes on the client-supplied SNI, not the destination the hub sent
+                "sniffing": make_sniffing() if sniffing else {"enabled": False},
             },
         },
         "streamSettings": {
@@ -67,6 +82,43 @@ def reverse_dial_outbound(
             "sockopt": make_sockopt(None),
         },
     }
+
+
+def build_portal_rules(portal: Portal, reverse_tag: str) -> list[dict]:
+    """Build portal-side rules for traffic emerging from reverse tunnel."""
+
+    if not portal.strict:
+        return [
+            {
+                "inboundTag": [reverse_tag],
+                "outboundTag": SpecialDestination.DIRECT,
+            }
+        ]
+
+    rules: list[dict] = []
+    if portal.routes.domains:
+        rules.append(
+            {
+                "inboundTag": [reverse_tag],
+                "domain": portal.routes.domains,
+                "outboundTag": SpecialDestination.DIRECT,
+            }
+        )
+    if portal.routes.ips:
+        rules.append(
+            {
+                "inboundTag": [reverse_tag],
+                "ip": portal.routes.ips,
+                "outboundTag": SpecialDestination.DIRECT,
+            }
+        )
+    rules.append(
+        {
+            "inboundTag": [reverse_tag],
+            "outboundTag": SpecialDestination.BLOCKED,
+        }
+    )
+    return rules
 
 
 def build_portal_config(
@@ -106,12 +158,13 @@ def build_portal_config(
                     xhttp_host=derive_xhttp_host(reality),
                     xhttp_path=reality.xhttp_path,
                     reverse_tag=reverse_tag,
+                    sniffing=not portal.strict,
                 )
             )
 
     outbounds.append(
         {
-            "tag": "direct",
+            "tag": SpecialDestination.DIRECT,
             "protocol": XrayProtocol.FREEDOM,
             # Xray blackholes vless-reverse traffic unless freedom carries explicit allow rule
             "settings": {
@@ -119,22 +172,30 @@ def build_portal_config(
             },
         },
     )
+    if portal.strict:
+        outbounds.append(
+            {
+                "tag": SpecialDestination.BLOCKED,
+                "protocol": XrayProtocol.BLACKHOLE,
+                "settings": {},
+            },
+        )
+
+    rules = build_portal_rules(portal, reverse_tag)
+    # Safety pin: unmatched traffic would otherwise fall to the first outbound, looping back in
+    rules.append(
+        {
+            "network": "TCP,UDP",
+            "outboundTag": SpecialDestination.DIRECT,
+        }
+    )
 
     return {
         "log": make_log(LoggingConfig()),
         "outbounds": outbounds,
         "routing": {
-            "domainStrategy": "IPIfNonMatch",
-            "rules": [
-                {
-                    "inboundTag": [reverse_tag],
-                    "outboundTag": "direct",
-                },
-                # Safety pin: unmatched traffic would otherwise fall to the first outbound, looping back in
-                {
-                    "network": "TCP,UDP",
-                    "outboundTag": "direct",
-                },
-            ],
+            # Strict's catch-all always matches first, so IPIfNonMatch never gets its DNS-backed pass
+            "domainStrategy": DomainStrategy.IP_ON_DEMAND if portal.strict else DomainStrategy.IP_IF_NON_MATCH,
+            "rules": rules,
         },
     }

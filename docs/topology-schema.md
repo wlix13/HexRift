@@ -177,6 +177,7 @@ Site-to-site reverse tunnels. A portal is a machine (e.g. a home server) that di
 | `users` | `list[str]` | yes | Usernames allowed to route through this portal (at least one); usernames only — guests are not accepted |
 | `routes` | `PortalRoutes` | yes | Traffic selectors for this portal |
 | `uuid` | `UUID` | no | Override auto-derived portal UUID |
+| `strict` | `bool` | no | Confine portal-side egress to the declared matchers (default `true`) |
 
 ### `PortalRoutes`
 
@@ -186,6 +187,8 @@ Site-to-site reverse tunnels. A portal is a machine (e.g. a home server) that di
 | `ips` | `list[str]` | IP/CIDR matchers |
 
 At least one matcher is required.
+
+Matchers are evaluated on the hub, before the connection leaves it, so the hub has to recognize the destination on its own. A bare LAN hostname (`nas`, `router`) never gets there — the hub cannot resolve it, the rule falls through, and the traffic goes to `routing.hub_default`. Use a matcher that catches the name as written (`domain:lan`, `full:nas.home.arpa`).
 
 Portal ids must not collide with node or region ids, and the derived `{id}-portal` tag must not start with an exit region id (balancer selectors are prefix matches). The portal UUID is derived as `UUID5(namespace_uuid, "portal/{id}")` and is reverse-only: Xray rejects forward proxying with it. If no portal machine is connected, matching traffic is dropped (no fallback to the default route).
 
@@ -197,6 +200,25 @@ A `proxy`-only or `server`-only member is rejected as well.
 
 Only a member's own identity routes into the portal. Guests (`{label}@{username}`) and server identities (`{username}-server@{username}`) are separate emails that the rule never matches, so a guest cannot reach a portal even when its user is a member. Listing a guest label in `portals[].users` is not a way around this - this is made for security by design.
 
+### `strict`
+
+`strict` (default `true`) confines what traffic emerging from the tunnel may reach on the portal side. The portal config mirrors the declared matchers as `direct` rules and blackholes the rest:
+
+- one rule for `routes.domains` and one for `routes.ips`, copied verbatim from the schema — Xray prefixes such as `full:`, `domain:`, `regexp:` are preserved, so hub and portal cannot disagree about what a matcher means
+- a final catch-all to a `blocked` blackhole outbound, which is added to the config only when `strict` is set
+
+Sniffing on the reverse tunnel is turned off under `strict`. Xray sniffs with `routeOnly`, which leaves the dialed address alone but routes on the sniffed SNI/Host instead — an address the client chooses. Every strict matcher would then be evaluated against attacker-supplied text, so any member could reach an arbitrary LAN host by sending a matching SNI. With sniffing off, the portal matches the destination exactly as the hub sent it. `strict: false` keeps sniffing on.
+
+With `strict: false` the portal emits a single catch-all `direct` rule instead — the pre-`strict` output — and anything that reaches the `{id}-portal` outbound can be dialed from the portal machine: its own loopback services, the rest of the LAN, the router's admin interface, the open internet. A hub-side mistake or an over-broad matcher then turns into remote access to the home network.
+
+The portal enforces *what*, not *who*. Traffic emerging from a reverse tunnel carries no inbound user, so member filtering stays hub-side and portal-side rules never mention users.
+
+A strict portal uses `domainStrategy: IPOnDemand` instead of the `IPIfNonMatch` a non-strict one keeps. `IPIfNonMatch` only re-runs the rules with DNS when *nothing* matched, and the strict catch-all always matches on the first pass — so the second pass would never happen and an `ip` matcher could never cover a domain destination. `IPOnDemand` resolves inside the first pass, which restores that case: a domain the hub routed here by matching an `ip` rule (the hub resolved it on its side) is resolved again by the portal and matched against `routes.ips`.
+
+That leaves one fail-closed case: the two resolvers have to agree. If the hub's DNS lands a name inside a declared CIDR and the portal's DNS does not — split-horizon setups, most often — the connection is blackholed where a non-strict portal would have dialed it. Declaring the name in `routes.domains` removes the dependency on DNS entirely, since a domain matcher is checked before any resolution happens. `strict: false` is the escape hatch.
+
+Matchers are copied verbatim, so a `geosite:` / `geoip:` / `ext:` entry in `routes` also lands in the portal config and Xray refuses to start without the matching `.dat` asset on the portal machine. Keep strict portals on literal matchers, or deploy the asset files there too.
+
 **Example:**
 
 ```yaml
@@ -204,8 +226,15 @@ portals:
   - id: home
     users: [alice, bob]
     routes:
-      domains: [internal.example.com]
-      ips: [10.0.0.0/8]
+      domains: [internal.example.com, "domain:lan"]
+      ips: [10.0.0.0/8, 192.168.1.0/24]
+
+  - id: lab
+    users: [alice]
+    routes:
+      ips: [172.16.0.0/12]
+    # lab names resolve differently on the portal than on the hub
+    strict: false
 ```
 
 ---

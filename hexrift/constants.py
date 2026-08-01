@@ -105,6 +105,14 @@ class XraySecurity(StrEnum):
     TLS = "tls"
 
 
+class DomainStrategy(StrEnum):
+    """Routing domainStrategy: when router resolves domain destination to match `ip` rules."""
+
+    AS_IS = "AsIs"
+    IP_IF_NON_MATCH = "IPIfNonMatch"
+    IP_ON_DEMAND = "IPOnDemand"
+
+
 class LogLevel(StrEnum):
     """Xray log verbosity levels."""
 

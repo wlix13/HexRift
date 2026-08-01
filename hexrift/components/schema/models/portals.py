@@ -25,6 +25,7 @@ class Portal(BaseModel):
     users: IdentifierList = Field(min_length=1)
     routes: PortalRoutes
     uuid: UUID | None = None
+    strict: bool = True
 
     @model_validator(mode="after")
     def validate_unique_users(self):

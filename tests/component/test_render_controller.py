@@ -152,8 +152,8 @@ class TestPortalGen:
         assert "direct" in tags
 
     def test_portal_config_outbound_count(self, portal_config):
-        # 1 hub node (hubN1) + 1 direct freedom outbound
-        assert len(portal_config["config"]["outbounds"]) == 2
+        # 1 hub node (hubN1) + direct freedom + blocked blackhole (strict default)
+        assert len(portal_config["config"]["outbounds"]) == 3
 
     def test_portal_outbound_uses_hostname(self, portal_config):
         cfg = portal_config["config"]
@@ -163,11 +163,16 @@ class TestPortalGen:
 
     def test_portal_routing_reverse_inbound_rule_first(self, portal_config):
         rules = portal_config["config"]["routing"]["rules"]
-        assert rules[0] == {"inboundTag": ["home-portal"], "outboundTag": "direct"}
+        assert rules[0] == {
+            "inboundTag": ["home-portal"],
+            "domain": ["home.alice.example.com"],
+            "outboundTag": "direct",
+        }
 
     def test_portal_routing_catchall_direct_last(self, portal_config):
         rules = portal_config["config"]["routing"]["rules"]
-        assert len(rules) == 2
+        assert len(rules) == 3
+        assert rules[1] == {"inboundTag": ["home-portal"], "outboundTag": "blocked"}
         assert rules[-1]["network"] == "TCP,UDP"
         assert rules[-1]["outboundTag"] == "direct"
 

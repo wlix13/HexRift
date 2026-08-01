@@ -39,6 +39,7 @@ class TestPortal:
         assert p.id == "home"
         assert p.users == ["alice"]
         assert p.uuid is None
+        assert p.strict is True
 
     def test_uuid_override(self):
         uid = uuid.uuid4()
