@@ -199,6 +199,26 @@ Read as `probability-from-to`. These fragment the encryption handshake across wr
 
 ---
 
+## Reverse tunnels are health-checked outside `subjectSelector`
+
+Every time a portal machine establishes its reverse mux, the hub's VLESS inbound probes that tag directly (`proxy/vless/inbound/inbound.go:665`):
+
+```go
+if burstObs, ok := observer.(extension.BurstObservatory); ok {
+    go burstObs.Check([]string{r.Tag()})
+}
+```
+
+`Observer.Check` hands the tag straight to `HealthPing.Check` → `doCheck` (`app/observatory/burst/healthping.go:148-154`); `subjectSelector` is read only by `StartScheduler` for the periodic sweep (`app/observatory/burst/burstobserver.go:69-79`). So the check runs on `{id}-portal` whatever the selectors say, and the only way to avoid it is to emit no `burstObservatory` block at all.
+
+The probe dials `pingConfig.destination` through the tunnel, so on the hub it appears as `taking platform initialized detour [{id}-portal] for [tcp:www.apple.com:80]`, and on the portal as a request arriving from the reverse inbound. Consequences:
+
+- the result is inert: only balancers read `HealthPing.Results`, and a portal tag can never enter a balancer selector — `ConglomerateConfig` rejects a portal whose tag prefixes an exit region id
+- expect one `error ping … with {id}-portal` warning per reconnect whenever the portal does not route the probe destination
+- a portal confined to its declared matchers blackholes the probe, so it never leaves the portal-side network — an unconfined one really does fetch the destination from there on every reconnect
+
+---
+
 ## Summary of currently-inert configuration
 
 Not bugs — just settings that cost nothing and do nothing where they are:
