@@ -184,6 +184,9 @@ Generate x25519 Reality keypairs and ML-KEM 768 encryption keys. One YAML file i
 | `--force` | off | Overwrite existing key files |
 | `--keys-dir PATH` | `keys` | Directory to store key files |
 
+!!! danger "`--force` invalidates everything issued for that node"
+    A node's Reality keypair is baked into every share URL and client config generated for it. Overwriting it means every client of that node fails to connect until its config is regenerated and redistributed. Without `--force` existing key files are left alone, which is why it is not the default.
+
 **Examples:**
 
 ```bash
@@ -206,6 +209,9 @@ hexrift build [NODE_ID | --all] --xray|--haproxy [options]
 ```
 
 Generate Xray `config.json` and/or HAProxy `.cfg` for node(s). Output is written to `<out-dir>/<nodeId>/`.
+
+!!! warning "Generated configs are secrets"
+    A node's `config.json` embeds its Reality private key and every client UUID, so it is written with `0o600` permissions. Keep that out of version control and off any shared artifact store — treat it like the key file it is derived from.
 
 **Arguments:**
 

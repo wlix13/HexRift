@@ -152,6 +152,9 @@ groups:
 | `wireguard` | WireGuard peer on hub nodes (see `defaults.hub.wireguard`) |
 | `xdns` | DNS-interception inbound on hub nodes (see `defaults.hub.xdns`) |
 
+!!! warning "Proxy trust level"
+    `proxy` is the lower-trust one. It exists for clients that speak nothing but SOCKS/HTTP like Telegram client, scraper, some appliance with proxy field and no VPN support - as it authenticates with username and password over plaintext inbound rather than with Reality handshake. Treat it as a way to give a simple app an exit, not as a general-purpose identity.
+
 ### `Portal`
 
 | Field | Type | Required | Description |

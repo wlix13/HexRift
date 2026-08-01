@@ -50,6 +50,9 @@ CLI command invoked
 
 All identifiers (UUIDs, shortIds, emails) are derived from the topology — never randomly generated. Re-running always produces the same output for the same `namespace` and names.
 
+!!! danger "`namespace` seeds every identity"
+    `global.namespace` feeds the namespace UUID that every user, guest, server, group and hub-exit identifier derives from. Changing it re-derives all of them at once, so every issued client config stops authenticating until it is reissued. Renaming a user or a node has the same effect for that one identity. Pin an existing value with `users[].uuid` / `groups[].short_id` when a name has to change but the credential must not.
+
 Source: `hexrift/components/derive/identity.py` — `Namespace` class.
 
 ### UUID derivation
