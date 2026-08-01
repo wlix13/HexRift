@@ -4,10 +4,36 @@ from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.portals import Portal
-from hexrift.components.schema.models.regions import Region
+from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.resolve import resolve_node_wireguard_port, resolve_node_xdns
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
-from hexrift.constants import SPECIAL_DESTINATIONS, RegionType, TagPrefix, TagSuffix
+from hexrift.constants import (
+    ROUTABLE_ACCESS,
+    SPECIAL_DESTINATIONS,
+    AccessType,
+    RegionType,
+    TagPrefix,
+    TagSuffix,
+)
+
+
+def _hub_rendered_access(
+    region: Region,
+    node: Node,
+    defaults: DefaultsConfig,
+    global_: GlobalConfig,
+) -> set[AccessType]:
+    """Routable access types whose inbound this hub node actually renders."""
+
+    rendered = {AccessType.XHTTP}
+    if global_.cdn is not None and region.cdn_xhttp_path:
+        rendered.add(AccessType.CDN)
+    if resolve_node_xdns(node, defaults) is not None:
+        rendered.add(AccessType.XDNS)
+    if resolve_node_wireguard_port(node, defaults) is not None:
+        rendered.add(AccessType.WIREGUARD)
+    return rendered
 
 
 class ConglomerateConfig(BaseModel):
@@ -118,10 +144,17 @@ class ConglomerateConfig(BaseModel):
             derived_tags.add(f"{TagPrefix.LB}{region.id}")
             derived_tags.add(f"{TagPrefix.LB_WARP}{region.id}")
         exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
-        user_groups = {u.username: u.group for u in self.users}
-        user_override_uuids = {u.uuid for u in self.users if u.uuid is not None}
+        user_access = {u.username: set(u.access) for u in self.users}
         seen_portal_ids: set[str] = set()
-        seen_portal_uuids: set = set()
+        rendered_access: set[AccessType] = set()
+        if self.portals:
+            hub_nodes = [(r, n) for r in self.regions if r.type == RegionType.HUB for n in r.nodes]
+            if not hub_nodes:
+                raise ValueError(
+                    "Portals require at least one hub node; a portal opens its reverse tunnel by dialing hub nodes"
+                )
+            for hub_region, hub_node in hub_nodes:
+                rendered_access |= _hub_rendered_access(hub_region, hub_node, self.defaults, self.global_)
         for portal in self.portals:
             if portal.id in seen_portal_ids:
                 raise ValueError(f"Duplicate portal id: {portal.id!r}")
@@ -140,22 +173,14 @@ class ConglomerateConfig(BaseModel):
             for username in portal.users:
                 if username not in usernames:
                     raise ValueError(f"Portal {portal.id!r} references unknown user {username!r}")
-            if portal.group is not None:
-                if portal.group not in group_ids:
-                    raise ValueError(f"Portal {portal.id!r} references unknown group {portal.group!r}")
-            else:
-                member_groups = {user_groups[u] for u in portal.users}
-                if len(member_groups) > 1:
+                if not user_access[username] & ROUTABLE_ACCESS & rendered_access:
                     raise ValueError(
-                        f"Portal {portal.id!r} members span groups {sorted(member_groups)};"
-                        " set portals[].group explicitly"
+                        f"Portal {portal.id!r} member {username!r} has no access type carrying a"
+                        f" routable identity that a hub node renders (member has:"
+                        f" {', '.join(sorted(user_access[username])) or 'none'};"
+                        f" hub nodes render: {', '.join(sorted(rendered_access)) or 'none'});"
+                        " the portal routing rule would match no traffic"
                     )
-            if portal.uuid is not None:
-                if portal.uuid in user_override_uuids:
-                    raise ValueError(f"Portal {portal.id!r} uuid override collides with a user uuid override")
-                if portal.uuid in seen_portal_uuids:
-                    raise ValueError(f"Portal {portal.id!r} uuid override collides with another portal")
-                seen_portal_uuids.add(portal.uuid)
 
         # hub_default references valid region or special destination
         hub_default = self.routing.hub_default

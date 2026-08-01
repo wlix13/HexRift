@@ -39,6 +39,17 @@ class AccessType(StrEnum):
     XDNS = "xdns"
 
 
+ROUTABLE_ACCESS = frozenset(
+    {
+        AccessType.XHTTP,
+        AccessType.CDN,
+        AccessType.XDNS,
+        AccessType.WIREGUARD,
+    }
+)
+"""Access types whose inbound identity carries `user_email` for routing rules to match on."""
+
+
 class LbRole(StrEnum):
     """Load balancer node roles."""
 
