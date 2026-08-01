@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from hexrift.app import HexRiftApp
+from hexrift.components.render.portal import build_portal_config
 from hexrift.errors import KeysError, RenderError
 
 
@@ -118,8 +119,8 @@ def portal_config(app: HexRiftApp, tmp_path: Path):
     keys_dir = tmp_path / "keys"
     out_dir = tmp_path / "out"
     _gen_all_keys(app, keys_dir)
-    app.render.gen_portal("alice", "home", out_dir, keys_dir, "chrome")
-    config_path = out_dir / "alice-home.json"
+    app.render.gen_portal("home", out_dir, keys_dir, "chrome")
+    config_path = out_dir / "home" / "config.json"
     return {
         "keys_dir": keys_dir,
         "out_dir": out_dir,
@@ -160,20 +161,36 @@ class TestPortalGen:
         assert portal_ob is not None, "Outbound 'portal-hubN1' not found in outbounds"
         assert portal_ob["settings"]["address"] == "hubN1.ap.test.ns"
 
-    def test_portal_routing_catchall_direct(self, portal_config):
+    def test_portal_routing_reverse_inbound_rule_first(self, portal_config):
         rules = portal_config["config"]["routing"]["rules"]
-        assert len(rules) == 1
-        assert rules[0]["network"] == "TCP,UDP"
-        assert rules[0]["outboundTag"] == "direct"
+        assert rules[0] == {"inboundTag": ["home-portal"], "outboundTag": "direct"}
 
-    def test_raises_for_unknown_username(self, app: HexRiftApp, tmp_path: Path) -> None:
+    def test_portal_routing_catchall_direct_last(self, portal_config):
+        rules = portal_config["config"]["routing"]["rules"]
+        assert len(rules) == 2
+        assert rules[-1]["network"] == "TCP,UDP"
+        assert rules[-1]["outboundTag"] == "direct"
+
+    def test_portal_outbound_reverse_tag(self, portal_config):
+        ob = next(o for o in portal_config["config"]["outbounds"] if o["tag"] == "portal-hubN1")
+        assert ob["settings"]["reverse"]["tag"] == "home-portal"
+
+    def test_raises_for_unknown_portal(self, app: HexRiftApp, tmp_path: Path) -> None:
         keys_dir = tmp_path / "keys"
         out_dir = tmp_path / "out"
         _gen_all_keys(app, keys_dir)
-        with pytest.raises(RenderError, match="User not found"):
-            app.render.gen_portal("nobody", "home", out_dir, keys_dir, "chrome")
+        with pytest.raises(RenderError, match="Portal not found"):
+            app.render.gen_portal("nope", out_dir, keys_dir, "chrome")
+
+    def test_dial_sockopt_follows_hub_ipv6(self, portal_config) -> None:
+        ob = next(o for o in portal_config["config"]["outbounds"] if o["tag"] == "portal-hubN1")
+        assert ob["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv6v4"
+
+    def test_builder_raises_for_unknown_portal(self, app: HexRiftApp) -> None:
+        with pytest.raises(RenderError, match="Portal not found: 'nope'"):
+            build_portal_config(app.schema.config, "nope", {}, "chrome")
 
     def test_raises_when_keys_not_generated(self, app: HexRiftApp, tmp_path: Path) -> None:
         out_dir = tmp_path / "out"
         with pytest.raises(KeysError):
-            app.render.gen_portal("alice", "home", out_dir, tmp_path / "keys", "chrome")
+            app.render.gen_portal("home", out_dir, tmp_path / "keys", "chrome")

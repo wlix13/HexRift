@@ -3,7 +3,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from hexrift.components.schema.models.users import Portal, PortalRoutes, User
+from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType
 
 
@@ -15,7 +15,6 @@ class TestUser:
             access=[AccessType.XHTTP],
         )
         assert u.uuid is None
-        assert u.portals == []
         assert u.guests == []
 
     def test_valid_with_uuid(self):
@@ -57,20 +56,6 @@ class TestUser:
                 }
             )
 
-    def test_with_portals(self):
-        u = User(
-            username="alice",
-            group="grp1",
-            access=[AccessType.XHTTP],
-            portals=[
-                Portal(
-                    label="home",
-                    routes=PortalRoutes(domains=["home.example.com"]),
-                )
-            ],
-        )
-        assert u.portals[0].label == "home"
-
     def test_with_guests(self):
         u = User(
             username="alice",
@@ -99,48 +84,5 @@ class TestUser:
                     "group": "grp1",
                     "access": ["xhttp"],
                     "guests": ["ok", "bad guest"],
-                },
-            )
-
-
-class TestPortalRoutes:
-    def test_both_none_valid(self):
-        pr = PortalRoutes()
-        assert pr.domains is None
-        assert pr.ips is None
-
-    def test_extra_field_forbidden(self):
-        with pytest.raises(ValidationError):
-            PortalRoutes.model_validate({"extra": "x"})
-
-    def test_blank_domain_rejected(self):
-        with pytest.raises(ValidationError, match="non-empty"):
-            PortalRoutes(domains=["ok.example.com", "  "])
-
-
-class TestPortal:
-    def test_valid(self):
-        p = Portal(
-            label="home",
-            routes=PortalRoutes(domains=["home.example.com"]),
-        )
-        assert p.label == "home"
-
-    def test_invalid_label_rejected(self):
-        with pytest.raises(ValidationError):
-            Portal.model_validate(
-                {
-                    "label": "bad label",
-                    "routes": {},
-                },
-            )
-
-    def test_extra_field_forbidden(self):
-        with pytest.raises(ValidationError):
-            Portal.model_validate(
-                {
-                    "label": "home",
-                    "routes": {},
-                    "bad_field": "x",
                 },
             )

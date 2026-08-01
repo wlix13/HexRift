@@ -12,11 +12,11 @@
       "settings": {
         "address": "mskA00.ap.test.hexrift",
         "port": 443,
-        "id": "d2374034-7576-5dc0-9205-338fa2b75c0d",
+        "id": "9c87e426-dadd-58ae-b0a0-da0952f7971d",
         "flow": "xtls-rprx-vision-udp443",
         "encryption": "mlkem768x25519plus.native.0rtt.u-5whFoa5HSl8vqWLbyXN2gh8MG9JwY431bW4YiBtnc",
         "reverse": {
-          "tag": "direct",
+          "tag": "home-portal",
           "sniffing": {
             "enabled": true,
             "destOverride": ["http", "tls", "quic"],
@@ -31,7 +31,7 @@
           "publicKey": "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk",
           "fingerprint": "chrome",
           "serverName": "www.microsoft.com",
-          "shortId": "aabbccddeeff0011"
+          "shortId": "9f81d88cddc4ba58"
         },
         "xhttpSettings": {
           "host": "www.microsoft.com",
@@ -56,11 +56,11 @@
         },
         "sockopt": {
           "tproxy": "off",
-          "domainStrategy": "UseIPv4",
+          "domainStrategy": "UseIPv6v4",
           "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,
-            "prioritizeIPv6": false
+            "prioritizeIPv6": true
           },
           "tcpFastOpen": true,
           "tcpKeepAliveInterval": 45,
@@ -79,6 +79,10 @@
   "routing": {
     "domainStrategy": "IPIfNonMatch",
     "rules": [
+      {
+        "inboundTag": ["home-portal"],
+        "outboundTag": "direct"
+      },
       {
         "network": "TCP,UDP",
         "outboundTag": "direct"

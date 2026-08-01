@@ -1,6 +1,5 @@
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.regions import Node, XdnsConfig
-from hexrift.components.schema.models.users import Portal, PortalRoutes
 from hexrift.inbounds.xdns import get_hub_xdns_clients, resolve_node_xdns
 from tests.unit.inbounds.helpers import make_defaults, make_user
 
@@ -45,18 +44,13 @@ class TestGetHubXdnsClients:
         emails = [c["email"] for c in clients]
         assert "laptop@alice" in emails
 
-    def test_server_and_portal_variants_excluded(self):
+    def test_server_variant_excluded(self):
         ns = Namespace("t.ns")
-        u = make_user(
-            "alice",
-            access=["xhttp", "server", "xdns"],
-            portals=[Portal(label="home", routes=PortalRoutes())],
-        )
+        u = make_user("alice", access=["xhttp", "server", "xdns"])
         clients = get_hub_xdns_clients([u], ns)
         emails = [c["email"] for c in clients]
         assert "alice@t.ns" in emails
         assert "alice-server@alice" not in emails
-        assert "home-portal@alice" not in emails
 
     def test_clients_have_empty_flow(self):
         # xdns runs over non-TLS mKCP, where xtls-rprx-vision is invalid.

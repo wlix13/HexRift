@@ -1,0 +1,92 @@
+{
+  "log": {
+    "loglevel": "none",
+    "access": "none",
+    "error": "none",
+    "dnsLog": false
+  },
+  "outbounds": [
+    {
+      "tag": "portal-mskA00",
+      "protocol": "vless",
+      "settings": {
+        "address": "mskA00.ap.test.hexrift",
+        "port": 443,
+        "id": "e8c6c17f-1c69-5167-9eff-efb88e330ccc",
+        "flow": "xtls-rprx-vision-udp443",
+        "encryption": "mlkem768x25519plus.native.0rtt.u-5whFoa5HSl8vqWLbyXN2gh8MG9JwY431bW4YiBtnc",
+        "reverse": {
+          "tag": "office-portal",
+          "sniffing": {
+            "enabled": true,
+            "destOverride": ["http", "tls", "quic"],
+            "routeOnly": true
+          }
+        }
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "realitySettings": {
+          "publicKey": "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk",
+          "fingerprint": "chrome",
+          "serverName": "www.microsoft.com",
+          "shortId": "0a725eb18430ccfa"
+        },
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "inboundTag": ["office-portal"],
+        "outboundTag": "direct"
+      },
+      {
+        "network": "TCP,UDP",
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}
