@@ -3,7 +3,6 @@ from __future__ import annotations
 from hexrift.components.derive.defaults import (
     derive_server_names,
     derive_xhttp_host,
-    resolve_node_ipv6,
     resolve_node_reality,
 )
 from hexrift.components.derive.identity import Namespace
@@ -32,7 +31,6 @@ def reverse_dial_outbound(
     xhttp_host: str,
     xhttp_path: str,
     reverse_tag: str,
-    ipv6: bool = False,
 ) -> dict:
     """VLESS outbound that dials hub node and opens reverse tunnel."""
 
@@ -66,7 +64,7 @@ def reverse_dial_outbound(
                 "extra": XHTTP_EXTRA,
                 "xmux": XMUX,
             },
-            "sockopt": make_sockopt(ipv6),
+            "sockopt": make_sockopt(None),
         },
     }
 
@@ -108,7 +106,6 @@ def build_portal_config(
                     xhttp_host=derive_xhttp_host(reality),
                     xhttp_path=reality.xhttp_path,
                     reverse_tag=reverse_tag,
-                    ipv6=resolve_node_ipv6(node, region, cfg.defaults),
                 )
             )
 
@@ -116,7 +113,10 @@ def build_portal_config(
         {
             "tag": "direct",
             "protocol": XrayProtocol.FREEDOM,
-            "settings": {},
+            # Xray blackholes vless-reverse traffic unless freedom carries explicit allow rule
+            "settings": {
+                "finalRules": [{"action": "allow"}],
+            },
         },
     )
 

@@ -182,9 +182,10 @@ class TestPortalGen:
         with pytest.raises(RenderError, match="Portal not found"):
             app.render.gen_portal("nope", out_dir, keys_dir, "chrome")
 
-    def test_dial_sockopt_follows_hub_ipv6(self, portal_config) -> None:
+    def test_dial_sockopt_is_family_agnostic(self, portal_config) -> None:
+        # The portal machine is not described by the topology, so neither family is assumed
         ob = next(o for o in portal_config["config"]["outbounds"] if o["tag"] == "portal-hubN1")
-        assert ob["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv6v4"
+        assert ob["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv4v6"
 
     def test_builder_raises_for_unknown_portal(self, app: HexRiftApp) -> None:
         with pytest.raises(RenderError, match="Portal not found: 'nope'"):

@@ -56,11 +56,11 @@
         },
         "sockopt": {
           "tproxy": "off",
-          "domainStrategy": "UseIPv6v4",
+          "domainStrategy": "UseIPv4v6",
           "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,
-            "prioritizeIPv6": true
+            "prioritizeIPv6": false
           },
           "tcpFastOpen": true,
           "tcpKeepAliveInterval": 45,
@@ -73,7 +73,13 @@
     {
       "tag": "direct",
       "protocol": "freedom",
-      "settings": {}
+      "settings": {
+        "finalRules": [
+          {
+            "action": "allow"
+          }
+        ]
+      }
     }
   ],
   "routing": {
