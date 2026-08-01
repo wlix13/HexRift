@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.1](https://github.com/wlix13/HexRift/compare/v0.11.0...v0.11.1) (2026-08-01)
+
+
+### Bug Fixes
+
+* **portals:** allow default final rule egress from reverse tunnel on portal ([a74d9ba](https://github.com/wlix13/HexRift/commit/a74d9ba24a7487706871fcd8ce3ffe6207feec0f))
+* **portals:** stop deriving portal `sockopt` dial from hub IPv6 ([734fc16](https://github.com/wlix13/HexRift/commit/734fc16a8130b0afee19076832c29a6c3e5149e9))
+
 ## [0.11.0](https://github.com/wlix13/HexRift/compare/v0.10.2...v0.11.0) (2026-08-01)
 
 
