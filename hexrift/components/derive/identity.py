@@ -8,7 +8,10 @@ from hexrift.constants import SHORT_ID_LENGTH, WARP_UUID_SEGMENT, UserSuffix
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from hexrift.components.schema.models.groups import Group
+    from hexrift.components.schema.models.root import ConglomerateConfig
 
 
 class Namespace:
@@ -73,6 +76,9 @@ class Namespace:
     def user_short_id(self, username: str) -> str:
         return self._gen_short_id(f"{username}.user.{self.name}")
 
+    def portal_short_id(self, portal_id: str) -> str:
+        return self._gen_short_id(f"{portal_id}.portal.{self.name}")
+
     def _gen_group_short_id(self, group_id: str) -> str:
         return self._gen_short_id(f"{group_id}.{self.name}")
 
@@ -87,3 +93,16 @@ class Namespace:
 
     def warp_email(self, hub_id: str, exit_id: str) -> str:
         return f"warp-{hub_id}-{exit_id}@{self.name}"
+
+
+def iter_hub_identities(config: ConglomerateConfig, ns: Namespace) -> Iterator[tuple[uuid.UUID, str]]:
+    """Yield `(uuid, owner)` for every identity that can land on hub inbound."""
+
+    for user in config.users:
+        base = ns.user_uuid(user.username, override=user.uuid)
+        yield base, f"user {user.username!r}"
+        yield ns.server_uuid(user.username, user_base=base), f"server identity of user {user.username!r}"
+        for label in user.guests:
+            yield ns.guest_uuid(label, user.username, user_base=base), f"guest {label!r} of user {user.username!r}"
+    for portal in config.portals:
+        yield ns.portal_uuid(portal.id, override=portal.uuid), f"portal {portal.id!r}"

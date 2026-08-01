@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from hexrift.components.derive import views
-from hexrift.components.derive.defaults import resolve_node_reality, resolve_portal_group
-from hexrift.components.derive.identity import Namespace
+from hexrift.components.derive.defaults import resolve_node_reality
+from hexrift.components.derive.identity import Namespace, iter_hub_identities
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.derive.wireguard import (
     derive_user_wireguard_keypair,
@@ -16,6 +16,7 @@ from hexrift.components.derive.wireguard import (
     render_wireguard_client_conf,
 )
 from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.resolve import resolve_node_wireguard
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
     WIREGUARD_CLIENT_DNS,
@@ -25,13 +26,13 @@ from hexrift.constants import (
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
 from hexrift.inbounds.cdn import build_cdn_share_url
-from hexrift.inbounds.wireguard import resolve_node_wireguard
 from hexrift.inbounds.xhttp import build_reality_share_url
 from hexrift.shared.crypto import x25519_urlsafe_to_std
 
 
 if TYPE_CHECKING:
     from hexrift.app import HexRiftApp  # noqa: F401
+    from hexrift.components.schema.models.root import ConglomerateConfig
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,17 @@ class _Identity:
 
 
 class DeriveController(BaseController["HexRiftApp"]):
+    def check_identity_collisions(self, cfg: ConglomerateConfig) -> None:
+        """Reject uuid overrides landing on an identity another owner already claims."""
+
+        ns = Namespace(cfg.global_.namespace)
+        owners: dict[UUID, str] = {}
+        for identity, owner in iter_hub_identities(cfg, ns):
+            claimed = owners.get(identity)
+            if claimed is not None:
+                raise DeriveError(f"UUID {identity} is claimed by both {claimed} and {owner}")
+            owners[identity] = owner
+
     def _resolve_user(self, username: str) -> User:
         user = next((u for u in self.app.schema.config.users if u.username == username), None)
         if user is None:
@@ -131,7 +143,7 @@ class DeriveController(BaseController["HexRiftApp"]):
                 tag=portal_tag(p.id),
                 uuid=str(ns.portal_uuid(p.id, override=p.uuid)),
                 email=ns.portal_email(p.id),
-                group=resolve_portal_group(p, cfg.users),
+                short_id=ns.portal_short_id(p.id),
                 users=list(p.users),
             )
             for p in cfg.portals

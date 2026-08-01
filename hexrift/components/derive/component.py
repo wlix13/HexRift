@@ -32,6 +32,9 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
     controller_class = DeriveController
     expose_controller = True
 
+    def on_register(self) -> None:
+        self.app.schema.add_validator(self.controller.check_identity_collisions)
+
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
         @base.command()
@@ -319,10 +322,10 @@ def _print_portals(app: HexRiftApp) -> None:
     table.add_column("Tag")
     table.add_column("UUID")
     table.add_column("Email")
-    table.add_column("Group")
+    table.add_column("ShortId")
     table.add_column("Users")
     for row in rows:
-        table.add_row(row.id, row.tag, row.uuid, row.email, row.group, ", ".join(row.users))
+        table.add_row(row.id, row.tag, row.uuid, row.email, row.short_id, ", ".join(row.users))
     app.console.print(table)
 
 
