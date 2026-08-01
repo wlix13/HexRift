@@ -3,10 +3,37 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
-from hexrift.components.schema.models.regions import Region
+from hexrift.components.schema.models.portals import Portal
+from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.resolve import resolve_node_wireguard_port, resolve_node_xdns
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
-from hexrift.constants import SPECIAL_DESTINATIONS, RegionType
+from hexrift.constants import (
+    ROUTABLE_ACCESS,
+    SPECIAL_DESTINATIONS,
+    AccessType,
+    RegionType,
+    TagPrefix,
+    TagSuffix,
+)
+
+
+def _hub_rendered_access(
+    region: Region,
+    node: Node,
+    defaults: DefaultsConfig,
+    global_: GlobalConfig,
+) -> set[AccessType]:
+    """Routable access types whose inbound this hub node actually renders."""
+
+    rendered = {AccessType.XHTTP}
+    if global_.cdn is not None and region.cdn_xhttp_path:
+        rendered.add(AccessType.CDN)
+    if resolve_node_xdns(node, defaults) is not None:
+        rendered.add(AccessType.XDNS)
+    if resolve_node_wireguard_port(node, defaults) is not None:
+        rendered.add(AccessType.WIREGUARD)
+    return rendered
 
 
 class ConglomerateConfig(BaseModel):
@@ -14,6 +41,7 @@ class ConglomerateConfig(BaseModel):
     defaults: DefaultsConfig
     groups: list[Group]
     users: list[User]
+    portals: list[Portal] = []
     routing: RoutingConfig
     regions: list[Region]
 
@@ -105,6 +133,54 @@ class ConglomerateConfig(BaseModel):
             usernames.add(user.username)
             if user.group not in group_ids:
                 raise ValueError(f"User {user.username!r} references unknown group {user.group!r}")
+
+        # Portals: unique ids kept out of node/region namespaces
+        derived_tags = set(node_ids) | SPECIAL_DESTINATIONS
+        for node_id in node_ids:
+            derived_tags.add(f"{TagPrefix.BACKUP}{node_id}")
+            derived_tags.add(f"{TagPrefix.WARP}{node_id}")
+            derived_tags.add(f"{TagPrefix.WARP}{TagPrefix.BACKUP}{node_id}")
+        for region in self.regions:
+            derived_tags.add(f"{TagPrefix.LB}{region.id}")
+            derived_tags.add(f"{TagPrefix.LB_WARP}{region.id}")
+        exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
+        user_access = {u.username: set(u.access) for u in self.users}
+        seen_portal_ids: set[str] = set()
+        rendered_access: set[AccessType] = set()
+        if self.portals:
+            hub_nodes = [(r, n) for r in self.regions if r.type == RegionType.HUB for n in r.nodes]
+            if not hub_nodes:
+                raise ValueError(
+                    "Portals require at least one hub node; a portal opens its reverse tunnel by dialing hub nodes"
+                )
+            for hub_region, hub_node in hub_nodes:
+                rendered_access |= _hub_rendered_access(hub_region, hub_node, self.defaults, self.global_)
+        for portal in self.portals:
+            if portal.id in seen_portal_ids:
+                raise ValueError(f"Duplicate portal id: {portal.id!r}")
+            seen_portal_ids.add(portal.id)
+            if portal.id in node_ids or portal.id in region_ids or portal.id in SPECIAL_DESTINATIONS:
+                raise ValueError(f"Portal id {portal.id!r} collides with a node id, region id, or special destination")
+            tag = f"{portal.id}{TagSuffix.PORTAL}"
+            if tag in derived_tags:
+                raise ValueError(f"Portal {portal.id!r} tag {tag!r} collides with a derived outbound tag")
+            for region_id in exit_region_ids:
+                if tag.startswith(region_id) or tag.startswith(f"{TagPrefix.WARP}{region_id}"):
+                    raise ValueError(
+                        f"Portal {portal.id!r} tag {tag!r} starts with exit region {region_id!r};"
+                        " balancer and observatory selectors match tag prefixes — rename the portal"
+                    )
+            for username in portal.users:
+                if username not in usernames:
+                    raise ValueError(f"Portal {portal.id!r} references unknown user {username!r}")
+                if not user_access[username] & ROUTABLE_ACCESS & rendered_access:
+                    raise ValueError(
+                        f"Portal {portal.id!r} member {username!r} has no access type carrying a"
+                        f" routable identity that a hub node renders (member has:"
+                        f" {', '.join(sorted(user_access[username])) or 'none'};"
+                        f" hub nodes render: {', '.join(sorted(rendered_access)) or 'none'});"
+                        " the portal routing rule would match no traffic"
+                    )
 
         # hub_default references valid region or special destination
         hub_default = self.routing.hub_default

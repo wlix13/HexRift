@@ -73,19 +73,33 @@ class TestGuestUuid:
         b = ns.guest_uuid("phone", "alice")
         assert a == b
 
-    def test_differs_from_portal_uuid_same_label(self, ns: Namespace):
-        assert ns.guest_uuid("home", "alice") != ns.portal_uuid("home", "alice")
-
     def test_different_labels_differ(self, ns: Namespace):
         assert ns.guest_uuid("phone", "alice") != ns.guest_uuid("laptop", "alice")
 
 
 class TestPortalUuid:
     def test_deterministic(self, ns: Namespace):
-        assert ns.portal_uuid("k2", "alice") == ns.portal_uuid("k2", "alice")
+        assert ns.portal_uuid("k2") == ns.portal_uuid("k2")
 
-    def test_differs_from_user_uuid(self, ns: Namespace):
-        assert ns.portal_uuid("home", "alice") != ns.user_uuid("alice")
+    def test_override_respected(self, ns: Namespace):
+        fixed = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        assert ns.portal_uuid("home", override=fixed) == fixed
+
+    def test_different_portals_differ(self, ns: Namespace):
+        assert ns.portal_uuid("home") != ns.portal_uuid("k2")
+
+    def test_scoped_to_namespace(self):
+        assert Namespace("a.example").portal_uuid("home") != Namespace("b.example").portal_uuid("home")
+
+    @given(_text)
+    def test_seed_domain_separated_from_user_uuid(self, name: str):
+        # A user literally named "{id}-portal" must not collide with portal "{id}".
+        ns = Namespace(NS_NAME)
+        assert ns.portal_uuid(name) != ns.user_uuid(f"{name}-portal")
+
+    def test_seed_domain_separated_from_hub_exit_uuid(self, ns: Namespace):
+        # hub "a" + exit "b-portal" seeds "a-b-portal"; portal "a-b" must differ.
+        assert ns.portal_uuid("a-b") != ns.hub_exit_uuid("a", "b-portal")
 
 
 class TestHubExitUuid:
@@ -177,8 +191,12 @@ class TestEmails:
     def test_server_email_static(self):
         assert Namespace.server_email("alice") == "alice-server@alice"
 
-    def test_portal_email_static(self):
-        assert Namespace.portal_email("home", "alice") == "home-portal@alice"
+    def test_portal_email_format(self, ns: Namespace):
+        assert ns.portal_email("home") == f"home@portal.{NS_NAME}"
+
+    def test_portal_email_cannot_collide_with_user_email(self, ns: Namespace):
+        # The portal. subdomain is disjoint from the bare namespace domain.
+        assert ns.portal_email("home") != ns.user_email("home")
 
     def test_guest_email_static(self):
         assert Namespace.guest_email("phone", "alice") == "phone@alice"

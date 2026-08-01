@@ -17,10 +17,12 @@ class Guest:
 
 @dataclass(frozen=True)
 class Portal:
-    label: str
+    id: str
     tag: str
     uuid: str
     email: str
+    short_id: str
+    users: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -33,7 +35,6 @@ class User:
     server_uuid: str | None = None
     server_email: str | None = None
     guests: list[Guest] = field(default_factory=list)
-    portals: list[Portal] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

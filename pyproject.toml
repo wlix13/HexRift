@@ -83,7 +83,6 @@ ignore_imports = [
   # derive's controller assembles user-facing share URLs from inbound spec builders
   # (single sanctioned edge from derive up into inbounds).
   "hexrift.components.derive.controller -> hexrift.inbounds.cdn",
-  "hexrift.components.derive.controller -> hexrift.inbounds.wireguard",
   "hexrift.components.derive.controller -> hexrift.inbounds.xhttp",
 ]
 

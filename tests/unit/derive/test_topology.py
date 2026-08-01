@@ -184,17 +184,11 @@ class TestBuildHubRoutingRules:
 
     def test_portal_domain_rule(self):
         d = _minimal_cfg_dict()
-        d["users"] = [
+        d["portals"] = [
             {
-                "username": "alice",
-                "group": "grp1",
-                "access": ["xhttp"],
-                "portals": [
-                    {
-                        "label": "home",
-                        "routes": {"domains": ["home.alice.example.com"]},
-                    }
-                ],
+                "id": "home",
+                "users": ["alice"],
+                "routes": {"domains": ["home.alice.example.com"]},
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
@@ -208,18 +202,11 @@ class TestBuildHubRoutingRules:
             None,
         )
         assert portal_domain is not None
-        assert "user" in portal_domain  # user-filtered
+        assert portal_domain["user"] == ["alice@t.ns"]
 
     def test_portal_ip_rule(self):
         d = _minimal_cfg_dict()
-        d["users"] = [
-            {
-                "username": "alice",
-                "group": "grp1",
-                "access": ["xhttp"],
-                "portals": [{"label": "home", "routes": {"ips": ["192.168.1.0/24"]}}],
-            }
-        ]
+        d["portals"] = [{"id": "home", "users": ["alice"], "routes": {"ips": ["192.168.1.0/24"]}}]
         cfg = ConglomerateConfig.model_validate(d)
         rules = build_hub_routing_rules(cfg)
         portal_ip = next(
@@ -227,6 +214,21 @@ class TestBuildHubRoutingRules:
             None,
         )
         assert portal_ip is not None
+
+    def test_portal_rule_lists_all_member_users(self):
+        d = _minimal_cfg_dict()
+        d["users"].append({"username": "bob", "group": "grp1", "access": ["xhttp"]})
+        d["portals"] = [
+            {
+                "id": "home",
+                "users": ["alice", "bob"],
+                "routes": {"domains": ["home.example.com"]},
+            }
+        ]
+        cfg = ConglomerateConfig.model_validate(d)
+        rules = build_hub_routing_rules(cfg)
+        portal_rule = next(r for r in rules if r.get("outboundTag") == "home-portal")
+        assert portal_rule["user"] == ["alice@t.ns", "bob@t.ns"]
 
     def test_hub_route_to_node_destination(self):
         d = _minimal_cfg_dict()
@@ -291,21 +293,17 @@ class TestBuildHubRoutingRules:
 
     def test_no_portal_catchall_rule(self):
         d = _minimal_cfg_dict()
-        d["users"] = [
-            {
-                "username": "alice",
-                "group": "grp1",
-                "access": ["xhttp", "server"],
-                "portals": [{"label": "home", "routes": {"domains": ["home.alice.com"]}}],
-            }
-        ]
+        d["portals"] = [{"id": "home", "users": ["alice"], "routes": {"domains": ["home.alice.com"]}}]
         cfg = ConglomerateConfig.model_validate(d)
         rules = build_hub_routing_rules(cfg)
+        # No rule keyed on the portal's own identity; every portal rule is matcher-scoped.
         catchall = next(
-            (r for r in rules if r.get("user") == ["home-portal@alice"]),
+            (r for r in rules if r.get("user") == ["home@portal.t.ns"]),
             None,
         )
         assert catchall is None
+        portal_rules = [r for r in rules if r.get("outboundTag") == "home-portal"]
+        assert all("domain" in r or "ip" in r for r in portal_rules)
 
     def test_default_rule_is_last(self):
         cfg = _make_cfg()

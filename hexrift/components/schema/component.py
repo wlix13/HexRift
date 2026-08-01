@@ -33,6 +33,7 @@ class SchemaComponent(BaseComponent["HexRiftApp", SchemaController]):
                 app.console.print(f"[bold green]Valid[/bold green] — {app.yaml_path}")
                 app.console.print(
                     f"  {len(cfg.groups)} groups, {len(cfg.users)} users, "
+                    f"{len(cfg.portals)} portals, "
                     f"{len(exit_regions)} exit regions, {len(hub_regions)} hub regions, "
                     f"{total_nodes} nodes"
                 )

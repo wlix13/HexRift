@@ -364,6 +364,101 @@ def test_hub_route_known_user_valid():
     assert cfg.routing.hub_routes[0].users == ["alice"]
 
 
+def _config_with_portal(member_access: list[str]) -> dict:
+    d = copy.deepcopy(_valid_config())
+    d["users"][0]["access"] = member_access
+    d["portals"] = [{"id": "home", "users": ["alice"], "routes": {"domains": ["home.example.com"]}}]
+    return d
+
+
+def _config_with_portals(portals: list[dict]) -> dict:
+    d = copy.deepcopy(_valid_config())
+    d["portals"] = portals
+    return d
+
+
+def _portal(**overrides) -> dict:
+    return {"id": "home", "users": ["alice"], "routes": {"domains": ["home.example.com"]}} | overrides
+
+
+def test_duplicate_portal_id_rejected():
+    d = _config_with_portals([_portal(), _portal()])
+    with pytest.raises(ValidationError, match="Duplicate portal id: 'home'"):
+        ConglomerateConfig.model_validate(d)
+
+
+@pytest.mark.parametrize("portal_id", ["hubN1", "hub1", "direct"])
+def test_portal_id_colliding_with_reserved_name_rejected(portal_id):
+    # Portal ids share a namespace with node ids, region ids and special destinations
+    d = _config_with_portals([_portal(id=portal_id)])
+    with pytest.raises(ValidationError, match="collides with a node id, region id, or special destination"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_tag_colliding_with_derived_outbound_rejected():
+    # A node named "home-portal" already owns the tag portal "home" derives
+    d = _config_with_portals([_portal()])
+    d["regions"][1]["nodes"].append({"id": "home-portal", "hostname": "home-portal.ap.test.ns"})
+    with pytest.raises(ValidationError, match="collides with a derived outbound tag"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_tag_starting_with_exit_region_id_rejected():
+    # Balancer and observatory selectors match tag prefixes
+    d = _config_with_portals([_portal(id="exit1x")])
+    with pytest.raises(ValidationError, match="starts with exit region 'exit1'"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_unknown_user_rejected():
+    d = _config_with_portals([_portal(users=["nobody"])])
+    with pytest.raises(ValidationError, match="references unknown user 'nobody'"):
+        ConglomerateConfig.model_validate(d)
+
+
+@pytest.mark.parametrize("access", [[], ["proxy"], ["server"]])
+def test_portal_member_without_routable_access_rejected(access):
+    with pytest.raises(ValidationError, match="has no access type carrying a routable identity"):
+        ConglomerateConfig.model_validate(_config_with_portal(access))
+
+
+def test_portal_member_with_wireguard_access_valid():
+    # WireGuard peers carry user_email too, so wireguard-only members are routable
+    d = _config_with_portal(["wireguard"])
+    d["defaults"]["hub"]["wireguard"] = {"port": 51820, "subnet": "10.0.0.0/24"}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].users == ["alice"]
+
+
+def test_portal_member_access_the_hub_does_not_render_rejected():
+    # With no wireguard block the hub renders no inbound carrying the member's identity
+    d = _config_with_portal(["wireguard"])
+    with pytest.raises(ValidationError, match="hub nodes render: xhttp"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_member_cdn_access_without_cdn_config_rejected():
+    d = _config_with_portal(["cdn"])
+    with pytest.raises(ValidationError, match="no access type carrying a routable identity"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_with_unresolvable_wireguard_does_not_leak_derive_error():
+    # An unresolvable wireguard subnet is a render-time error, not a schema one
+    d = _config_with_portal(["xhttp"])
+    d["regions"][1]["nodes"][0]["wireguard"] = {"enabled": True}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].users == ["alice"]
+
+
+def test_portal_without_any_hub_node_rejected():
+    d = _config_with_portal(["xhttp"])
+    d["regions"] = [r for r in d["regions"] if r["type"] != "hub"]
+    d["routing"]["hub_default"] = "exit1"
+    with pytest.raises(ValidationError, match="Portals require at least one hub node"):
+        ConglomerateConfig.model_validate(d)
+
+
 def test_warp_vless_route_duplicate_with_exit():
     d = copy.deepcopy(_valid_config())
     # Set warp vless_route same as the exit region's vless_route

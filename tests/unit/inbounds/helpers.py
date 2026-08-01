@@ -8,9 +8,10 @@ from hexrift.components.schema.models.defaults import (
     KeysConfig,
     ObservatoryConfig,
 )
+from hexrift.components.schema.models.portals import Portal, PortalRoutes
 from hexrift.components.schema.models.regions import Node, Region, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.components.schema.models.users import Portal, User
+from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
 
 
@@ -46,7 +47,6 @@ def make_user(
     group: str = "grp1",
     access: list[str] | None = None,
     guests: list[str] | None = None,
-    portals: list[Portal] | None = None,
 ) -> User:
     # None means "default"; an explicit empty access list stays empty.
     access_list = ["xhttp"] if access is None else access
@@ -56,7 +56,22 @@ def make_user(
         access=[AccessType(a) for a in access_list],
         uuid=None,
         guests=guests or [],
-        portals=portals or [],
+    )
+
+
+def make_portal(
+    portal_id: str = "home",
+    users: list[str] | None = None,
+    domains: list[str] | None = None,
+    ips: list[str] | None = None,
+) -> Portal:
+    routes = PortalRoutes.model_construct(domains=domains, ips=ips)
+    return Portal.model_construct(
+        id=portal_id,
+        users=users or ["alice"],
+        routes=routes,
+        uuid=None,
+        group=None,
     )
 
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import yaml
 from click.testing import CliRunner
 
 from hexrift.app import cli
@@ -375,23 +376,6 @@ class TestGenPortalCommand:
             "--yaml",
             str(FIXTURE_TOPOLOGY),
             "gen-portal",
-            "alice",
-            "--keys-dir",
-            str(FIXTURE_KEYS_DIR),
-            "--out-dir",
-            str(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert "built" in result.output
-        assert (tmp_path / "alice-home.json").exists()
-
-    def test_single_label(self, tmp_path):
-        result = invoke(
-            "--yaml",
-            str(FIXTURE_TOPOLOGY),
-            "gen-portal",
-            "alice",
-            "--label",
             "home",
             "--keys-dir",
             str(FIXTURE_KEYS_DIR),
@@ -399,14 +383,28 @@ class TestGenPortalCommand:
             str(tmp_path),
         )
         assert result.exit_code == 0
-        assert (tmp_path / "alice-home.json").exists()
+        assert "built" in result.output
+        assert (tmp_path / "home" / "config.json").exists()
 
-    def test_unknown_user_fails(self, tmp_path):
+    def test_builds_all_portals(self, tmp_path):
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
+            "--all",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "home" / "config.json").exists()
+
+    def test_no_args_fails(self, tmp_path):
         result = invoke_catching(
             "--yaml",
             str(FIXTURE_TOPOLOGY),
             "gen-portal",
-            "nobody",
             "--keys-dir",
             str(FIXTURE_KEYS_DIR),
             "--out-dir",
@@ -414,13 +412,16 @@ class TestGenPortalCommand:
         )
         assert result.exit_code != 0
 
-    def test_user_without_portals_fails(self, tmp_path):
-        # bob has no portals configured
+    def test_all_without_portals_fails(self, tmp_path):
+        topology = tmp_path / "no-portals.yaml"
+        data = yaml.safe_load(FIXTURE_TOPOLOGY.read_text())
+        data.pop("portals")
+        topology.write_text(yaml.dump(data))
         result = invoke_catching(
             "--yaml",
-            str(FIXTURE_TOPOLOGY),
+            str(topology),
             "gen-portal",
-            "bob",
+            "--all",
             "--keys-dir",
             str(FIXTURE_KEYS_DIR),
             "--out-dir",
@@ -428,29 +429,26 @@ class TestGenPortalCommand:
         )
         assert result.exit_code != 0
 
-    def test_unknown_label_fails(self, tmp_path):
+    def test_id_and_all_fails(self, tmp_path):
         result = invoke_catching(
             "--yaml",
             str(FIXTURE_TOPOLOGY),
             "gen-portal",
-            "alice",
-            "--label",
+            "home",
+            "--all",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+            "--out-dir",
+            str(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_unknown_portal_fails(self, tmp_path):
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "gen-portal",
             "ghost",
-            "--keys-dir",
-            str(FIXTURE_KEYS_DIR),
-            "--out-dir",
-            str(tmp_path),
-        )
-        assert result.exit_code != 0
-
-    def test_unknown_group_fails(self, tmp_path):
-        result = invoke_catching(
-            "--yaml",
-            str(FIXTURE_TOPOLOGY),
-            "gen-portal",
-            "alice",
-            "--group",
-            "ghostgroup",
             "--keys-dir",
             str(FIXTURE_KEYS_DIR),
             "--out-dir",

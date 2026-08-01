@@ -101,24 +101,16 @@ class RenderController(BaseController["HexRiftApp"]):
 
     def gen_portal(
         self,
-        username: str,
-        label: str,
+        portal_id: str,
         out_dir: Path,
         keys_dir: Path,
         fingerprint: str,
-        group_id: str | None = None,
     ) -> None:
-        """Generate portal client config.json."""
+        """Generate portal bridge config.json."""
 
         cfg = self.app.schema.config
-        user = next((u for u in cfg.users if u.username == username), None)
-        if user is None:
-            raise RenderError(f"User not found: {username!r}")
-        if not any(p.label == label for p in user.portals):
-            raise RenderError(f"Portal {label!r} not found for user {username!r}.")
-        resolved_group_id = group_id if group_id is not None else user.group
-        if not any(g.id == resolved_group_id for g in cfg.groups):
-            raise RenderError(f"Group not found: {resolved_group_id!r}")
+        if not any(p.id == portal_id for p in cfg.portals):
+            raise RenderError(f"Portal not found: {portal_id!r}")
         hub_node_keys = {
             n.id: self.app.keys.load_node_keys(n.id, keys_dir)
             for r in cfg.regions
@@ -127,39 +119,27 @@ class RenderController(BaseController["HexRiftApp"]):
         }
         config = build_portal_config(
             cfg,
-            username,
-            label,
+            portal_id,
             hub_node_keys,
             fingerprint,
-            group_id=group_id,
         )
-        out_dir.mkdir(parents=True, exist_ok=True)
-        self._write_secret_config(out_dir / f"{username}-{label}.json", serialize_config(config))
+        portal_dir = out_dir / portal_id
+        portal_dir.mkdir(parents=True, exist_ok=True)
+        self._write_secret_config(portal_dir / "config.json", serialize_config(config))
 
     def gen_portals(
         self,
-        username: str,
-        label: str | None,
+        portal_ids: list[str],
         out_dir: Path,
         keys_dir: Path,
         fingerprint: str,
-        group_id: str | None = None,
         on_item: ItemCallback | None = None,
     ) -> BatchResult:
-        """Generate user's portal configs: one named portal, or all of them."""
+        """Generate bridge configs for several portals, isolating per-portal failures."""
 
-        cfg = self.app.schema.config
-        user = next((u for u in cfg.users if u.username == username), None)
-        if user is None:
-            raise RenderError(f"User not found: {username!r}")
-        if not user.portals:
-            raise RenderError(f"User {username!r} has no portals configured.")
-        if label is not None and not any(p.label == label for p in user.portals):
-            raise RenderError(f"Portal {label!r} not found for user {username!r}.")
-        labels = [label] if label is not None else [p.label for p in user.portals]
         return self._run_batch(
-            labels,
-            lambda lbl: self.gen_portal(username, lbl, out_dir, keys_dir, fingerprint, group_id=group_id),
+            portal_ids,
+            lambda pid: self.gen_portal(pid, out_dir, keys_dir, fingerprint),
             on_item,
         )
 

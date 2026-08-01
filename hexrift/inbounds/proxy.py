@@ -5,17 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from hexrift.components.schema.models.defaults import DefaultsConfig
-from hexrift.components.schema.models.regions import Node
+from hexrift.components.schema.models.resolve import resolve_node_proxy_inbound
 from hexrift.constants import AccessType, RegionType, Socket, XrayProtocol
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
 from hexrift.shared.xray_defaults import make_sniffing
-
-
-def resolve_node_proxy_inbound(node: Node, defaults: DefaultsConfig) -> bool:
-    if node.proxy_inbound is not None:
-        return node.proxy_inbound
-    return defaults.hub.proxy_inbound
 
 
 @dataclass(frozen=True)

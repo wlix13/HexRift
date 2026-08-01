@@ -1,10 +1,16 @@
+from pathlib import Path
+
 import pytest
 import yaml
 
 from hexrift.app import HexRiftApp
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType
-from hexrift.errors import Error, NodeError, RegionError, SchemaValidationError
+from hexrift.errors import DeriveError, Error, NodeError, RegionError, SchemaValidationError
+
+
+def _reject(cfg) -> None:
+    raise DeriveError("rejected by test validator")
 
 
 class TestLoad:
@@ -13,6 +19,35 @@ class TestLoad:
 
     def test_namespace_matches_topology(self, app: HexRiftApp):
         assert app.schema.config.global_.namespace == "test.ns"
+
+    def test_failing_validator_does_not_cache_the_config(self, topology_yaml: Path):
+        instance = HexRiftApp(yaml_path=topology_yaml)
+        instance.schema.add_validator(_reject)
+
+        with pytest.raises(DeriveError):
+            instance.schema.load(topology_yaml)
+        with pytest.raises(DeriveError):
+            _ = instance.schema.config
+
+    def test_failing_parse_does_not_serve_the_previous_config(self, topology_yaml: Path):
+        instance = HexRiftApp(yaml_path=topology_yaml)
+        assert instance.schema.config is not None
+
+        topology_yaml.write_text(": invalid: {{{")
+        with pytest.raises(Error):
+            instance.schema.load(topology_yaml)
+        with pytest.raises(Error):
+            _ = instance.schema.config
+
+    def test_failing_reload_does_not_serve_the_previous_config(self, topology_yaml: Path):
+        instance = HexRiftApp(yaml_path=topology_yaml)
+        assert instance.schema.config is not None
+
+        instance.schema.add_validator(_reject)
+        with pytest.raises(DeriveError):
+            instance.schema.load(topology_yaml)
+        with pytest.raises(DeriveError):
+            _ = instance.schema.config
 
     def test_load_missing_file_raises_error(self, tmp_path):
         instance = HexRiftApp(yaml_path=tmp_path / "nonexistent.yaml")

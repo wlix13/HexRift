@@ -38,11 +38,19 @@
             "flow": "xtls-rprx-vision"
           },
           {
-            "email": "home-portal@alice",
-            "id": "d2374034-7576-5dc0-9205-338fa2b75c0d",
+            "email": "home@portal.test.hexrift",
+            "id": "9c87e426-dadd-58ae-b0a0-da0952f7971d",
             "flow": "xtls-rprx-vision",
             "reverse": {
               "tag": "home-portal"
+            }
+          },
+          {
+            "email": "office@portal.test.hexrift",
+            "id": "e8c6c17f-1c69-5167-9eff-efb88e330ccc",
+            "flow": "xtls-rprx-vision",
+            "reverse": {
+              "tag": "office-portal"
             }
           }
         ],
@@ -82,6 +90,8 @@
           "shortIds": [
             "aabbccddeeff0011",
             "1122334455667788",
+            "9f81d88cddc4ba58",
+            "0a725eb18430ccfa",
             "7a46bb2b6f215317"
           ],
           "limitFallbackUpload": {
@@ -436,6 +446,11 @@
         "domain": ["home.alice.example.com"],
         "user": ["alice@test.hexrift"],
         "outboundTag": "home-portal"
+      },
+      {
+        "ip": ["10.10.0.0/16"],
+        "user": ["alice@test.hexrift", "bob@test.hexrift"],
+        "outboundTag": "office-portal"
       },
       {
         "domain": ["internal.example.com"],

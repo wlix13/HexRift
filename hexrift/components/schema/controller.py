@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,26 +15,38 @@ from hexrift.errors import Error, NodeError, RegionError, SchemaValidationError
 
 
 if TYPE_CHECKING:
-    from hexrift.app import HexRiftApp  # noqa: F401
+    from hexrift.app import HexRiftApp
 
 
 class SchemaController(BaseController["HexRiftApp"]):
-    _config: ConglomerateConfig
+    def __init__(self, app: HexRiftApp) -> None:
+        super().__init__(app)
+        self._config: ConglomerateConfig | None = None
+        self._validators: list[Callable[[ConglomerateConfig], None]] = []
+
+    def add_validator(self, validator: Callable[[ConglomerateConfig], None]) -> None:
+        """Register a cross-component invariant checked on every load."""
+
+        self._validators.append(validator)
 
     def load(self, path: Path) -> ConglomerateConfig:
+        self._config = None
         try:
             data = yaml.safe_load(path.read_text())
-            self._config = ConglomerateConfig.model_validate(data)
+            config = ConglomerateConfig.model_validate(data)
         except (OSError, yaml.YAMLError) as e:
             raise Error(f"Failed to read schema {path}: {e}") from e
         except ValidationError as e:
             raise SchemaValidationError(path, e) from e
-        return self._config
+        for validator in self._validators:
+            validator(config)
+        self._config = config
+        return config
 
     @property
     def config(self) -> ConglomerateConfig:
-        if getattr(self, "_config", None) is None:
-            self.load(self.app.yaml_path)
+        if self._config is None:
+            return self.load(self.app.yaml_path)
         return self._config
 
     def get_exit_regions(self) -> list[Region]:

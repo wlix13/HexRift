@@ -32,11 +32,11 @@ hexrift --yaml conglomerate.yaml <command>
 |---------|-------------|
 | `validate` | Validate the topology YAML against the schema |
 | `show` | Visualize the network topology (regions, nodes, users, guests, portals) |
-| `derive [users\|groups\|nodes\|all]` | Show derived identifiers (UUIDs, shortIds, emails) |
+| `derive [users\|groups\|portals\|nodes\|all]` | Show derived identifiers (UUIDs, shortIds, emails) |
 | `nodes [--names\|--domains] [--type exit\|hub]` | List nodes with hostnames; machine-friendly output for automation |
 | `gen-keys [NODE_ID\|--all] [--force] [--keys-dir PATH]` | Generate x25519 + ML-KEM 768 keypairs for nodes |
 | `build [NODE_ID\|--all] --xray\|--haproxy [--keys-dir PATH] [--out-dir PATH]` | Build Xray config.json and/or HAProxy .cfg |
-| `gen-portal USERNAME [--label LABEL] [--group ID] [--fp FINGERPRINT] [--out-dir PATH] [--keys-dir PATH]` | Build Xray portal client config.json (all portals, or one `--label`) |
+| `gen-portal [PORTAL_ID\|--all] [--group ID] [--fp FINGERPRINT] [--out-dir PATH] [--keys-dir PATH]` | Build Xray bridge config.json for portal(s) from the top-level `portals:` section |
 | `diff NODE_ID [--current-dir PATH] [--keys-dir PATH]` | Diff generated config against deployed config |
 | `share USERNAME [--hub NODE_ID] [--fp FINGERPRINT] [--cdn] [--wg] [--server] [--guest LABEL] [--all-guests] [--bare] [--keys-dir PATH]` | Generate VLESS share URLs or WireGuard client configs (`--wg`) |
 
@@ -108,7 +108,7 @@ All identifiers are deterministically derived from the topology:
 - `NAMESPACE UUID` = UUID5(UUID(0), namespace)
 - `User UUID` = UUID5(NAMESPACE_UUID, username)
 - `Server UUID` = UUID5(USER_UUID, `{username}-server`)
-- `Portal UUID` = UUID5(USER_UUID, `{label}-portal`)
+- `Portal UUID` = UUID5(NAMESPACE_UUID, `portal/{id}`)
 - `Guest UUID` = UUID5(USER_UUID, `{label}`)
 - `Hub-exit UUID` = UUID5(NAMESPACE_UUID, `{hubId}-{exitId}`)
 - `Warp UUID` = Hub-exit UUID with 3rd segment replaced by `ffff`

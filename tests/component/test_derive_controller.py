@@ -12,6 +12,7 @@ from tests.component.conftest import make_topology
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
+NS = "test.ns"
 
 
 @pytest.fixture()
@@ -61,22 +62,6 @@ class TestDeriveUsers:
         assert laptop.short_id
         assert laptop.email == "laptop@bob"
 
-    def test_portals_included(self, app: HexRiftApp):
-        rows = app.derive.derive_users()
-        alice = next(r for r in rows if r.username == "alice")
-        assert alice.portals
-        portal_labels = [p.label for p in alice.portals]
-        assert "home" in portal_labels
-
-    def test_portal_has_required_fields(self, app: HexRiftApp):
-        rows = app.derive.derive_users()
-        alice = next(r for r in rows if r.username == "alice")
-        portal = alice.portals[0]
-        assert portal.label
-        assert portal.tag == "home-portal"
-        assert portal.uuid
-        assert portal.email
-
     def test_uuid_is_deterministic(self, app: HexRiftApp):
         rows1 = app.derive.derive_users()
         rows2 = app.derive.derive_users()
@@ -86,6 +71,28 @@ class TestDeriveUsers:
         rows = app.derive.derive_users()
         alice = next(r for r in rows if r.username == "alice")
         assert alice.guests == []
+
+
+class TestDerivePortals:
+    def test_portals_included(self, app: HexRiftApp):
+        rows = app.derive.derive_portals()
+        assert "home" in [p.id for p in rows]
+
+    def test_portal_has_required_fields(self, app: HexRiftApp):
+        portal = next(p for p in app.derive.derive_portals() if p.id == "home")
+        assert portal.tag == "home-portal"
+        assert portal.uuid
+        assert portal.email == "home@portal.test.hexrift"
+        assert portal.users == ["alice"]
+
+    def test_portal_has_its_own_short_id(self, app: HexRiftApp):
+        portal = next(p for p in app.derive.derive_portals() if p.id == "home")
+        assert portal.short_id == Namespace("test.hexrift").portal_short_id("home")
+
+    def test_portal_uuid_is_namespace_scoped(self, app: HexRiftApp):
+        ns = Namespace("test.hexrift")
+        portal = next(p for p in app.derive.derive_portals() if p.id == "home")
+        assert portal.uuid == str(ns.portal_uuid("home"))
 
 
 class TestDeriveGroups:
@@ -197,7 +204,7 @@ class TestBuildShareUrls:
             app.derive.build_share_urls("bob", None, FIXTURE_KEYS_DIR, "chrome", cdn=True)
 
     def test_no_xhttp_access_raises(self, app: HexRiftApp, tmp_path: Path):
-        # alice has no xhttp access
+        # alice has no xhttp access; drop the default portal, whose members must be routable
         topo = make_topology(
             users=[
                 {
@@ -206,6 +213,7 @@ class TestBuildShareUrls:
                     "access": ["proxy"],
                 },
             ],
+            portals=[],
         )
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
@@ -273,7 +281,8 @@ class TestBuildShareUrls:
                         "server",
                     ],
                 },
-            ]
+            ],
+            portals=[],
         )
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
@@ -297,7 +306,8 @@ class TestBuildShareUrls:
                         "server",
                     ],
                 },
-            ]
+            ],
+            portals=[],
         )
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
@@ -490,3 +500,70 @@ class TestBuildWireguardConfigs:
         restricted_app = HexRiftApp(yaml_path=p)
         with pytest.raises(DeriveError, match="does not have WireGuard access"):
             restricted_app.derive.build_wireguard_configs("alice", None, tmp_path)
+
+
+def _collision_app(tmp_path: Path, **overrides) -> HexRiftApp:
+    p = tmp_path / "topology.yaml"
+    p.write_text(yaml.dump(make_topology(**overrides)))
+    return HexRiftApp(yaml_path=p)
+
+
+def _portal(portal_id: str = "home", uuid: str | None = None) -> dict:
+    portal: dict = {"id": portal_id, "users": ["alice"], "routes": {"domains": [f"{portal_id}.example.com"]}}
+    if uuid is not None:
+        portal["uuid"] = uuid
+    return portal
+
+
+class TestIdentityCollisions:
+    def test_portal_override_shadows_derived_user(self, tmp_path: Path):
+        derived = str(Namespace(NS).user_uuid("alice"))
+        app = _collision_app(tmp_path, portals=[_portal(uuid=derived)])
+        with pytest.raises(DeriveError, match="claimed by both user 'alice' and portal 'home'"):
+            app.schema.load(app.yaml_path)
+
+    def test_portal_override_shadows_derived_guest(self, tmp_path: Path):
+        derived = str(Namespace(NS).guest_uuid("laptop", "alice"))
+        app = _collision_app(
+            tmp_path,
+            users=[{"username": "alice", "group": "grp1", "access": ["xhttp"], "guests": ["laptop"]}],
+            portals=[_portal(uuid=derived)],
+        )
+        with pytest.raises(DeriveError, match="claimed by both guest 'laptop' of user 'alice'"):
+            app.schema.load(app.yaml_path)
+
+    def test_user_override_shadows_another_derived_user(self, tmp_path: Path):
+        derived = str(Namespace(NS).user_uuid("alice"))
+        app = _collision_app(
+            tmp_path,
+            users=[
+                {"username": "alice", "group": "grp1", "access": ["xhttp"]},
+                {"username": "bob", "group": "grp1", "access": ["xhttp"], "uuid": derived},
+            ],
+        )
+        with pytest.raises(DeriveError, match="claimed by both user 'alice' and user 'bob'"):
+            app.schema.load(app.yaml_path)
+
+    def test_two_portals_share_an_override(self, tmp_path: Path):
+        shared = "11111111-2222-3333-4444-555555555555"
+        app = _collision_app(tmp_path, portals=[_portal(uuid=shared), _portal("office", uuid=shared)])
+        with pytest.raises(DeriveError, match="claimed by both portal 'home' and portal 'office'"):
+            app.schema.load(app.yaml_path)
+
+    def test_share_surfaces_collision(self, tmp_path: Path):
+        derived = str(Namespace(NS).user_uuid("alice"))
+        app = _collision_app(tmp_path, portals=[_portal(uuid=derived)])
+        with pytest.raises(DeriveError, match="claimed by both"):
+            app.derive.derive_users()
+
+    def test_build_surfaces_collision(self, tmp_path: Path):
+        derived = str(Namespace(NS).user_uuid("alice"))
+        app = _collision_app(tmp_path, portals=[_portal(uuid=derived)])
+        with pytest.raises(DeriveError, match="claimed by both"):
+            app.render.build("hubN1", tmp_path / "out", tmp_path / "keys", xray=True, haproxy=False)
+
+    def test_gen_portal_surfaces_collision(self, tmp_path: Path):
+        derived = str(Namespace(NS).user_uuid("alice"))
+        app = _collision_app(tmp_path, portals=[_portal(uuid=derived)])
+        with pytest.raises(DeriveError, match="claimed by both"):
+            app.render.gen_portal("home", tmp_path / "out", tmp_path / "keys", "chrome")

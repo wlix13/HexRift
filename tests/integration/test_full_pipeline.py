@@ -170,13 +170,13 @@ def test_hub_config_structure():
     assert "bob@test.hexrift" in client_emails
     assert "laptop@bob" in client_emails
     assert "phone@bob" in client_emails
-    assert "home-portal@alice" in client_emails
+    assert "home@portal.test.hexrift" in client_emails
 
     # Portal client carries the reverse tag; no catch-all routing rule for it
-    portal_client = next(c for c in direct_ib["settings"]["clients"] if c["email"] == "home-portal@alice")
+    portal_client = next(c for c in direct_ib["settings"]["clients"] if c["email"] == "home@portal.test.hexrift")
     assert portal_client.get("reverse") == {"tag": "home-portal"}
     rules = cfg["routing"]["rules"]
-    assert not any(r.get("user") == ["home-portal@alice"] for r in rules)
+    assert not any(r.get("user") == ["home@portal.test.hexrift"] for r in rules)
 
     # CDN inbound only has cdn-access users (alice has cdn, bob does not)
     cdn_ib = next(ib for ib in cfg["inbounds"] if ib["tag"] == "cdn-xhttp")
@@ -230,7 +230,7 @@ def test_hub_routing_uses_exit_as_default():
 
 @pytest.mark.integration
 def test_hub_portal_routing_rule():
-    """alice's home portal should appear as routing rule."""
+    """The home portal should appear as a member-filtered routing rule."""
 
     generated, _ = _build_for_node("mskA00")
     cfg = json.loads(generated)
@@ -238,6 +238,7 @@ def test_hub_portal_routing_rule():
     portal_domain_rule = next((r for r in rules if r.get("domain") == ["home.alice.example.com"]), None)
     assert portal_domain_rule is not None
     assert portal_domain_rule["outboundTag"] == "home-portal"
+    assert portal_domain_rule["user"] == ["alice@test.hexrift"]
 
 
 @pytest.mark.integration
@@ -268,8 +269,8 @@ def test_exit_client_is_hub_exit_uuid():
     assert clients[0]["id"] == "17d3c9f0-7373-5f77-9298-e18c4055e471"
 
 
-def _build_portal_for_alice(group_id: str | None = None) -> dict:
-    """Build portal config dict for alice/home using committed fixture topology + keys."""
+def _build_portal(portal_id: str = "home") -> dict:
+    """Build bridge config dict for a portal using committed fixture topology + keys."""
 
     app = HexRiftApp(yaml_path=FIXTURE_TOPOLOGY)
     cfg = app.schema.config
@@ -280,7 +281,7 @@ def _build_portal_for_alice(group_id: str | None = None) -> dict:
         for n in r.nodes
     }
     fingerprint = cfg.defaults.hub.exit_connections.fingerprint
-    return build_portal_config(cfg, "alice", "home", hub_node_keys, fingerprint, group_id=group_id)
+    return build_portal_config(cfg, portal_id, hub_node_keys, fingerprint)
 
 
 @pytest.mark.integration
@@ -371,7 +372,7 @@ def test_hub_wireguard_inbound_present():
 
 @pytest.mark.integration
 def test_portal_config_structure():
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
 
     for key in ("log", "outbounds", "routing"):
         assert key in cfg
@@ -381,7 +382,7 @@ def test_portal_config_structure():
 
 @pytest.mark.integration
 def test_portal_config_outbounds():
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
     tags = [ob["tag"] for ob in cfg["outbounds"]]
     # one per hub node + direct
     assert "portal-mskA00" in tags
@@ -393,7 +394,7 @@ def test_portal_config_outbounds():
 def test_portal_outbound_uses_hub_hostname():
     """Address must be hub node's hostname."""
 
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
     ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
     assert ob["settings"]["address"] == "mskA00.ap.test.hexrift"
 
@@ -401,65 +402,72 @@ def test_portal_outbound_uses_hub_hostname():
 @pytest.mark.integration
 def test_portal_outbound_uuid_is_deterministic():
     ns = Namespace("test.hexrift")
-    user_base = ns.user_uuid("alice")
-    expected_id = str(ns.portal_uuid("home", "alice", user_base=user_base))
+    expected_id = str(ns.portal_uuid("home"))
 
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
     ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
     assert ob["settings"]["id"] == expected_id
 
 
 @pytest.mark.integration
+def test_hub_accepts_every_portal_short_id():
+    generated, _ = _build_for_node("mskA00")
+    ns = Namespace("test.hexrift")
+    accepted = json.loads(generated)["inbounds"][0]["streamSettings"]["realitySettings"]["shortIds"]
+    assert ns.portal_short_id("home") in accepted
+    assert ns.portal_short_id("office") in accepted
+
+
+@pytest.mark.integration
 def test_portal_outbound_reality_settings():
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
     ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
     reality = ob["streamSettings"]["realitySettings"]
     assert reality["publicKey"] == "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"
     assert reality["fingerprint"] == "chrome"
-    assert reality["shortId"] == "aabbccddeeff0011"
+    assert reality["shortId"] == Namespace("test.hexrift").portal_short_id("home")
 
 
 @pytest.mark.integration
 def test_portal_outbound_has_reverse_sniffing():
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+    cfg = json.loads(serialize_config(_build_portal()))
     ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
     reverse = ob["settings"]["reverse"]
-    assert reverse["tag"] == "direct"
+    assert reverse["tag"] == "home-portal"
     assert reverse["sniffing"]["enabled"] is True
     assert reverse["sniffing"]["routeOnly"] is True
 
 
 @pytest.mark.integration
-def test_portal_routing_single_catchall_direct():
-    cfg = json.loads(serialize_config(_build_portal_for_alice()))
+def test_portal_routing_rules():
+    cfg = json.loads(serialize_config(_build_portal()))
     rules = cfg["routing"]["rules"]
-    assert len(rules) == 1
-    assert rules[0]["network"] == "TCP,UDP"
-    assert rules[0]["outboundTag"] == "direct"
+    assert len(rules) == 2
+    # Emerged reverse traffic (inboundTag = reverse tag) egresses directly...
+    assert rules[0] == {"inboundTag": ["home-portal"], "outboundTag": "direct"}
+    # ...and the catch-all keeps anything else off the hub-dial outbounds.
+    assert rules[1]["network"] == "TCP,UDP"
+    assert rules[1]["outboundTag"] == "direct"
 
 
 @pytest.mark.integration
-def test_portal_group_override_changes_short_id():
-    """Passing group_id='guest' should use guest group's shortId."""
-
-    cfg_main = json.loads(serialize_config(_build_portal_for_alice()))
-    cfg_guest = json.loads(serialize_config(_build_portal_for_alice(group_id="guest")))
-
-    ob_main = next(o for o in cfg_main["outbounds"] if o["tag"] == "portal-mskA00")
-    ob_guest = next(o for o in cfg_guest["outbounds"] if o["tag"] == "portal-mskA00")
-
-    assert ob_main["streamSettings"]["realitySettings"]["shortId"] == "aabbccddeeff0011"
-    assert ob_guest["streamSettings"]["realitySettings"]["shortId"] == "1122334455667788"
-
-
-@pytest.mark.integration
-def test_portal_config_matches_committed():
-    generated = serialize_config(_build_portal_for_alice())
-    expected = (FIXTURE_CONFIGS_DIR / "portals" / "alice-home.json").read_bytes()
+@pytest.mark.parametrize("portal_id", ["home", "office"])
+def test_portal_config_matches_committed(portal_id: str):
+    generated = serialize_config(_build_portal(portal_id))
+    expected = (FIXTURE_CONFIGS_DIR / "portals" / portal_id / "config.json").read_bytes()
     expected = expected.replace(b"\r\n", b"\n")
     assert generated == expected, (
-        "portal config.json mismatch for alice/home.\n"
+        f"portal config.json mismatch for portal {portal_id!r}.\n"
         "Regenerate with:\n"
-        "  uv run hexrift --yaml tests/fixtures/topology.yaml gen-portal alice --label home "
+        "  uv run hexrift --yaml tests/fixtures/topology.yaml gen-portal --all "
         "--keys-dir tests/fixtures/keys --out-dir tests/fixtures/configs/portals"
     )
+
+
+@pytest.mark.integration
+def test_multi_member_portal_rule_lists_every_member():
+    generated, _ = _build_for_node("mskA00")
+    rules = json.loads(generated)["routing"]["rules"]
+    rule = next(r for r in rules if r.get("outboundTag") == "office-portal")
+    assert rule["user"] == ["alice@test.hexrift", "bob@test.hexrift"]
+    assert rule["ip"] == ["10.10.0.0/16"]

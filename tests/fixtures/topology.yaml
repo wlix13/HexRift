@@ -43,14 +43,20 @@ users:
   - username: alice
     group: main
     access: [xhttp, cdn, server, proxy, wireguard]
-    portals:
-      - label: home
-        routes:
-          domains: [home.alice.example.com]
   - username: bob
     group: guest
     access: [xhttp, wireguard, xdns]
     guests: [laptop, phone]
+
+portals:
+  - id: home
+    users: [alice]
+    routes:
+      domains: [home.alice.example.com]
+  - id: office
+    users: [alice, bob]
+    routes:
+      ips: [10.10.0.0/16]
 
 routing:
   hub_default: nl

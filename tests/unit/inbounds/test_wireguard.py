@@ -7,10 +7,11 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.wireguard import derive_user_wireguard_keypair, iter_hub_wireguard_allocs
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.regions import Node, NodeWireguardOverride, WireguardConfig
+from hexrift.components.schema.models.resolve import resolve_node_wireguard
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.errors import DeriveError
 from hexrift.inbounds.base import InboundEnv
-from hexrift.inbounds.wireguard import WIREGUARD_SPEC, get_hub_wireguard_peers, resolve_node_wireguard
+from hexrift.inbounds.wireguard import WIREGUARD_SPEC, get_hub_wireguard_peers
 from hexrift.shared.crypto import x25519_urlsafe_to_std
 from tests.unit.inbounds.helpers import make_defaults, make_hub_region, make_user
 
