@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0](https://github.com/wlix13/HexRift/compare/v0.10.2...v0.11.0) (2026-08-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **portals:** `users[].portals` no longer exists. Move each portal to top-level `portals:` section and list allowed users in `portals[].users`.
+
+### Features
+
+* **portals:** move portals to top-level section ([8a9ad92](https://github.com/wlix13/HexRift/commit/8a9ad926f71814af88395457cdb0b4e529ef99d4))
+
+
+### Bug Fixes
+
+* **schema:** reject portal members without routable identity ([a5f209e](https://github.com/wlix13/HexRift/commit/a5f209efcd0414ea878179f668955086fd28abc1))
+* **schema:** reject uuid overrides that shadow another identity ([920c244](https://github.com/wlix13/HexRift/commit/920c244b9ca512e927a1375ffdfa2cadab1420b6))
+
+
+### Documentation
+
+* add explanations for trust levels and destructive operations ([8f0491d](https://github.com/wlix13/HexRift/commit/8f0491d49c9e443323d7436e6f8d2367a772c9b2))
+* **portals:** add documentation about top-level portals ([2b8d920](https://github.com/wlix13/HexRift/commit/2b8d9201ed6ef8b60f4cedc3eaf263421c48248d))
+
 ## [0.10.2](https://github.com/wlix13/HexRift/compare/v0.10.1...v0.10.2) (2026-07-18)
 
 
