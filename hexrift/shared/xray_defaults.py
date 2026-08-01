@@ -55,14 +55,22 @@ MKCP_SETTINGS_XDNS: dict = {
 }
 
 
-def make_sockopt(ipv6: bool) -> dict:
+SOCKOPT_DOMAIN_STRATEGY: dict[bool | None, str] = {
+    True: "UseIPv6v4",
+    False: "UseIPv4",
+    None: "UseIPv4v6",
+}
+"""Address family preference of a dialing machine; `None` when it is unknown."""
+
+
+def make_sockopt(ipv6: bool | None) -> dict:
     return {
         "tproxy": "off",
-        "domainStrategy": "UseIPv6v4" if ipv6 else "UseIPv4",
+        "domainStrategy": SOCKOPT_DOMAIN_STRATEGY[ipv6],
         "happyEyeballs": {
             "tryDelayMs": 150,
             "maxConcurrentTry": 2,
-            "prioritizeIPv6": ipv6,
+            "prioritizeIPv6": bool(ipv6),
         },
         "tcpFastOpen": True,
         "tcpKeepAliveInterval": 45,
