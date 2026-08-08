@@ -148,6 +148,7 @@
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -163,6 +164,7 @@
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -342,6 +344,7 @@
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -357,6 +360,7 @@
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -606,6 +610,7 @@
         },
         "listen": {
           "default": "127.0.0.1",
+          "description": "Address Xray's API listener binds to.\n\nParsed to an IPv4Address/IPv6Address so code always holds a typed value;\nYAML supplies a plain string, which pydantic coerces.",
           "format": "ipvanyaddress",
           "title": "Listen",
           "type": "string"
@@ -619,11 +624,13 @@
         },
         "user_stats": {
           "default": true,
+          "description": "Per-user traffic counters.",
           "title": "User Stats",
           "type": "boolean"
         },
         "online": {
           "default": true,
+          "description": "Per-user online tracking (statsUserOnline).",
           "title": "Online",
           "type": "boolean"
         }
@@ -1092,15 +1099,20 @@
     },
     "Portal": {
       "additionalProperties": false,
+      "description": "Reverse tunnel to machine outside hub/exit topology.",
       "properties": {
         "id": {
+          "description": "Portal id, also reverse tunnel tag prefix.",
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_-]+$",
           "title": "Id",
           "type": "string"
         },
         "users": {
+          "description": "Users whose traffic portal routes.",
           "items": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
             "type": "string"
           },
           "minItems": 1,
@@ -1108,7 +1120,8 @@
           "type": "array"
         },
         "routes": {
-          "$ref": "#/$defs/PortalRoutes"
+          "$ref": "#/$defs/PortalRoutes",
+          "description": "Destinations steered into portal."
         },
         "uuid": {
           "anyOf": [
@@ -1121,7 +1134,23 @@
             }
           ],
           "default": null,
+          "description": "Override for derived portal identity UUID.",
           "title": "Uuid"
+        },
+        "publish": {
+          "default": [],
+          "description": "Ports published by hub nodes into portal's reverse tunnel.",
+          "items": {
+            "$ref": "#/$defs/PortalPublish"
+          },
+          "title": "Publish",
+          "type": "array"
+        },
+        "strict": {
+          "default": true,
+          "description": "Restrict portal-side egress to `routes` and `publish` targets, blackholing all else.",
+          "title": "Strict",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1132,13 +1161,81 @@
       "title": "Portal",
       "type": "object"
     },
+    "PortalPublish": {
+      "additionalProperties": false,
+      "description": "Port forwarded from hub nodes into portal's reverse tunnel.",
+      "properties": {
+        "port": {
+          "description": "Port bound by hub node.",
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "target": {
+          "description": "`host:port` dialed from portal machine.",
+          "pattern": "^(\\[[0-9A-Fa-f:.]+\\]|[A-Za-z0-9_.-]+):\\d{1,5}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "network": {
+          "$ref": "#/$defs/PublishNetwork",
+          "default": "tcp",
+          "description": "Transports published: `tcp`, `udp`, or `tcp,udp`."
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source allowlist (CIDR or bare IP); unset means any source.",
+          "title": "Allow"
+        },
+        "nodes": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hub nodes that bind port; unset means every hub node.",
+          "title": "Nodes"
+        }
+      },
+      "required": [
+        "port",
+        "target"
+      ],
+      "title": "PortalPublish",
+      "type": "object"
+    },
     "PortalRoutes": {
       "additionalProperties": false,
+      "description": "Destinations steered into portal's reverse tunnel.",
       "properties": {
         "domains": {
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -1148,12 +1245,14 @@
             }
           ],
           "default": null,
+          "description": "Domain matchers, like Xray prefixes (`full:`, `domain:`, `regexp:`).",
           "title": "Domains"
         },
         "ips": {
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "type": "array"
@@ -1163,16 +1262,28 @@
             }
           ],
           "default": null,
+          "description": "CIDR/IP matchers.",
           "title": "Ips"
         }
       },
       "title": "PortalRoutes",
       "type": "object"
     },
+    "PublishNetwork": {
+      "description": "Transports a published portal port forwards.",
+      "enum": [
+        "tcp",
+        "udp",
+        "tcp,udp"
+      ],
+      "title": "PublishNetwork",
+      "type": "string"
+    },
     "RealityConfig": {
       "additionalProperties": false,
       "properties": {
         "dest": {
+          "pattern": "^(\\[[0-9A-Fa-f:.]+\\]|[A-Za-z0-9_.-]+):\\d{1,5}$",
           "title": "Dest",
           "type": "string"
         },
@@ -1180,6 +1291,7 @@
           "anyOf": [
             {
               "items": {
+                "minLength": 1,
                 "type": "string"
               },
               "minItems": 1,
@@ -1491,6 +1603,8 @@
         "guests": {
           "default": [],
           "items": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
             "type": "string"
           },
           "title": "Guests",
@@ -1565,6 +1679,7 @@
       "properties": {
         "domains": {
           "items": {
+            "minLength": 1,
             "type": "string"
           },
           "title": "Domains",
