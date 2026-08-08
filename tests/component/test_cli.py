@@ -4,12 +4,14 @@ import yaml
 from click.testing import CliRunner
 
 from hexrift.app import cli
+from tests.component.conftest import make_topology
 
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 FIXTURE_CONFIGS_DIR = FIXTURES_DIR / "configs"
 FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
+WIDE = {"COLUMNS": "260"}  # keep rich tables/trees from truncating asserted cells
 
 
 def invoke(*args, catch_exceptions=False, **kwargs):
@@ -263,6 +265,58 @@ class TestDeriveCommand:
         result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "derive", "all")
         assert result.exit_code == 0
 
+    def test_portals_shows_strict_and_published_ports(self):
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "derive", "portals", env=WIDE)
+        assert result.exit_code == 0
+        assert "home-portal" in result.output
+        assert "8443/tcp -> 192.168.1.10:443  allow: 203.0.113.7/32  nodes: all" in result.output
+        assert "9000/tcp,udp -> nas.home.arpa:5000  allow: any  nodes: all" in result.output
+
+    def test_portals_reports_strict_per_portal(self, tmp_path):
+        topo = tmp_path / "topology.yaml"
+        topo.write_text(
+            yaml.dump(
+                make_topology(
+                    portals=[
+                        {"id": "home", "users": ["alice"], "routes": {"domains": ["home.example.com"]}},
+                        {
+                            "id": "lab",
+                            "users": ["alice"],
+                            "routes": {"ips": ["172.16.0.0/12"]},
+                            "strict": False,
+                        },
+                    ],
+                ),
+            ),
+        )
+        result = invoke("--yaml", str(topo), "derive", "portals", env=WIDE)
+        assert result.exit_code == 0
+        home_row = next(line for line in result.output.splitlines() if "home-portal" in line)
+        lab_row = next(line for line in result.output.splitlines() if "lab-portal" in line)
+        assert "on" in home_row and "off" not in home_row
+        assert "off" in lab_row
+
+    def test_portals_keeps_bracketed_ipv6_target(self, tmp_path):
+        # rich parses "[fd00::10]" as markup unless escaped, silently dropping the host
+        topo = tmp_path / "topology.yaml"
+        topo.write_text(
+            yaml.dump(
+                make_topology(
+                    portals=[
+                        {
+                            "id": "home",
+                            "users": ["alice"],
+                            "routes": {"domains": ["home.example.com"]},
+                            "publish": [{"port": 8443, "target": "[fd00::10]:443"}],
+                        },
+                    ],
+                ),
+            ),
+        )
+        result = invoke("--yaml", str(topo), "derive", "portals", env=WIDE)
+        assert result.exit_code == 0
+        assert "8443/tcp -> [fd00::10]:443" in result.output
+
 
 class TestNodesCommand:
     def test_lists_both_nodes(self):
@@ -368,6 +422,13 @@ class TestShareCommand:
     def test_show_command_exits_zero(self):
         result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "show")
         assert result.exit_code == 0
+
+    def test_show_command_lists_portal_publishes(self):
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "show", env=WIDE)
+        assert result.exit_code == 0
+        assert "strict: on" in result.output
+        assert "publish 8443/tcp -> 192.168.1.10:443  allow: 203.0.113.7/32  nodes: all" in result.output
+        assert "publish 9000/tcp,udp -> nas.home.arpa:5000  allow: any  nodes: all" in result.output
 
 
 class TestGenPortalCommand:

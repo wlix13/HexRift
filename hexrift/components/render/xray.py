@@ -9,6 +9,7 @@ from hexrift.components.schema.models.observability import MetricsConfig
 from hexrift.constants import (
     WARP_VLESS_ROUTE,
     AccessType,
+    DomainStrategy,
     RegionType,
     SpecialDestination,
     XrayNetwork,
@@ -130,7 +131,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
         "inbounds": inbounds,
         "outbounds": outbounds,
         "routing": {
-            "domainStrategy": "IPIfNonMatch",
+            "domainStrategy": DomainStrategy.IP_IF_NON_MATCH,
             "rules": routing_rules,
         },
         "dns": make_dns(shared.dns_address, shared.dns_port),
@@ -145,6 +146,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
 def build_hub_config(ctx: HubContext) -> dict:
     shared = ctx.shared
     inbounds = _build_inbounds(RegionType.HUB, ctx.slots, shared)
+    inbounds.extend(ctx.forward_inbounds)
 
     # Build outbounds list
     outbounds: list[dict] = []
@@ -207,7 +209,7 @@ def build_hub_config(ctx: HubContext) -> dict:
         "inbounds": inbounds,
         "outbounds": outbounds,
         "routing": {
-            "domainStrategy": "IPIfNonMatch",
+            "domainStrategy": DomainStrategy.IP_IF_NON_MATCH,
             "balancers": ctx.balancers,
             "rules": ctx.routing_rules,
         },

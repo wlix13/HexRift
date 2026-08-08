@@ -4,11 +4,12 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress
 
+from hexrift.components.schema.models.fields import Port
 from hexrift.constants import LogLevel
 
 
 class MetricsConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
 
     enabled: bool = False
     listen: IPvAnyAddress = Field(default="127.0.0.1", validate_default=True)
@@ -17,7 +18,7 @@ class MetricsConfig(BaseModel):
     Parsed to an IPv4Address/IPv6Address so code always holds a typed value;
     YAML supplies a plain string, which pydantic coerces.
     """
-    port: int = Field(default=10085, ge=1, le=65535)
+    port: Port = 10085
     user_stats: bool = True
     """Per-user traffic counters."""
     online: bool = True
@@ -58,7 +59,7 @@ class MetricsOverride(BaseModel):
 
     enabled: bool | None = None
     listen: IPvAnyAddress | None = None
-    port: int | None = Field(default=None, ge=1, le=65535)
+    port: Port | None = None
     user_stats: bool | None = None
     online: bool | None = None
 

@@ -2,8 +2,10 @@ from hexrift.components.derive.topology import (
     build_balancers,
     build_burst_observatory_selectors,
     build_hub_routing_rules,
+    publish_tag,
     region_outbound_tag,
     region_warp_outbound_tag,
+    resolve_node_publishes,
 )
 from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
@@ -90,6 +92,14 @@ def _make_cfg(**routing_overrides) -> ConglomerateConfig:
     return ConglomerateConfig.model_validate(d)
 
 
+def _hub_node(cfg: ConglomerateConfig, node_id: str = "hubN1") -> Node:
+    return next(n for r in cfg.regions for n in r.nodes if n.id == node_id)
+
+
+def _rules(cfg: ConglomerateConfig, node_id: str = "hubN1") -> list[dict]:
+    return build_hub_routing_rules(cfg, resolve_node_publishes(cfg, _hub_node(cfg, node_id)))
+
+
 def _make_region(
     region_id: str = "exit1",
     rtype: RegionType = RegionType.EXIT,
@@ -117,14 +127,14 @@ def _make_region(
 class TestBuildHubRoutingRules:
     def test_dns_rule_is_first(self):
         cfg = _make_cfg()
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         assert rules[0] == {"ip": ["127.0.0.1", "::1"], "port": 53, "outboundTag": "direct"}
 
     def test_dns_rule_covers_custom_dns_server(self):
         d = _minimal_cfg_dict()
         d["global"]["dns"] = {"address": "10.0.0.53", "port": 5353}
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         assert rules[0] == {
             "ip": ["127.0.0.1", "::1", "10.0.0.53"],
             "port": 5353,
@@ -133,14 +143,14 @@ class TestBuildHubRoutingRules:
 
     def test_vless_route_rule_per_exit_region(self):
         cfg = _make_cfg()
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         vless_rules = [r for r in rules if "vlessRoute" in r]
         assert len(vless_rules) == 1
         assert vless_rules[0]["vlessRoute"] == "1000"
 
     def test_no_warp_vless_route_when_no_warp(self):
         cfg = _make_cfg()
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         # Only one vlessRoute rule (the regular one)
         vless_rules = [r for r in rules if "vlessRoute" in r]
         assert len(vless_rules) == 1
@@ -149,7 +159,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["regions"][0]["warp"] = {"vless_route": 65535}
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         vless_rules = [r for r in rules if "vlessRoute" in r]
         assert len(vless_rules) == 2
         warp_rule = next(r for r in vless_rules if r["vlessRoute"] == "65535")
@@ -159,7 +169,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "blocked", "domains": ["evil.com"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         blocked = [r for r in rules if r.get("outboundTag") == "blocked"]
         assert any(r.get("domain") == ["evil.com"] for r in blocked)
 
@@ -167,7 +177,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "blocked", "ips": ["10.0.0.0/8"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         blocked_ip = [r for r in rules if r.get("outboundTag") == "blocked" and "ip" in r]
         assert len(blocked_ip) == 1
         assert "10.0.0.0/8" in blocked_ip[0]["ip"]
@@ -176,7 +186,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "blocked", "users": ["alice"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         blocked = [r for r in rules if r.get("outboundTag") == "blocked"]
         # user-only blocked rule: has "user" key but no "domain" or "ip"
         user_only = [r for r in blocked if "user" in r and "domain" not in r and "ip" not in r]
@@ -192,7 +202,7 @@ class TestBuildHubRoutingRules:
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         portal_domain = next(
             (
                 r
@@ -208,7 +218,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["portals"] = [{"id": "home", "users": ["alice"], "routes": {"ips": ["192.168.1.0/24"]}}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         portal_ip = next(
             (r for r in rules if r.get("ip") == ["192.168.1.0/24"] and r.get("outboundTag") == "home-portal"),
             None,
@@ -226,7 +236,7 @@ class TestBuildHubRoutingRules:
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         portal_rule = next(r for r in rules if r.get("outboundTag") == "home-portal")
         assert portal_rule["user"] == ["alice@t.ns", "bob@t.ns"]
 
@@ -234,7 +244,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "exitN1", "domains": ["specific.com"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         node_rule = next((r for r in rules if r.get("outboundTag") == "exitN1" and "domain" in r), None)
         assert node_rule is not None
         assert node_rule["domain"] == ["specific.com"]
@@ -243,7 +253,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "warp", "domains": ["torrent.com"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         warp_rule = next((r for r in rules if r.get("outboundTag") == "warp"), None)
         assert warp_rule is not None
 
@@ -258,7 +268,7 @@ class TestBuildHubRoutingRules:
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         direct = next((r for r in rules if r.get("outboundTag") == "direct" and "domain" in r), None)
         assert direct is not None
         assert "user" in direct
@@ -273,7 +283,7 @@ class TestBuildHubRoutingRules:
             }
         ]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         direct = next((r for r in rules if r.get("outboundTag") == "direct" and r.get("domain")), None)
         assert direct is not None
         assert "internal.com" in direct["domain"]
@@ -282,7 +292,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["routing"]["hub_routes"] = [{"destination": "direct", "ips": ["10.0.0.0/8"]}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         # Skip the DNS localhost rule which also has ip + outboundTag=direct
         direct_ip = next(
             (r for r in rules if r.get("outboundTag") == "direct" and "10.0.0.0/8" in r.get("ip", [])),
@@ -295,7 +305,7 @@ class TestBuildHubRoutingRules:
         d = _minimal_cfg_dict()
         d["portals"] = [{"id": "home", "users": ["alice"], "routes": {"domains": ["home.alice.com"]}}]
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         # No rule keyed on the portal's own identity; every portal rule is matcher-scoped.
         catchall = next(
             (r for r in rules if r.get("user") == ["home@portal.t.ns"]),
@@ -307,14 +317,14 @@ class TestBuildHubRoutingRules:
 
     def test_default_rule_is_last(self):
         cfg = _make_cfg()
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         last = rules[-1]
         assert last["network"] == "TCP,UDP"
         assert "outboundTag" in last or "balancerTag" in last
 
     def test_default_rule_special_destination_direct(self):
         cfg = _make_cfg(hub_default="direct")
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
 
     def test_all_in_one_no_exit_regions(self):
@@ -323,9 +333,129 @@ class TestBuildHubRoutingRules:
         d["regions"] = [r for r in d["regions"] if r["type"] == "hub"]
         d["routing"]["hub_default"] = "direct"
         cfg = ConglomerateConfig.model_validate(d)
-        rules = build_hub_routing_rules(cfg)
+        rules = _rules(cfg)
         assert [r for r in rules if "vlessRoute" in r] == []
         assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
+
+
+def _cfg_with_publish(publish: list[dict], hub_node_ids: tuple[str, ...] = ("hubN1",)) -> ConglomerateConfig:
+    d = _minimal_cfg_dict()
+    hub = next(r for r in d["regions"] if r["type"] == "hub")
+    hub["nodes"] = [{"id": nid, "hostname": f"{nid}.t.ns"} for nid in hub_node_ids]
+    d["portals"] = [
+        {
+            "id": "home",
+            "users": ["alice"],
+            "routes": {"domains": ["home.example.com"]},
+            "publish": publish,
+        }
+    ]
+    return ConglomerateConfig.model_validate(d)
+
+
+class TestResolveNodePublishes:
+    def test_resolves_target_and_tags(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                }
+            ]
+        )
+        (pub,) = resolve_node_publishes(cfg, _hub_node(cfg))
+        assert pub.tag == publish_tag("home", 8443) == "home-publish-8443"
+        assert pub.reverse_tag == "home-portal"
+        assert (pub.port, pub.target_host, pub.target_port) == (8443, "192.168.1.10", 443)
+        assert pub.network == "tcp"
+        assert pub.allow == []
+
+    def test_bracketed_ipv6_target_is_unwrapped(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "[fd00::10]:443",
+                }
+            ]
+        )
+        (pub,) = resolve_node_publishes(cfg, _hub_node(cfg))
+        assert (pub.target_host, pub.target_port) == ("fd00::10", 443)
+
+    def test_nodes_filter_selects_listed_node_only(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                    "nodes": ["hubN2"],
+                }
+            ],
+            hub_node_ids=("hubN1", "hubN2"),
+        )
+        assert resolve_node_publishes(cfg, _hub_node(cfg, "hubN1")) == []
+        assert [p.tag for p in resolve_node_publishes(cfg, _hub_node(cfg, "hubN2"))] == ["home-publish-8443"]
+
+    def test_unset_nodes_binds_every_hub_node(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                }
+            ],
+            hub_node_ids=("hubN1", "hubN2"),
+        )
+        for node_id in ("hubN1", "hubN2"):
+            assert len(resolve_node_publishes(cfg, _hub_node(cfg, node_id))) == 1
+
+
+class TestPublishRules:
+    def test_publish_rule_precedes_dns_rule(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                }
+            ]
+        )
+        rules = _rules(cfg)
+        assert rules[0] == {"inboundTag": ["home-publish-8443"], "outboundTag": "home-portal"}
+        assert rules[1]["port"] == 53
+
+    def test_allow_pairs_source_rule_with_deny(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                    "allow": ["203.0.113.7", "198.51.100.0/24"],
+                }
+            ]
+        )
+        rules = _rules(cfg)
+        assert rules[:2] == [
+            {
+                "inboundTag": ["home-publish-8443"],
+                "source": ["203.0.113.7/32", "198.51.100.0/24"],
+                "outboundTag": "home-portal",
+            },
+            {"inboundTag": ["home-publish-8443"], "outboundTag": "blocked"},
+        ]
+
+    def test_no_publish_rules_on_unlisted_node(self):
+        cfg = _cfg_with_publish(
+            [
+                {
+                    "port": 8443,
+                    "target": "192.168.1.10:443",
+                    "nodes": ["hubN2"],
+                }
+            ],
+            hub_node_ids=("hubN1", "hubN2"),
+        )
+        assert not any("inboundTag" in rule for rule in _rules(cfg, "hubN1"))
 
 
 class TestBuildBalancers:
@@ -341,7 +471,11 @@ class TestBuildBalancers:
         assert result[0]["tag"] == "lb-exit1"
 
     def test_includes_warp_balancer(self):
-        r = _make_region(region_id="exit1", lb_strategy="random", warp=WarpConfig(vless_route=65535))
+        r = _make_region(
+            region_id="exit1",
+            lb_strategy="random",
+            warp=WarpConfig(vless_route=65535),
+        )
         result = build_balancers([r])
         tags = [b["tag"] for b in result]
         assert "lb-exit1" in tags
@@ -368,7 +502,12 @@ class TestBuildBalancers:
             proxy_inbound=None,
             ipv6=None,
         )
-        r = _make_region(region_id="exit1", lb_strategy="random", nodes=[n_primary, n_backup], lb_fallback="n2")
+        r = _make_region(
+            region_id="exit1",
+            lb_strategy="random",
+            nodes=[n_primary, n_backup],
+            lb_fallback="n2",
+        )
         result = build_balancers([r])
         assert result[0]["fallbackTag"] == "backup-n2"
 

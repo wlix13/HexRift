@@ -1,13 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from hexrift.components.schema.models.fields import (
+    CidrSubnet,
     DnsName,
     Duration,
     Identifier,
     NonBlankList,
+    Port,
     Rtt,
     XrayPath,
-    normalize_cidr_subnet,
 )
 from hexrift.components.schema.models.observability import ObservabilityOverride
 from hexrift.components.schema.models.routing import ExitRoute
@@ -67,38 +68,28 @@ class XdnsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     domains: NonBlankList
-    port: int = Field(default=53, ge=1, le=65535)
+    port: Port = 53
 
 
 class WireguardConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    port: int = Field(default=443, ge=1, le=65535)
+    port: Port = 443
     mtu: int = Field(default=1420, ge=576, le=65535)
-    subnet: str  # peer address pool, e.g. "10.0.0.0/24"; server holds .1, peers from .2
+    subnet: CidrSubnet  # peer address pool, e.g. "10.0.0.0/24"; server holds .1, peers from .2
     keepalive: int = Field(default=0, ge=0)
     kernel_mode: bool = False
-
-    @field_validator("subnet")
-    @classmethod
-    def _validate_subnet(cls, v: str) -> str:
-        return normalize_cidr_subnet(v)
 
 
 class NodeWireguardOverride(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool | None = None
-    port: int | None = Field(default=None, ge=1, le=65535)
+    port: Port | None = None
     mtu: int | None = Field(default=None, ge=576, le=65535)
-    subnet: str | None = None
+    subnet: CidrSubnet | None = None
     keepalive: int | None = Field(default=None, ge=0)
     kernel_mode: bool | None = None
-
-    @field_validator("subnet")
-    @classmethod
-    def _validate_subnet(cls, v: str | None) -> str | None:
-        return normalize_cidr_subnet(v) if v is not None else None
 
 
 class Node(BaseModel):

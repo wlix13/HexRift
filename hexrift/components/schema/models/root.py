@@ -5,16 +5,24 @@ from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.portals import Portal
 from hexrift.components.schema.models.regions import Node, Region
-from hexrift.components.schema.models.resolve import resolve_node_wireguard_port, resolve_node_xdns
+from hexrift.components.schema.models.resolve import (
+    resolve_node_metrics,
+    resolve_node_proxy_inbound,
+    resolve_node_wireguard_port,
+    resolve_node_xdns,
+)
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
+    PROXY_INBOUND_PORT,
+    REALITY_INBOUND_PORT,
     ROUTABLE_ACCESS,
     SPECIAL_DESTINATIONS,
     AccessType,
     RegionType,
     TagPrefix,
     TagSuffix,
+    Transport,
 )
 
 
@@ -36,6 +44,80 @@ def _hub_rendered_access(
     return rendered
 
 
+def _hub_reserved_ports(
+    region: Region,
+    node: Node,
+    defaults: DefaultsConfig,
+    global_: GlobalConfig,
+    users: list[User],
+) -> dict[tuple[int, Transport], str]:
+    """Sockets bound by hub node, mapped to what binds them."""
+
+    reserved: dict[tuple[int, Transport], str] = {
+        (REALITY_INBOUND_PORT, Transport.TCP): "the reality inbound",
+    }
+
+    if resolve_node_proxy_inbound(node, defaults):
+        reserved.setdefault((PROXY_INBOUND_PORT, Transport.TCP), "the proxy inbound")
+
+    xdns = resolve_node_xdns(node, defaults)
+    if xdns is not None and any(AccessType.XDNS in u.access for u in users):
+        reserved.setdefault((xdns.port, Transport.UDP), "the xdns inbound")
+
+    wireguard_port = resolve_node_wireguard_port(node, defaults)
+    if wireguard_port is not None and any(AccessType.WIREGUARD in u.access for u in users):
+        reserved.setdefault((wireguard_port, Transport.UDP), "the wireguard inbound")
+
+    metrics = resolve_node_metrics(node, region, defaults, global_)
+    if metrics.enabled:
+        reserved.setdefault((metrics.port, Transport.TCP), "the metrics api listener")
+
+    return reserved
+
+
+def _validate_portal_publish(
+    portal: Portal,
+    node_ids: set[str],
+    hub_nodes: dict[str, tuple[Region, Node]],
+    reserved_ports: dict[str, dict[tuple[int, Transport], str]],
+    published_ports: dict[tuple[str, int], str],
+) -> None:
+    """Check one portal's published ports, recording each claim in `published_ports`."""
+
+    for entry in portal.publish:
+        for node_id in entry.nodes or []:
+            if node_id not in node_ids:
+                raise ValueError(f"Portal {portal.id!r} publish port {entry.port} references unknown node {node_id!r}")
+            if node_id not in hub_nodes:
+                raise ValueError(
+                    f"Portal {portal.id!r} publish port {entry.port} references node {node_id!r}"
+                    " outside a hub region; published ports are bound by hub nodes"
+                )
+        scope = sorted(entry.nodes) if entry.nodes else sorted(hub_nodes)
+        for node_id in scope:
+            reserved = reserved_ports[node_id]
+            for transport in entry.network.transports:
+                if (entry.port, transport) in reserved:
+                    raise ValueError(
+                        f"Portal {portal.id!r} publishes {transport} port {entry.port} on node {node_id!r},"
+                        f" which already binds it for {reserved[(entry.port, transport)]}"
+                    )
+            # Keyed without transport: inbound tag is `{id}-publish-{port}`
+            owner = published_ports.get((node_id, entry.port))
+            if owner == portal.id:
+                raise ValueError(
+                    f"Portal {portal.id!r} publishes port {entry.port} on node {node_id!r} more"
+                    " than once; each publish entry sharing a node must use a distinct port"
+                )
+            if owner is not None:
+                raise ValueError(
+                    f"Portal {portal.id!r} publishes port {entry.port} on node {node_id!r},"
+                    f" already published by portal {owner!r}; publish entries sharing a node"
+                    " must use distinct ports"
+                )
+            published_ports[(node_id, entry.port)] = portal.id
+
+
 class ConglomerateConfig(BaseModel):
     global_: GlobalConfig = Field(alias="global")
     defaults: DefaultsConfig
@@ -52,6 +134,7 @@ class ConglomerateConfig(BaseModel):
         group_ids = {g.id for g in self.groups}
         region_ids = {r.id for r in self.regions}
         node_ids: set[str] = set()
+        hub_nodes: dict[str, tuple[Region, Node]] = {}
 
         # Unique region IDs
         if len(region_ids) != len(self.regions):
@@ -68,6 +151,8 @@ class ConglomerateConfig(BaseModel):
                 if node.id in node_ids:
                     raise ValueError(f"Duplicate node id: {node.id!r}")
                 node_ids.add(node.id)
+                if region.type == RegionType.HUB:
+                    hub_nodes[node.id] = (region, node)
                 # CDN inbound requires HAProxy TLS termination
                 if self.global_.cdn and region.cdn_xhttp_path:
                     eff_haproxy = (
@@ -146,15 +231,23 @@ class ConglomerateConfig(BaseModel):
         exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
         user_access = {u.username: set(u.access) for u in self.users}
         seen_portal_ids: set[str] = set()
+        reserved_ports = (
+            {
+                nid: _hub_reserved_ports(r, n, self.defaults, self.global_, self.users)
+                for nid, (r, n) in hub_nodes.items()
+            }
+            if any(p.publish for p in self.portals)
+            else {}
+        )
         rendered_access: set[AccessType] = set()
         if self.portals:
-            hub_nodes = [(r, n) for r in self.regions if r.type == RegionType.HUB for n in r.nodes]
             if not hub_nodes:
                 raise ValueError(
                     "Portals require at least one hub node; a portal opens its reverse tunnel by dialing hub nodes"
                 )
-            for hub_region, hub_node in hub_nodes:
-                rendered_access |= _hub_rendered_access(hub_region, hub_node, self.defaults, self.global_)
+            for r, n in hub_nodes.values():
+                rendered_access |= _hub_rendered_access(r, n, self.defaults, self.global_)
+        published_ports: dict[tuple[str, int], str] = {}  # (node id, port) → portal id
         for portal in self.portals:
             if portal.id in seen_portal_ids:
                 raise ValueError(f"Duplicate portal id: {portal.id!r}")
@@ -181,6 +274,7 @@ class ConglomerateConfig(BaseModel):
                         f" hub nodes render: {', '.join(sorted(rendered_access)) or 'none'});"
                         " the portal routing rule would match no traffic"
                     )
+            _validate_portal_publish(portal, node_ids, hub_nodes, reserved_ports, published_ports)
 
         # hub_default references valid region or special destination
         hub_default = self.routing.hub_default

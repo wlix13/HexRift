@@ -32,7 +32,14 @@ from hexrift.shared.crypto import x25519_urlsafe_to_std
 
 if TYPE_CHECKING:
     from hexrift.app import HexRiftApp  # noqa: F401
+    from hexrift.components.schema.models.portals import PortalPublish
     from hexrift.components.schema.models.root import ConglomerateConfig
+
+
+def _format_publish(entry: PortalPublish) -> str:
+    allow = ", ".join(entry.allow) if entry.allow else "any"
+    nodes = ", ".join(entry.nodes) if entry.nodes else "all"
+    return f"{entry.port}/{entry.network} -> {entry.target}  allow: {allow}  nodes: {nodes}"
 
 
 @dataclass(frozen=True)
@@ -144,7 +151,9 @@ class DeriveController(BaseController["HexRiftApp"]):
                 uuid=str(ns.portal_uuid(p.id, override=p.uuid)),
                 email=ns.portal_email(p.id),
                 short_id=ns.portal_short_id(p.id),
+                strict=p.strict,
                 users=list(p.users),
+                publish=[_format_publish(entry) for entry in p.publish],
             )
             for p in cfg.portals
         ]

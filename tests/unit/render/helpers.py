@@ -130,6 +130,7 @@ def hub_ctx(**overrides: Any) -> HubContext:
     defaults: dict[str, Any] = {
         "shared": make_shared(node_id="mskA00", hostname="mskA00.ap.example.com"),
         "slots": default_slots(),
+        "forward_inbounds": [],
         "observatory": ObservatoryConfig(),
         "outbounds": [],
         "warp_outbounds": [],

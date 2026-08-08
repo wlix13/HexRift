@@ -242,6 +242,29 @@ def test_hub_portal_routing_rule():
 
 
 @pytest.mark.integration
+def test_hub_published_ports():
+    """Published ports bind dokodemo inbounds and route ahead of the DNS rule."""
+
+    generated, _ = _build_for_node("mskA00")
+    cfg = json.loads(generated)
+
+    allowed = next(ib for ib in cfg["inbounds"] if ib["tag"] == "home-publish-8443")
+    assert allowed["protocol"] == "dokodemo-door"
+    assert allowed["port"] == 8443
+    assert allowed["settings"]["address"] == "192.168.1.10"
+    assert allowed["settings"]["port"] == 443
+    assert allowed["sniffing"] == {"enabled": False}
+
+    # Ahead of the DNS rule, so IPIfNonMatch never resolves their fixed targets.
+    rules = cfg["routing"]["rules"]
+    assert rules[:3] == [
+        {"inboundTag": ["home-publish-8443"], "source": ["203.0.113.7/32"], "outboundTag": "home-portal"},
+        {"inboundTag": ["home-publish-8443"], "outboundTag": "blocked"},
+        {"inboundTag": ["home-publish-9000"], "outboundTag": "home-portal"},
+    ]
+
+
+@pytest.mark.integration
 def test_hub_direct_routing_rule():
     """hub_routes direct rule for internal.example.com should be present."""
 
@@ -294,6 +317,8 @@ def test_hub_inbound_order():
         "mixed-inbound",
         "xdns",
         "wireguard-in",
+        "home-publish-8443",
+        "home-publish-9000",
     ]
 
 
@@ -384,10 +409,10 @@ def test_portal_config_structure():
 def test_portal_config_outbounds():
     cfg = json.loads(serialize_config(_build_portal()))
     tags = [ob["tag"] for ob in cfg["outbounds"]]
-    # one per hub node + direct
+    # one per hub node + direct + blocked (strict portal)
     assert "portal-mskA00" in tags
     assert "direct" in tags
-    assert len(cfg["outbounds"]) == 2  # 1 hub node + 1 direct
+    assert tags == ["portal-mskA00", "direct", "blocked"]
 
 
 @pytest.mark.integration
@@ -429,13 +454,13 @@ def test_portal_outbound_reality_settings():
 
 
 @pytest.mark.integration
-def test_portal_outbound_has_reverse_sniffing():
+def test_portal_outbound_reverse_sniffing_off_when_strict():
+    # Sniffing would replace the routed address with the client-supplied SNI
     cfg = json.loads(serialize_config(_build_portal()))
     ob = next(o for o in cfg["outbounds"] if o["tag"] == "portal-mskA00")
     reverse = ob["settings"]["reverse"]
     assert reverse["tag"] == "home-portal"
-    assert reverse["sniffing"]["enabled"] is True
-    assert reverse["sniffing"]["routeOnly"] is True
+    assert reverse["sniffing"] == {"enabled": False}
 
 
 @pytest.mark.integration
@@ -449,12 +474,31 @@ def test_portal_direct_outbound_allows_reverse_traffic():
 def test_portal_routing_rules():
     cfg = json.loads(serialize_config(_build_portal()))
     rules = cfg["routing"]["rules"]
-    assert len(rules) == 2
-    # Emerged reverse traffic (inboundTag = reverse tag) egresses directly...
-    assert rules[0] == {"inboundTag": ["home-portal"], "outboundTag": "direct"}
-    # ...and the catch-all keeps anything else off the hub-dial outbounds.
-    assert rules[1]["network"] == "TCP,UDP"
-    assert rules[1]["outboundTag"] == "direct"
+    assert len(rules) == 5
+    # Emerged reverse traffic egresses directly only for the portal's declared matchers...
+    assert rules[0] == {
+        "inboundTag": ["home-portal"],
+        "domain": ["home.alice.example.com"],
+        "outboundTag": "direct",
+    }
+    # ...plus each published target, pinned to its port...
+    assert rules[1] == {
+        "inboundTag": ["home-portal"],
+        "ip": ["192.168.1.10"],
+        "port": 443,
+        "outboundTag": "direct",
+    }
+    assert rules[2] == {
+        "inboundTag": ["home-portal"],
+        "domain": ["full:nas.home.arpa"],
+        "port": 5000,
+        "outboundTag": "direct",
+    }
+    # ...anything else off the tunnel is blackholed...
+    assert rules[3] == {"inboundTag": ["home-portal"], "outboundTag": "blocked"}
+    # ...and the catch-all keeps everything else off the hub-dial outbounds.
+    assert rules[4]["network"] == "TCP,UDP"
+    assert rules[4]["outboundTag"] == "direct"
 
 
 @pytest.mark.integration

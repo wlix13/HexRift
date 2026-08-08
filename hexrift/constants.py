@@ -19,6 +19,9 @@ IDENTIFIER_PATTERN = r"^[A-Za-z0-9_-]+$"
 DNS_NAME_PATTERN = r"^[A-Za-z0-9_.-]+$"
 """DNS-name charset for namespace, hostnames, and domains."""
 
+HOST_PORT_PATTERN = r"^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9_.-]+):\d{1,5}$"
+"""`host:port` shape: DNS name or IPv4 literal, or a bracketed IPv6 literal."""
+
 SHORT_ID_PATTERN = r"^[0-9a-fA-F]*$"
 """Reality shortId: hex digits only."""
 
@@ -88,6 +91,7 @@ class XrayProtocol(StrEnum):
     BLACKHOLE = "blackhole"
     MIXED = "mixed"
     WIREGUARD = "wireguard"
+    DOKODEMO = "dokodemo-door"
 
 
 class XrayNetwork(StrEnum):
@@ -97,12 +101,41 @@ class XrayNetwork(StrEnum):
     MKCP = "mkcp"
 
 
+class Transport(StrEnum):
+    """Layer-4 transport a listener occupies."""
+
+    TCP = "tcp"
+    UDP = "udp"
+
+
+class PublishNetwork(StrEnum):
+    """Transports a published portal port forwards."""
+
+    TCP = "tcp"
+    UDP = "udp"
+    TCP_UDP = "tcp,udp"
+
+    @property
+    def transports(self) -> frozenset[Transport]:
+        """Individual transports this network occupies."""
+
+        return frozenset(Transport(part) for part in self.split(","))
+
+
 class XraySecurity(StrEnum):
     """Xray security types."""
 
     NONE = "none"
     REALITY = "reality"
     TLS = "tls"
+
+
+class DomainStrategy(StrEnum):
+    """Routing domainStrategy: when router resolves domain destination to match `ip` rules."""
+
+    AS_IS = "AsIs"
+    IP_IF_NON_MATCH = "IPIfNonMatch"
+    IP_ON_DEMAND = "IPOnDemand"
 
 
 class LogLevel(StrEnum):
@@ -147,6 +180,7 @@ class TagSuffix(StrEnum):
     """Outbound tag suffixes."""
 
     PORTAL = "-portal"
+    PUBLISH = "-publish"
 
 
 class UserSuffix(StrEnum):
@@ -181,6 +215,12 @@ class Socket(StrEnum):
     MIXED = "0.0.0.0"  # noqa: S104 mixed protocol doesn't support Unix sockets
     HAPROXY_CDN = "/dev/shm/haproxy_cdn_https_local.sock"  # noqa: S108
 
+
+REALITY_INBOUND_PORT = 443
+"""Port the Reality inbound binds, directly or behind HAProxy."""
+
+PROXY_INBOUND_PORT = 80
+"""Port the mixed proxy inbound binds."""
 
 WARP_VLESS_ROUTE = 65535
 """Warp vless route decimal"""

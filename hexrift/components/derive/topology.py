@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import LeastLoadSettings, Region
+from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
 from hexrift.constants import (
     SPECIAL_DESTINATIONS,
     LbRole,
     LbStrategy,
+    PublishNetwork,
     RegionType,
     SpecialDestination,
     TagPrefix,
@@ -23,6 +26,68 @@ def portal_tag(portal_id: str) -> str:
     """Get outbound tag for portal."""
 
     return f"{portal_id}{TagSuffix.PORTAL}"
+
+
+def publish_tag(portal_id: str, port: int) -> str:
+    return f"{portal_id}{TagSuffix.PUBLISH}-{port}"
+
+
+@dataclass(frozen=True)
+class PublishedPort:
+    """One portal published port resolved by single hub node."""
+
+    tag: str
+    reverse_tag: str
+    port: int
+    target_host: str
+    target_port: int
+    network: PublishNetwork
+    allow: list[str]
+
+
+def resolve_node_publishes(config: ConglomerateConfig, node: Node) -> list[PublishedPort]:
+    """Published ports resolved by single hub node, in portal then declaration order."""
+
+    resolved: list[PublishedPort] = []
+    for portal in config.portals:
+        reverse_tag = portal_tag(portal.id)
+        for entry in portal.publish:
+            if entry.nodes is not None and node.id not in entry.nodes:
+                continue
+            target_host, target_port = entry.target_host_port
+            resolved.append(
+                PublishedPort(
+                    tag=publish_tag(portal.id, entry.port),
+                    reverse_tag=reverse_tag,
+                    port=entry.port,
+                    target_host=target_host,
+                    target_port=target_port,
+                    network=entry.network,
+                    allow=list(entry.allow) if entry.allow else [],
+                )
+            )
+    return resolved
+
+
+def build_publish_rules(published: list[PublishedPort]) -> list[dict]:
+    """Build inboundTag-keyed rules steering published ports into portal tunnel."""
+
+    rules: list[dict] = []
+    for pub in published:
+        rule: dict = {"inboundTag": [pub.tag]}
+        if pub.allow:
+            rule["source"] = pub.allow
+        rule["outboundTag"] = pub.reverse_tag
+        rules.append(rule)
+        if pub.allow:
+            # Deny anything the allowlist did not match; without it the port is open
+            rules.append(
+                {
+                    "inboundTag": [pub.tag],
+                    "outboundTag": SpecialDestination.BLOCKED,
+                }
+            )
+    return rules
 
 
 def _resolve_fallback_tag(region: Region) -> str:
@@ -149,7 +214,7 @@ def _append_route_rules(
         )
 
 
-def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
+def build_hub_routing_rules(config: ConglomerateConfig, published: list[PublishedPort]) -> list[dict]:
     """Build ordered routing rule list for hub node."""
 
     ns = Namespace(config.global_.namespace)
@@ -158,13 +223,16 @@ def build_hub_routing_rules(config: ConglomerateConfig) -> list[dict]:
     region_map = {r.id: r for r in config.regions}
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
 
+    # 0. Published ports: ahead of every other rule so none can re-steer published connections
+    rules: list[dict] = build_publish_rules(published)
+
     # 1. DNS localhost
-    rules: list[dict] = [
+    rules.append(
         make_dns_direct_rule(
             config.global_.dns.address,
             config.global_.dns.port,
         )
-    ]
+    )
     # 2. vlessRoute per exit region
     for region in exit_regions:
         tag_key = _balancer_key(region)

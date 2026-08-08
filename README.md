@@ -83,6 +83,7 @@ Beyond the basic hub/exit split:
 
 - **HAProxy-less nodes** - by default every node runs HAProxy on `:443` in front of Xray. Set `haproxy: false` to drop HAProxy and have Xray's Reality inbound bind `0.0.0.0:443` (or `[::]:443` when ipv6 is supported) directly. `build --haproxy` then emits a no-op stub `haproxy.cfg` so managed HAProxy service stays up without touching `:443`. CDN (`cdn_xhttp_path`) needs HAProxy TLS termination and cannot be combined with `haproxy: false`.
 - **All-in-one node** - set `routing.hub_default: direct` to make a hub egress everything itself (`direct` outbound) instead of routing to exit region. This allows topology with hub node(s) and **no exit regions** - single node clients connect to that proxies straight to the internet. `hub_routes` still apply for per-domain/user exceptions.
+- **Site-to-site portals** - `portals:` declares a machine (e.g. a home server) that dials the hubs and opens a reverse tunnel; hub traffic from the portal's member users that matches `routes` egresses there. `publish:` forwards a hub-bound port into the tunnel for the ingress direction - that port is **unauthenticated internet ingress and ignores `portals[].users`**, so set `allow`. `strict: true` (the default) confines portal-side egress to the declared `routes`/`publish` matchers and blackholes the rest. See [Topology Schema](docs/topology-schema.md#portals).
 
 ## Architecture
 

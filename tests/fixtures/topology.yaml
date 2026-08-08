@@ -53,6 +53,13 @@ portals:
     users: [alice]
     routes:
       domains: [home.alice.example.com]
+    publish:
+      - port: 8443
+        target: 192.168.1.10:443
+        allow: [203.0.113.7/32]
+      - port: 9000
+        target: nas.home.arpa:5000
+        network: tcp,udp
   - id: office
     users: [alice, bob]
     routes:

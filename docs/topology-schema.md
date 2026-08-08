@@ -177,6 +177,8 @@ Site-to-site reverse tunnels. A portal is a machine (e.g. a home server) that di
 | `users` | `list[str]` | yes | Usernames allowed to route through this portal (at least one); usernames only — guests are not accepted |
 | `routes` | `PortalRoutes` | yes | Traffic selectors for this portal |
 | `uuid` | `UUID` | no | Override auto-derived portal UUID |
+| `publish` | `list[PortalPublish]` | no | Hub ports forwarded into the tunnel — the ingress direction (default: none) |
+| `strict` | `bool` | no | Confine portal-side egress to the declared matchers (default `true`) |
 
 ### `PortalRoutes`
 
@@ -186,6 +188,8 @@ Site-to-site reverse tunnels. A portal is a machine (e.g. a home server) that di
 | `ips` | `list[str]` | IP/CIDR matchers |
 
 At least one matcher is required.
+
+Matchers are evaluated on the hub, before the connection leaves it, so the hub has to recognize the destination on its own. A bare LAN hostname (`nas`, `router`) never gets there — the hub cannot resolve it, the rule falls through, and the traffic goes to `routing.hub_default`. Use a matcher that catches the name as written (`domain:lan`, `full:nas.home.arpa`), or publish a port instead. `ips` likewise matches only what the client dialed as an IP literal — the hub never resolves a name to test it against a CIDR (see [`strict`](#strict)).
 
 Portal ids must not collide with node or region ids, and the derived `{id}-portal` tag must not start with an exit region id (balancer selectors are prefix matches). The portal UUID is derived as `UUID5(namespace_uuid, "portal/{id}")` and is reverse-only: Xray rejects forward proxying with it. If no portal machine is connected, matching traffic is dropped (no fallback to the default route).
 
@@ -197,6 +201,57 @@ A `proxy`-only or `server`-only member is rejected as well.
 
 Only a member's own identity routes into the portal. Guests (`{label}@{username}`) and server identities (`{username}-server@{username}`) are separate emails that the rule never matches, so a guest cannot reach a portal even when its user is a member. Listing a guest label in `portals[].users` is not a way around this - this is made for security by design.
 
+### `PortalPublish`
+
+`publish` forwards a port **into** the tunnel — the ingress direction, the mirror of `routes`. Each selected hub node binds the port and hands every accepted connection to the portal machine, which dials `target` locally.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `port` | `int` (1–65535) | yes | — | Port the hub node binds |
+| `target` | `str` (`host:port`) | yes | — | Address dialed from the portal machine; host must be a DNS name or an IP literal, IPv6 bracketed |
+| `network` | `tcp \| udp \| tcp,udp` | no | `tcp` | Transports forwarded |
+| `allow` | `list[str]` | no | — | Source allowlist (CIDR or bare IP; bare IPs become `/32`, `/128` for IPv6). At least one entry; an entry with host bits set (`203.0.113.7/24`) is rejected rather than widened |
+| `nodes` | `list[str]` | no | every hub node | Hub nodes that bind this port |
+
+Each entry adds a dokodemo-door inbound tagged `{id}-publish-{port}` to the selected hub nodes, plus routing rules placed ahead of every other hub rule — before the DNS rule — so no later domain or IP rule can re-steer a published connection. With `allow`, sources outside the list are blocked; without it, every source is accepted. Sniffing is disabled on these inbounds: the target is fixed, so a client-supplied SNI has nothing to contribute and must not influence routing.
+
+`target` is resolved and dialed **on the portal machine**, so LAN-only names work — `nas.lan:5000`, `192.168.1.10:443`.
+
+Rejected at validation time: `nodes` entries that are unknown, repeated, or sit outside a hub region; an entry whose node scope is empty (a topology with no hub nodes at all); a socket the hub node already binds (Reality `443/tcp`, the proxy inbound `80/tcp`, the metrics listener over TCP, `xdns` and `wireguard` over UDP — each counted only when that inbound actually renders, so an `xdns`/`wireguard` block with no user carrying the matching access reserves nothing); and the same port published twice on an overlapping node set. Reservations are per transport, so a `tcp` publish may reuse the port of a UDP-only listener.
+
+!!! danger "A published port is unauthenticated internet ingress"
+    Any source matching the configured `allow` list — or any source that can reach `hub-node:port` at all when `allow` is omitted — gets a connection to `target` inside the portal-side network. Sources outside the allowlist are blocked. There is no VLESS handshake, no UUID, no user — **`portals[].users` does not apply**. That user list governs the egress direction only (whose hub traffic may enter the tunnel); it has no effect whatsoever on published ports. Without `allow` the port is open to the internet, and the target service's own authentication is the only remaining line of defense.
+
+!!! warning "Publishing from a pooled portal"
+    When several machines run the same portal config, the hub picks one of the pooled tunnels per connection. That is fine for egress — any of them reaches the same internet — but a published connection then lands on whichever machine Xray chose, and `target` has to mean the same thing on all of them. Give each machine its own portal id when the published service lives on exactly one of them.
+
+### `strict`
+
+`strict` (default `true`) confines what traffic emerging from the tunnel may reach on the portal side. The portal config mirrors the declared matchers as `direct` rules and blackholes the rest:
+
+- one rule for `routes.domains` and one for `routes.ips`, copied verbatim from the schema — Xray prefixes such as `full:`, `domain:`, `regexp:` are preserved, so hub and portal cannot disagree about what a matcher means
+- one port-pinned rule per `publish` entry (`ip` for a literal target, `full:<host>` for a name), matching only that target's port
+- a final catch-all to a `blocked` blackhole outbound, which is added to the config only when `strict` is true (by default)
+
+Sniffing on the reverse tunnel is turned off under `strict`. Xray sniffs with `routeOnly`, which leaves the dialed address alone but routes on the sniffed SNI/Host instead — an address the client chooses. Every strict matcher would then be evaluated against attacker-supplied text: a published `nas.home.arpa:5000` forward would never match its own `full:nas.home.arpa` rule (the SNI is whatever hostname the client used to reach the hub), while any member could reach an arbitrary LAN host by sending a matching SNI. With sniffing off, the portal matches the destination exactly as the hub sent it. `strict: false` keeps sniffing on.
+
+With `strict: false` the portal emits a single catch-all `direct` rule instead — the pre-`strict` output — and anything that reaches the `{id}-portal` outbound can be dialed from the portal machine: its own loopback services, the rest of the LAN, the router's admin interface, the open internet. A hub-side mistake or an over-broad matcher then turns into remote access to the home network.
+
+The portal enforces *what*, not *who*. Traffic emerging from a reverse tunnel carries no inbound user, so member filtering stays hub-side and portal-side rules never mention users.
+
+A strict portal uses `domainStrategy: IPOnDemand` instead of the `IPIfNonMatch` a non-strict one keeps. `IPIfNonMatch` only re-runs the rules with DNS when *nothing* matched, and the strict catch-all always matches on the first pass — so the second pass would never happen and an `ip` matcher could never cover a domain destination. `IPOnDemand` resolves inside the first pass, so a domain arriving from the tunnel is still checked against `routes.ips`.
+
+The hub does no such resolution on your behalf, in either direction. Its rule list ends in a `TCP,UDP` catch-all (`routing.hub_default`) that matches everything on the first pass, so the hub's own `IPIfNonMatch` second pass never runs either. Every `ip` matcher on the hub — `portals[].routes.ips` as much as `hub_routes[].ips` — matches only a destination the client already dialed as an IP literal; `routes.ips: [10.0.0.0/8]` never catches `internal.corp`. Declare the name in `routes.domains` for that.
+
+Two cases then fail closed where a non-strict portal would have dialed:
+
+- **The two resolvers disagree.** If the hub's DNS lands a name inside a declared CIDR and the portal's DNS does not — split-horizon setups, most often — the connection is blackholed. Declaring the name in `routes.domains` removes the dependency on DNS entirely, since a domain matcher is checked before any resolution happens.
+- **The client dialed an IP literal.** Hub inbounds sniff with `routeOnly`: the sniffed SNI/Host decides the route, but the dialed address is left alone, and the address is what the tunnel carries. A client that resolves DNS itself and opens `1.2.3.4:443` with SNI `home.alice.example.com` matches `routes.domains` on the hub and enters the tunnel, then arrives at the portal as `1.2.3.4:443` and is blackholed. Clients that send the hostname are unaffected — SOCKS and HTTP proxies do, as do TUN implementations that rewrite the destination from their own sniffing (sing-box, Clash) — but a plain `tun2socks`-style setup does not. Cover the address range in `routes.ips` when members connect that way.
+
+`strict: false` is the escape hatch for both.
+
+Matchers are copied verbatim, so a `geosite:` / `geoip:` / `ext:` entry in `routes` also lands in the portal config and Xray refuses to start without the matching `.dat` asset on the portal machine. Keep strict portals on literal matchers, or deploy the asset files there too.
+
 **Example:**
 
 ```yaml
@@ -204,8 +259,25 @@ portals:
   - id: home
     users: [alice, bob]
     routes:
-      domains: [internal.example.com]
-      ips: [10.0.0.0/8]
+      domains: [internal.example.com, "domain:lan"]
+      ips: [10.0.0.0/8, 192.168.1.0/24]
+    publish:
+      # NAS web UI, reachable only from the office range
+      - port: 8443
+        target: 192.168.1.10:443
+        allow: [203.0.113.7/32, 198.51.100.0/24]
+        nodes: [euH00]
+      # game server, both transports, every hub node
+      - port: 27015
+        target: nas.lan:27015
+        network: tcp,udp
+
+  - id: lab
+    users: [alice]
+    routes:
+      ips: [172.16.0.0/12]
+    # lab names resolve differently on the portal than on the hub
+    strict: false
 ```
 
 ---

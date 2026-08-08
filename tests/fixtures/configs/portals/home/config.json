@@ -18,9 +18,7 @@
         "reverse": {
           "tag": "home-portal",
           "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls", "quic"],
-            "routeOnly": true
+            "enabled": false
           }
         }
       },
@@ -80,14 +78,36 @@
           }
         ]
       }
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
     }
   ],
   "routing": {
-    "domainStrategy": "IPIfNonMatch",
+    "domainStrategy": "IPOnDemand",
     "rules": [
       {
         "inboundTag": ["home-portal"],
+        "domain": ["home.alice.example.com"],
         "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["home-portal"],
+        "ip": ["192.168.1.10"],
+        "port": 443,
+        "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["home-portal"],
+        "domain": ["full:nas.home.arpa"],
+        "port": 5000,
+        "outboundTag": "direct"
+      },
+      {
+        "inboundTag": ["home-portal"],
+        "outboundTag": "blocked"
       },
       {
         "network": "TCP,UDP",

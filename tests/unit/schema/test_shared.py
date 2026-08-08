@@ -25,7 +25,7 @@ class TestRealityConfigServerNames:
 
     @pytest.mark.parametrize("bad", ["", "   ", "\t"])
     def test_blank_entries_rejected(self, bad: str):
-        with pytest.raises(ValidationError, match="must be non-empty"):
+        with pytest.raises(ValidationError, match="at least 1 character"):
             RealityConfig(dest="a.com:443", xhttp_path="/x/", server_names=["sni.a.com", bad])
 
 
