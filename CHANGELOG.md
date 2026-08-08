@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.2](https://github.com/wlix13/HexRift/compare/v0.11.1...v0.11.2) (2026-08-08)
+
+
+### Features
+
+* **portals:** add support for publishing hub ports into reverse tunnel ([2181d98](https://github.com/wlix13/HexRift/commit/2181d98799eff3eef5df80cc1367e4fdc8e1efd9))
+* **portals:** confine portal egress to declared matchers ([23e6339](https://github.com/wlix13/HexRift/commit/23e6339b7880dc55469d527b25ccc7b62246d1c8))
+
+
+### Documentation
+
+* **portals:** document published ports feature ([5d04818](https://github.com/wlix13/HexRift/commit/5d0481827a5c81c0486d09e224b9666dc9add83f))
+
 ## [0.11.1](https://github.com/wlix13/HexRift/compare/v0.11.0...v0.11.1) (2026-08-01)
 
 
