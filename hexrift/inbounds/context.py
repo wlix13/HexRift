@@ -5,13 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hexrift.components.derive.defaults import (
-    derive_server_names,
-    derive_xhttp_host,
     resolve_exit_connections,
     resolve_node_haproxy,
     resolve_node_ipv6,
     resolve_node_observability,
-    resolve_node_reality,
 )
 from hexrift.components.derive.topology import (
     build_balancers,
@@ -27,6 +24,8 @@ from hexrift.constants import AccessType, LbRole, RegionType, TagPrefix
 from hexrift.inbounds.base import InboundContext, InboundEnv, SharedContext
 from hexrift.inbounds.forward import forward_fragment
 from hexrift.inbounds.registry import build_slots
+from hexrift.links.base import LinkContext, LinkEnv
+from hexrift.links.registry import build_link
 
 
 @dataclass(frozen=True)
@@ -39,22 +38,6 @@ class ExitContext:
     extra_routes: list[dict]  # from region routes + global_exit_routes
 
 
-@dataclass
-class HubOutboundContext:
-    exit_id: str
-    address: str  # {exitId}.{aphelion_domain}
-    user_id: str  # hub-exit UUID
-    encryption: str  # full encryption key string
-    public_key: str  # exit node's reality public key
-    fingerprint: str
-    server_name: str  # exit node's server_name (first of server_names)
-    short_id: str  # exit node's single shortId
-    xhttp_host: str  # exit node's xhttp host
-    xhttp_path: str  # exit node's xhttp path
-    flow: str  # VLESS flow (empty when encryption disabled)
-    tag_prefix: str = ""  # "backup-" if lb_role==backup, "warp-" for warp variant
-
-
 @dataclass(frozen=True)
 class HubContext:
     shared: SharedContext
@@ -62,8 +45,8 @@ class HubContext:
     forward_inbounds: list[dict]  # dokodemo-door fragments, one per published portal port
 
     # Outbounds
-    outbounds: list[HubOutboundContext]  # one per exit node (normal)
-    warp_outbounds: list[HubOutboundContext]  # one per exit node (warp variant)
+    outbounds: list[LinkContext]  # one per exit node (normal)
+    warp_outbounds: list[LinkContext]  # one per exit node (warp variant)
 
     # Routing / balancers
     balancers: list[dict]
@@ -145,57 +128,26 @@ def build_hub_context(
     exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
 
     ec = resolve_exit_connections(node, config.defaults)
-    outbounds: list[HubOutboundContext] = []
-    warp_outbounds: list[HubOutboundContext] = []
+    outbounds: list[LinkContext] = []
+    warp_outbounds: list[LinkContext] = []
 
     for exit_region in exit_regions:
         warp_vless_route = exit_region.warp.vless_route if exit_region.warp else None
         for exit_node in exit_region.nodes:
-            ex_reality = resolve_node_reality(exit_node, exit_region, config.defaults)
-            ex_server_names = derive_server_names(ex_reality)
-            ex_xhttp_host = derive_xhttp_host(ex_reality)
-            ex_keys = exit_node_keys[exit_node.id]
-            ex_flow = ex_keys.client_flow
-            uid = ns.hub_exit_uuid(node.id, exit_node.id)
-            short = ns.exit_short_id(exit_node.id)
-            address = f"{exit_node.id}.{config.global_.aphelion_domain}"
-            tag_prefix = TagPrefix.BACKUP if exit_node.lb_role == LbRole.BACKUP else TagPrefix.NONE
-
-            outbounds.append(
-                HubOutboundContext(
-                    exit_id=exit_node.id,
-                    address=address,
-                    user_id=str(uid),
-                    encryption=ex_keys.encryption,
-                    public_key=ex_keys.reality_public_key,
-                    fingerprint=ec.fingerprint,
-                    server_name=ex_server_names[0],
-                    short_id=short,
-                    xhttp_host=ex_xhttp_host,
-                    xhttp_path=ex_reality.xhttp_path,
-                    flow=ex_flow,
-                    tag_prefix=tag_prefix,
-                )
+            link = LinkEnv(
+                config=config,
+                hub=node,
+                exit_region=exit_region,
+                exit_node=exit_node,
+                exit_keys=exit_node_keys[exit_node.id],
+                ns=ns,
+                exit_connections=ec,
             )
-
+            uid = ns.hub_exit_uuid(node.id, exit_node.id)
+            tag_prefix = TagPrefix.BACKUP if exit_node.lb_role == LbRole.BACKUP else TagPrefix.NONE
+            outbounds.append(build_link(link, str(uid), tag_prefix))
             if warp_vless_route is not None:
-                w_uid = ns.warp_uuid(uid)
-                warp_outbounds.append(
-                    HubOutboundContext(
-                        exit_id=exit_node.id,
-                        address=address,
-                        user_id=str(w_uid),
-                        encryption=ex_keys.encryption,
-                        public_key=ex_keys.reality_public_key,
-                        fingerprint=ec.fingerprint,
-                        server_name=ex_server_names[0],
-                        short_id=short,
-                        xhttp_host=ex_xhttp_host,
-                        xhttp_path=ex_reality.xhttp_path,
-                        flow=ex_flow,
-                        tag_prefix=TagPrefix.WARP + tag_prefix,
-                    )
-                )
+                warp_outbounds.append(build_link(link, str(ns.warp_uuid(uid)), TagPrefix.WARP + tag_prefix))
 
     published = resolve_node_publishes(config, node)
 

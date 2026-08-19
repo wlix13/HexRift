@@ -67,11 +67,12 @@ ini_options.markers = [
 root_package = "hexrift"
 
 [[tool.importlinter.contracts]]
-name = "feature spine (render -> inbounds -> derive/keys -> schema)"
+name = "feature spine (render -> inbounds -> links -> derive/keys -> schema)"
 type = "layers"
 layers = [
   "hexrift.components.render",
   "hexrift.inbounds",
+  "hexrift.links",
   "hexrift.components.derive | hexrift.components.keys",
   "hexrift.components.schema",
 ]
@@ -95,6 +96,7 @@ forbidden_modules = [
   "hexrift.components",
   "hexrift.core",
   "hexrift.inbounds",
+  "hexrift.links",
   "hexrift.shared",
 ]
 
@@ -118,6 +120,7 @@ forbidden_modules = [
   "hexrift.app",
   "hexrift.components",
   "hexrift.inbounds",
+  "hexrift.links",
   "hexrift.shared",
 ]
 
@@ -134,6 +137,7 @@ forbidden_modules = [
   "hexrift.components.schema.controller",
   "hexrift.core",
   "hexrift.inbounds",
+  "hexrift.links",
 ]
 
 [tool.poe]
