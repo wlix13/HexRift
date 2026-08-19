@@ -25,6 +25,12 @@ HOST_PORT_PATTERN = r"^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9_.-]+):\d{1,5}$"
 SHORT_ID_PATTERN = r"^[0-9a-fA-F]*$"
 """Reality shortId: hex digits only."""
 
+BANDWIDTH_PATTERN = r"(?i)^(\d+(?:\.\d+)?)\s*(t|tb|tbps|g|gb|gbps|m|mb|mbps|k|kb|kbps|b|bps)?$"
+"""Xray bandwidth string: number + optional unit (bits/s; binary multipliers)."""
+
+MASQUERADE_URL_PATTERN = r"^https?://\S+$"
+"""Hysteria masquerade reverse-proxy target."""
+
 
 class RegionType(StrEnum):
     EXIT = "exit"
@@ -40,6 +46,7 @@ class AccessType(StrEnum):
     PROXY = "proxy"
     WIREGUARD = "wireguard"
     XDNS = "xdns"
+    HYSTERIA = "hysteria"
 
 
 ROUTABLE_ACCESS = frozenset(
@@ -48,9 +55,24 @@ ROUTABLE_ACCESS = frozenset(
         AccessType.CDN,
         AccessType.XDNS,
         AccessType.WIREGUARD,
+        AccessType.HYSTERIA,
     }
 )
 """Access types whose inbound identity carries `user_email` for routing rules to match on."""
+
+
+class ExitProtocol(StrEnum):
+    """Protocol hubs use to dial an exit region."""
+
+    VLESS = "vless"
+    HYSTERIA = "hysteria"
+
+
+class HysteriaCongestion(StrEnum):
+    """Hysteria QUIC congestion control."""
+
+    BBR = "bbr"
+    BRUTAL = "brutal"
 
 
 class LbRole(StrEnum):
@@ -92,6 +114,7 @@ class XrayProtocol(StrEnum):
     MIXED = "mixed"
     WIREGUARD = "wireguard"
     DOKODEMO = "dokodemo-door"
+    HYSTERIA = "hysteria"
 
 
 class XrayNetwork(StrEnum):
@@ -99,6 +122,7 @@ class XrayNetwork(StrEnum):
 
     XHTTP = "xhttp"
     MKCP = "mkcp"
+    HYSTERIA = "hysteria"
 
 
 class Transport(StrEnum):
@@ -221,6 +245,18 @@ REALITY_INBOUND_PORT = 443
 
 PROXY_INBOUND_PORT = 80
 """Port the mixed proxy inbound binds."""
+
+HYSTERIA_INBOUND_PORT = 443
+"""Default UDP port the Hysteria inbound binds."""
+
+HYSTERIA_VERSION = 2
+"""Hysteria protocol version Xray implements."""
+
+HYSTERIA_ALPN = ("h3",)
+"""ALPN the Hysteria listener must advertise."""
+
+HYSTERIA_MIN_BANDWIDTH_BPS = 65536
+"""Xray rejects brutal rates below this many bytes per second (512 kbps)."""
 
 WARP_VLESS_ROUTE = 65535
 """Warp vless route decimal"""

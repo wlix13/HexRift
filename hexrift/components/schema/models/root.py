@@ -4,8 +4,9 @@ from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.portals import Portal
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import HysteriaConfig, HysteriaOverride, Node, Region
 from hexrift.components.schema.models.resolve import (
+    resolve_node_hysteria,
     resolve_node_metrics,
     resolve_node_proxy_inbound,
     resolve_node_wireguard_port,
@@ -19,6 +20,7 @@ from hexrift.constants import (
     ROUTABLE_ACCESS,
     SPECIAL_DESTINATIONS,
     AccessType,
+    HysteriaCongestion,
     RegionType,
     TagPrefix,
     TagSuffix,
@@ -41,36 +43,66 @@ def _hub_rendered_access(
         rendered.add(AccessType.XDNS)
     if resolve_node_wireguard_port(node, defaults) is not None:
         rendered.add(AccessType.WIREGUARD)
+    if resolve_node_hysteria(node, region, defaults) is not None:
+        rendered.add(AccessType.HYSTERIA)
     return rendered
 
 
-def _hub_reserved_ports(
+def _validate_hysteria(owner: str, hy: HysteriaConfig) -> None:
+    """Cross-field checks that only hold on the fully overlaid hysteria config."""
+
+    if hy.congestion == HysteriaCongestion.BRUTAL and (hy.up is None or hy.down is None):
+        raise ValueError(f"{owner}: hysteria congestion 'brutal' requires both up and down bandwidth")
+    if hy.certificate is not None and hy.sni is None:
+        raise ValueError(f"{owner}: hysteria certificate requires an explicit sni matching it")
+
+
+def _reject_hub_only_enabled(owner: str, hysteria: HysteriaOverride | None) -> None:
+    if hysteria is not None and hysteria.enabled is not None:
+        raise ValueError(f"{owner}: hysteria.enabled is hub-only; set the exit region's protocol instead")
+
+
+def _node_reserved_ports(
     region: Region,
     node: Node,
     defaults: DefaultsConfig,
     global_: GlobalConfig,
     users: list[User],
 ) -> dict[tuple[int, Transport], str]:
-    """Sockets bound by hub node, mapped to what binds them."""
+    """Sockets bound by a node, mapped to what binds them; rejects two inbounds on one socket."""
 
-    reserved: dict[tuple[int, Transport], str] = {
-        (REALITY_INBOUND_PORT, Transport.TCP): "the reality inbound",
-    }
+    reserved: dict[tuple[int, Transport], str] = {}
 
-    if resolve_node_proxy_inbound(node, defaults):
-        reserved.setdefault((PROXY_INBOUND_PORT, Transport.TCP), "the proxy inbound")
+    def reserve(port: int, transport: Transport, owner: str) -> None:
+        key = (port, transport)
+        if key in reserved:
+            raise ValueError(f"Node {node.id!r}: {owner} and {reserved[key]} both bind {transport} port {port}")
+        reserved[key] = owner
 
-    xdns = resolve_node_xdns(node, defaults)
-    if xdns is not None and any(AccessType.XDNS in u.access for u in users):
-        reserved.setdefault((xdns.port, Transport.UDP), "the xdns inbound")
+    reserve(REALITY_INBOUND_PORT, Transport.TCP, "the reality inbound")
 
-    wireguard_port = resolve_node_wireguard_port(node, defaults)
-    if wireguard_port is not None and any(AccessType.WIREGUARD in u.access for u in users):
-        reserved.setdefault((wireguard_port, Transport.UDP), "the wireguard inbound")
+    hysteria = resolve_node_hysteria(node, region, defaults)
+    if region.type == RegionType.EXIT:
+        if hysteria is not None:
+            reserve(hysteria.port, Transport.UDP, "the hysteria inbound")
+    else:
+        if resolve_node_proxy_inbound(node, defaults):
+            reserve(PROXY_INBOUND_PORT, Transport.TCP, "the proxy inbound")
+
+        xdns = resolve_node_xdns(node, defaults)
+        if xdns is not None and any(AccessType.XDNS in u.access for u in users):
+            reserve(xdns.port, Transport.UDP, "the xdns inbound")
+
+        wireguard_port = resolve_node_wireguard_port(node, defaults)
+        if wireguard_port is not None and any(AccessType.WIREGUARD in u.access for u in users):
+            reserve(wireguard_port, Transport.UDP, "the wireguard inbound")
+
+        if hysteria is not None and any(AccessType.HYSTERIA in u.access for u in users):
+            reserve(hysteria.port, Transport.UDP, "the hysteria inbound")
 
     metrics = resolve_node_metrics(node, region, defaults, global_)
     if metrics.enabled:
-        reserved.setdefault((metrics.port, Transport.TCP), "the metrics api listener")
+        reserve(metrics.port, Transport.TCP, "the metrics api listener")
 
     return reserved
 
@@ -167,6 +199,13 @@ class ConglomerateConfig(BaseModel):
                             f"Node {node.id!r} disables haproxy but region {region.id!r} enables CDN"
                             " (cdn_xhttp_path); CDN requires HAProxy TLS termination"
                         )
+                if region.type == RegionType.EXIT:
+                    if node.reality is None:
+                        raise ValueError(f"Exit node {node.id!r} in region {region.id!r} must have reality config")
+                    _reject_hub_only_enabled(f"Exit node {node.id!r}", node.hysteria)
+                node_hysteria = resolve_node_hysteria(node, region, self.defaults)
+                if node_hysteria is not None:
+                    _validate_hysteria(f"Node {node.id!r}", node_hysteria)
             if region.type == RegionType.EXIT:
                 if region.vless_route is None:
                     raise ValueError(f"Exit region {region.id!r} must have vless_route")
@@ -183,9 +222,6 @@ class ConglomerateConfig(BaseModel):
                             f" (already used by {seen_vless_routes[region.warp.vless_route]!r})"
                         )
                     seen_vless_routes[region.warp.vless_route] = f"{region.id}(warp)"
-                for node in region.nodes:
-                    if node.reality is None:
-                        raise ValueError(f"Exit node {node.id!r} in region {region.id!r} must have reality config")
                 if region.routing and region.routing.routes:
                     for route in region.routing.routes:
                         if route.destination not in SPECIAL_DESTINATIONS:
@@ -193,8 +229,12 @@ class ConglomerateConfig(BaseModel):
                                 f"exit route destination {route.destination!r} in region {region.id!r}"
                                 " must be a special destination"
                             )
-            elif region.routing and region.routing.routes:
-                raise ValueError(f"Non-exit region {region.id!r} must not define routing.routes")
+                _reject_hub_only_enabled(f"Exit region {region.id!r}", region.hysteria)
+            else:
+                if region.protocol is not None or region.hysteria is not None:
+                    raise ValueError(f"Non-exit region {region.id!r} must not define protocol or hysteria")
+                if region.routing and region.routing.routes:
+                    raise ValueError(f"Non-exit region {region.id!r} must not define routing.routes")
             if region.lb_fallback is not None:
                 region_node_ids = {n.id for n in region.nodes}
                 if region.lb_fallback not in region_node_ids:
@@ -231,14 +271,11 @@ class ConglomerateConfig(BaseModel):
         exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
         user_access = {u.username: set(u.access) for u in self.users}
         seen_portal_ids: set[str] = set()
-        reserved_ports = (
-            {
-                nid: _hub_reserved_ports(r, n, self.defaults, self.global_, self.users)
-                for nid, (r, n) in hub_nodes.items()
-            }
-            if any(p.publish for p in self.portals)
-            else {}
-        )
+        reserved_ports = {
+            node.id: _node_reserved_ports(region, node, self.defaults, self.global_, self.users)
+            for region in self.regions
+            for node in region.nodes
+        }
         rendered_access: set[AccessType] = set()
         if self.portals:
             if not hub_nodes:

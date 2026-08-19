@@ -3,14 +3,18 @@ from __future__ import annotations
 import ipaddress
 import re
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, Field, StringConstraints
 
 from hexrift.constants import (
+    BANDWIDTH_PATTERN,
     DNS_NAME_PATTERN,
     DURATION_PATTERN,
     HOST_PORT_PATTERN,
+    HYSTERIA_MIN_BANDWIDTH_BPS,
     IDENTIFIER_PATTERN,
+    MASQUERADE_URL_PATTERN,
     RTT_PATTERN,
     SHORT_ID_LENGTH,
     SHORT_ID_PATTERN,
@@ -18,6 +22,9 @@ from hexrift.constants import (
 
 
 _DNS_NAME_RE = re.compile(DNS_NAME_PATTERN)
+_BANDWIDTH_RE = re.compile(BANDWIDTH_PATTERN)
+_SHA256_HEX_RE = re.compile(r"[0-9A-Fa-f]{64}")
+_BANDWIDTH_MULTIPLIERS = {"k": 1 << 10, "m": 1 << 20, "g": 1 << 30, "t": 1 << 40}
 
 
 def normalize_cidr_subnet(value: str) -> str:
@@ -98,6 +105,48 @@ def validate_short_id(value: str) -> str:
     return value
 
 
+def bandwidth_bytes_per_sec(value: str) -> int:
+    """Parse an Xray bandwidth string into bytes/s the way Xray does (always bits, binary multipliers)."""
+
+    m = _BANDWIDTH_RE.fullmatch(value)
+    if m is None:
+        raise ValueError(f"invalid bandwidth {value!r}")
+    unit = (m.group(2) or "").lower()
+    return int(float(m.group(1)) * _BANDWIDTH_MULTIPLIERS.get(unit[:1], 1)) // 8
+
+
+def validate_masquerade_url(value: str) -> str:
+    parts = urlsplit(value)
+    if not parts.hostname:
+        raise ValueError(f"masquerade url {value!r} has no host")
+    try:
+        port = parts.port
+    except ValueError as e:
+        raise ValueError(f"masquerade url {value!r} has an invalid port: {e}") from e
+    if port == 0:
+        raise ValueError(f"masquerade url {value!r} port must be in 1..65535")
+    return value
+
+
+def validate_bandwidth(value: str) -> str:
+    if bandwidth_bytes_per_sec(value) < HYSTERIA_MIN_BANDWIDTH_BPS:
+        raise ValueError(f"bandwidth {value!r} is below Xray's 512 kbps floor")
+    return value
+
+
+def format_cert_pin(digest: bytes) -> str:
+    return ":".join(f"{b:02X}" for b in digest)
+
+
+def normalize_cert_pin(value: str) -> str:
+    """Normalize a SHA-256 fingerprint to colon-separated uppercase hex."""
+
+    digits = value.strip().replace(":", "")
+    if not _SHA256_HEX_RE.fullmatch(digits):
+        raise ValueError(f"certificate pin {value!r} must be a 64-hex-digit SHA-256, with or without colons")
+    return format_cert_pin(bytes.fromhex(digits))
+
+
 Identifier = Annotated[str, StringConstraints(pattern=IDENTIFIER_PATTERN, min_length=1)]
 """Safe identifier (ids, usernames, portal ids)."""
 
@@ -150,3 +199,20 @@ CidrList = list[Cidr]
 
 Port = Annotated[int, Field(ge=1, le=65535)]
 """TCP/UDP port number."""
+
+Bandwidth = Annotated[
+    str,
+    StringConstraints(pattern=BANDWIDTH_PATTERN, strip_whitespace=True),
+    AfterValidator(validate_bandwidth),
+]
+"""Xray bandwidth string (`200 mbps`, `1 gbps`), at least 512 kbps."""
+
+MasqueradeUrl = Annotated[
+    str,
+    StringConstraints(pattern=MASQUERADE_URL_PATTERN),
+    AfterValidator(validate_masquerade_url),
+]
+"""`http(s)://host[/path]` URL for the Hysteria masquerade reverse proxy."""
+
+CertPin = Annotated[str, AfterValidator(normalize_cert_pin)]
+"""SHA-256 certificate fingerprint, normalized to `AA:BB:…`."""
