@@ -13,6 +13,7 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
 NS = "test.ns"
+NS_HEX = "test.hexrift"
 
 
 @pytest.fixture()
@@ -392,6 +393,64 @@ class TestBuildShareUrls:
         pairs = multi_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
         # Only one URL per region for region-default reality
         assert len(pairs) == 1
+
+
+class TestBuildHysteriaShareUrls:
+    def test_url_pins_hub_derived_cert(self, app: HexRiftApp):
+        from hexrift.components.derive.hysteria import derive_hysteria_certificate
+
+        pairs = app.derive.build_share_urls("alice", None, FIXTURE_KEYS_DIR, "chrome", hysteria=True)
+        assert len(pairs) == 1
+        label, url = pairs[0]
+        assert label == "msk  Hysteria  alice"
+        pin = derive_hysteria_certificate(
+            "UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf-3GDy6nCUQ", "www.microsoft.com", NS_HEX
+        ).pin
+        assert url.startswith("hysteria2://4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6@mskA00.ap.test.hexrift:8443/?")
+        assert f"sni=www.microsoft.com&insecure=1&pinSHA256={pin}" in url
+        assert "obfs" not in url
+
+    def test_without_hysteria_access_raises(self, app: HexRiftApp):
+        with pytest.raises(DeriveError, match="does not have Hysteria access"):
+            app.derive.build_share_urls("bob", None, FIXTURE_KEYS_DIR, "chrome", hysteria=True)
+
+    def test_cdn_and_hysteria_conflict(self, app: HexRiftApp):
+        with pytest.raises(DeriveError, match="mutually exclusive"):
+            app.derive.build_share_urls("alice", None, FIXTURE_KEYS_DIR, "chrome", cdn=True, hysteria=True)
+
+    def test_dedup_follows_key_material_not_config_presence(self, tmp_path: Path):
+        topo = make_topology(
+            defaults={"hub": {"hysteria": {}}},
+            users=[{"username": "alice", "group": "grp1", "access": ["xhttp", "hysteria"]}],
+            regions=[
+                {
+                    "id": "exit1",
+                    "type": "exit",
+                    "vless_route": 1000,
+                    "nodes": [
+                        {"id": "exitN1", "hostname": "e.t.ns", "reality": {"dest": "a.com:443", "xhttp_path": "/x/"}}
+                    ],
+                },
+                {
+                    "id": "hub1",
+                    "type": "hub",
+                    "nodes": [
+                        {"id": "hN1", "hostname": "h1.t.ns"},
+                        {"id": "hN2", "hostname": "h2.t.ns", "keys": {"auth": "mlkem768"}},  # own keypair
+                        {"id": "hN3", "hostname": "h3.t.ns"},  # shares hN1's keys
+                    ],
+                },
+            ],
+        )
+        p = tmp_path / "topology.yaml"
+        p.write_text(yaml.dump(topo))
+        multi_app = HexRiftApp(yaml_path=p)
+        for node in ("hN1", "hN2", "hN3"):
+            multi_app.keys.gen_keys(node, tmp_path)
+        pairs = multi_app.derive.build_share_urls("alice", None, tmp_path, "chrome", hysteria=True)
+        assert [label.split()[0] for label, _ in pairs] == ["hN1", "hN2"]
+        pins = [url.split("pinSHA256=")[1].split("#")[0] for _, url in pairs]
+        assert pins[0] != pins[1]
 
 
 class TestBuildWireguardConfigs:

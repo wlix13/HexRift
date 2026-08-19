@@ -763,3 +763,110 @@ def test_warp_vless_route_duplicate_with_exit():
     d["regions"][0]["warp"] = {"vless_route": 1000}
     with pytest.raises(ValidationError, match="Duplicate warp vless_route"):
         ConglomerateConfig.model_validate(d)
+
+
+def _hysteria_exit(d: dict, **hysteria) -> dict:
+    d["regions"][0]["protocol"] = "hysteria"
+    if hysteria:
+        d["regions"][0]["hysteria"] = hysteria
+    return d
+
+
+def test_hysteria_and_wireguard_sharing_udp_port_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["defaults"]["hub"]["wireguard"] = {"subnet": "10.0.0.0/24"}
+    d["defaults"]["hub"]["hysteria"] = {}
+    d["users"][0]["access"] = ["xhttp", "wireguard", "hysteria"]
+    with pytest.raises(ValidationError, match="the hysteria inbound and the wireguard inbound both bind udp port 443"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_hysteria_udp_port_coexists_with_reality_tcp_port():
+    d = copy.deepcopy(_valid_config())
+    d["defaults"]["hub"]["hysteria"] = {}
+    d["users"][0]["access"] = ["xhttp", "hysteria"]
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.defaults.hub.hysteria is not None
+
+
+def test_protocol_on_hub_region_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][1]["protocol"] = "hysteria"
+    with pytest.raises(ValidationError, match="must not define protocol or hysteria"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_exit_hysteria_renders_under_vless_when_defined():
+    from hexrift.components.schema.models.resolve import resolve_node_hysteria
+
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["hysteria"] = {"port": 8443}
+    cfg = ConglomerateConfig.model_validate(d)
+    hy = resolve_node_hysteria(cfg.regions[0].nodes[0], cfg.regions[0], cfg.defaults)
+    assert hy is not None and hy.port == 8443
+
+
+def test_exit_hysteria_block_is_validated():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["hysteria"] = {"congestion": "brutal", "up": "100 mbps"}
+    with pytest.raises(ValidationError, match="requires both up and down"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_exit_defaults_unbind_nodes_that_render_no_listener():
+    d = copy.deepcopy(_valid_config())
+    d["defaults"]["exit"]["hysteria"] = {"congestion": "brutal"}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.regions[0].protocol is None
+
+
+def test_hub_node_opting_out_unbound_by_hub_defaults():
+    d = copy.deepcopy(_valid_config())
+    d["defaults"]["hub"]["hysteria"] = {"congestion": "brutal", "up": "100 mbps"}
+    d["regions"][1]["nodes"][0]["hysteria"] = {"enabled": False}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.regions[1].nodes[0].hysteria is not None
+
+
+def test_exit_metrics_port_colliding_with_reality_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["nodes"][0]["observability"] = {"metrics": {"enabled": True, "port": 443}}
+    with pytest.raises(
+        ValidationError, match="the metrics api listener and the reality inbound both bind tcp port 443"
+    ):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_exit_hysteria_enabled_toggle_rejected():
+    d = _hysteria_exit(copy.deepcopy(_valid_config()))
+    d["regions"][0]["nodes"][0]["hysteria"] = {"enabled": False}
+    with pytest.raises(ValidationError, match="hub-only"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_hysteria_brutal_requires_both_bandwidths():
+    d = _hysteria_exit(copy.deepcopy(_valid_config()), congestion="brutal", up="100 mbps")
+    with pytest.raises(ValidationError, match="requires both up and down"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_hysteria_certificate_requires_sni():
+    d = copy.deepcopy(_valid_config())
+    d["defaults"]["hub"]["hysteria"] = {"certificate": {"cert_file": "/c.pem", "key_file": "/k.pem"}}
+    with pytest.raises(ValidationError, match="requires an explicit sni"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_member_hysteria_access_accepted():
+    d = _config_with_portal(["hysteria"])
+    d["defaults"]["hub"]["hysteria"] = {}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].users == ["alice"]
+
+
+def test_portal_publish_hysteria_port_reserved():
+    d = _config_with_publish([{"port": 443, "target": "1.2.3.4:443", "network": "udp"}])
+    d["defaults"]["hub"]["hysteria"] = {}
+    d["users"][0]["access"] = ["xhttp", "hysteria"]
+    with pytest.raises(ValidationError, match="already binds it for the hysteria inbound"):
+        ConglomerateConfig.model_validate(d)

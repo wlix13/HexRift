@@ -2,16 +2,18 @@ from typing import Any
 
 from hexrift.components.schema.models.defaults import ObservatoryConfig
 from hexrift.components.schema.models.observability import ObservabilityConfig
-from hexrift.components.schema.models.regions import WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import HysteriaConfig, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityFallbackLimits
-from hexrift.constants import AccessType
+from hexrift.constants import AccessType, HysteriaCongestion
 from hexrift.inbounds.base import InboundContext, SharedContext
 from hexrift.inbounds.cdn import CdnContext
 from hexrift.inbounds.context import ExitContext, HubContext
+from hexrift.inbounds.hysteria import HysteriaContext
 from hexrift.inbounds.proxy import ProxyContext
 from hexrift.inbounds.wireguard import WireguardContext
 from hexrift.inbounds.xdns import XdnsContext
 from hexrift.inbounds.xhttp import XhttpContext
+from hexrift.links.hysteria import HysteriaLinkContext
 
 
 def make_shared(**overrides: Any) -> SharedContext:
@@ -90,6 +92,37 @@ def make_wireguard(**overrides: Any) -> WireguardContext:
     return WireguardContext(**defaults)
 
 
+def make_hysteria(**overrides: Any) -> HysteriaContext:
+    defaults: dict[str, Any] = {
+        "users": [{"auth": "aaaaaaaa-0000-0000-0000-000000000000", "email": "u@ns"}],
+        "config": HysteriaConfig(),
+        "sni": "vk.com",
+        "masquerade_url": "https://vk.com/",
+        "certificates": [{"certificate": ["FAKE_CERT"], "key": ["FAKE_KEY"]}],
+        "obfs_password": None,
+        "trunk": False,
+    }
+    defaults.update(overrides)
+    return HysteriaContext(**defaults)
+
+
+def make_hysteria_outbound(**overrides: Any) -> HysteriaLinkContext:
+    defaults: dict[str, Any] = {
+        "exit_id": "deA00",
+        "address": "deA00.ap.example.com",
+        "port": 443,
+        "auth": "bbbbbbbb-0000-0000-0000-000000000000",
+        "sni": "vk.com",
+        "pin": "AA:BB",
+        "obfs_password": None,
+        "congestion": HysteriaCongestion.BBR,
+        "brutal_up": None,
+        "brutal_down": None,
+    }
+    defaults.update(overrides)
+    return HysteriaLinkContext(**defaults)
+
+
 def make_proxy(**overrides: Any) -> ProxyContext:
     defaults: dict[str, Any] = {"accounts": []}
     defaults.update(overrides)
@@ -102,6 +135,7 @@ def default_slots(
     proxy: ProxyContext | None = None,
     xdns: XdnsContext | None = None,
     wireguard: WireguardContext | None = None,
+    hysteria: HysteriaContext | None = None,
 ) -> dict[AccessType, InboundContext]:
     slots: dict[AccessType, InboundContext] = {AccessType.XHTTP: xhttp if xhttp is not None else make_xhttp()}
     if cdn is not None:
@@ -112,6 +146,8 @@ def default_slots(
         slots[AccessType.XDNS] = xdns
     if wireguard is not None:
         slots[AccessType.WIREGUARD] = wireguard
+    if hysteria is not None:
+        slots[AccessType.HYSTERIA] = hysteria
     return slots
 
 

@@ -2,7 +2,14 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from hexrift.components.schema.models.fields import normalize_cidr_subnet, parse_host_port
+from hexrift.components.schema.models.fields import (
+    bandwidth_bytes_per_sec,
+    normalize_cert_pin,
+    normalize_cidr_subnet,
+    parse_host_port,
+    validate_bandwidth,
+    validate_masquerade_url,
+)
 
 
 # Hosts for non-bracket branch of parse_host_port: non-empty, no ':'
@@ -61,3 +68,49 @@ class TestNormalizeCidrSubnet:
     def test_normalization_is_idempotent(self, ip: str, prefix: int):
         once = normalize_cidr_subnet(f"{ip}/{prefix}")
         assert normalize_cidr_subnet(once) == once
+
+
+class TestBandwidth:
+    @pytest.mark.parametrize(
+        "value,bytes_per_sec",
+        [
+            ("100 mbps", 13107200),  # binary megabits / 8
+            ("1gbps", 134217728),
+            ("512 kbps", 65536),
+            ("1000000", 125000),  # bare number is bits/s
+            ("1.5 gbps", 201326592),  # decimals, like Xray's ParseFloat
+        ],
+    )
+    def test_bytes_per_sec_matches_xray(self, value: str, bytes_per_sec: int):
+        assert bandwidth_bytes_per_sec(value) == bytes_per_sec
+
+    def test_below_floor_rejected(self):
+        with pytest.raises(ValueError, match="512 kbps floor"):
+            validate_bandwidth("0.4 mbps")
+
+
+class TestMasqueradeUrl:
+    def test_requires_host(self):
+        assert validate_masquerade_url("https://www.line.me/") == "https://www.line.me/"
+        with pytest.raises(ValueError, match="no host"):
+            validate_masquerade_url("https://?q")
+
+    def test_accepts_explicit_port(self):
+        assert validate_masquerade_url("https://www.line.me:8443/") == "https://www.line.me:8443/"
+
+    @pytest.mark.parametrize("value", ["https://host:99999/", "https://host:http/", "https://host:0/"])
+    def test_rejects_unusable_port(self, value: str):
+        with pytest.raises(ValueError, match="port"):
+            validate_masquerade_url(value)
+
+
+class TestCertPin:
+    def test_normalizes_hex_with_or_without_colons(self):
+        colons = ":".join(["AB"] * 32)
+        assert normalize_cert_pin("ab" * 32) == colons
+        assert normalize_cert_pin(colons.lower()) == colons
+
+    @pytest.mark.parametrize("value", ["ab" * 31, "zz" * 32, ""])
+    def test_rejects_non_sha256(self, value: str):
+        with pytest.raises(ValueError, match="64-hex-digit"):
+            normalize_cert_pin(value)

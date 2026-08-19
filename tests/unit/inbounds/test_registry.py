@@ -23,12 +23,17 @@ class TestRegistryOrder:
             AccessType.PROXY,
             AccessType.XDNS,
             AccessType.WIREGUARD,
+            AccessType.HYSTERIA,
         ]
 
 
 class TestSpecsFor:
-    def test_exit_role_gets_xhttp_and_cdn_only(self):
-        assert [s.access_type for s in specs_for(RegionType.EXIT)] == [AccessType.XHTTP, AccessType.CDN]
+    def test_exit_role_gets_xhttp_cdn_hysteria(self):
+        assert [s.access_type for s in specs_for(RegionType.EXIT)] == [
+            AccessType.XHTTP,
+            AccessType.CDN,
+            AccessType.HYSTERIA,
+        ]
 
     def test_hub_role_gets_all_specs(self):
         assert len(specs_for(RegionType.HUB)) == len(INBOUND_SPECS)
