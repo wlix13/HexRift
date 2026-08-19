@@ -19,6 +19,17 @@ class ClientEntry(TypedDict):
     reverse: NotRequired[dict]
 
 
+class HysteriaUser(TypedDict):
+    """Hysteria inbound user entry; auth is the identity UUID."""
+
+    auth: str
+    email: str
+
+
+def hysteria_users(clients: list[ClientEntry]) -> list[HysteriaUser]:
+    return [{"auth": c["id"], "email": c["email"]} for c in clients]
+
+
 def get_exit_clients(
     hub_nodes: list[Node],
     exit_node: Node,

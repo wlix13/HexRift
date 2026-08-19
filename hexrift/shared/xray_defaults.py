@@ -80,6 +80,12 @@ def make_sockopt(ipv6: bool | None) -> dict:
     }
 
 
+def make_udp_sockopt(ipv6: bool) -> dict:
+    """Outbound sockopt for a UDP dial."""
+
+    return {"domainStrategy": SOCKOPT_DOMAIN_STRATEGY[ipv6]}
+
+
 def make_inbound_sockopt(ipv6: bool, trusted_headers: list[str]) -> dict:
     return {
         **make_sockopt(ipv6),

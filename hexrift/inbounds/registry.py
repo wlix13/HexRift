@@ -7,6 +7,7 @@ from typing import Any, Final
 from hexrift.constants import AccessType, RegionType
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec
 from hexrift.inbounds.cdn import CDN_SPEC
+from hexrift.inbounds.hysteria import HYSTERIA_SPEC
 from hexrift.inbounds.proxy import PROXY_SPEC
 from hexrift.inbounds.wireguard import WIREGUARD_SPEC
 from hexrift.inbounds.xdns import XDNS_SPEC
@@ -19,6 +20,7 @@ INBOUND_SPECS: Final[tuple[InboundSpec[Any], ...]] = (
     PROXY_SPEC,
     XDNS_SPEC,
     WIREGUARD_SPEC,
+    HYSTERIA_SPEC,
 )
 """Order is load-bearing: reproduces inbound order in generated config."""
 

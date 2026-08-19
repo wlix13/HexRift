@@ -258,6 +258,18 @@ HYSTERIA_ALPN = ("h3",)
 HYSTERIA_MIN_BANDWIDTH_BPS = 65536
 """Xray rejects brutal rates below this many bytes per second (512 kbps)."""
 
+HYSTERIA_TRUNK_MAX_INCOMING_STREAMS = 16384
+"""Concurrent QUIC streams an exit accepts per hub trunk."""
+
+HYSTERIA_TRUNK_KEEPALIVE_SECS = 10
+"""QUIC keepalive period hubs use on exit trunks."""
+
+HYSTERIA_TRUNK_STREAM_RECEIVE_WINDOW = 16 * 1024 * 1024
+"""Per-stream receive window cap on exit trunks."""
+
+HYSTERIA_TRUNK_CONN_RECEIVE_WINDOW = 64 * 1024 * 1024
+"""Connection receive window cap on exit trunks."""
+
 WARP_VLESS_ROUTE = 65535
 """Warp vless route decimal"""
 
