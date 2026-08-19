@@ -134,6 +134,9 @@ hexrift --yaml conglomerate.yaml share alice
 # CDN URL
 hexrift --yaml conglomerate.yaml share alice --cdn
 
+# Hysteria 2 URL (user needs `hysteria` access, hub needs a hysteria listener)
+hexrift --yaml conglomerate.yaml share alice --hy2
+
 # Bare URL for piping (e.g. to clipboard)
 hexrift --yaml conglomerate.yaml share alice --bare | clip
 ```
@@ -186,6 +189,46 @@ hexrift --yaml conglomerate.yaml share alice --wg
 ```
 
 See the [Topology Schema](topology-schema.md) for the full `XdnsConfig` / `WireguardConfig` fields and per-node overrides.
+
+---
+
+## Hysteria 2 (optional)
+
+Hub nodes can expose a **Hysteria 2** listener (QUIC over UDP), and exit regions can be dialed over Hysteria instead of VLESS + Reality. Enable the client-facing listener under `defaults.hub`, grant users `hysteria` access, and set `protocol: hysteria` on any exit region hubs should reach over QUIC:
+
+```yaml
+defaults:
+  hub:
+    # ...existing hub defaults...
+    hysteria:
+      port: 443           # UDP; move wireguard/xdns off 443/udp if they share the node
+
+users:
+  - username: alice
+    group: staff
+    access: [xhttp, cdn, hysteria]
+
+regions:
+  - id: de
+    type: exit
+    vless_route: 2000
+    protocol: hysteria
+    hysteria:
+      obfs: true
+      congestion: brutal
+      up: "200 mbps"
+      down: "500 mbps"
+    nodes: [...]
+```
+
+Hysteria needs a real TLS certificate. Nothing extra is required: HexRift derives a self-signed Ed25519 leaf from each node's Reality key (no new key files) and pins it on the other side — hubs pin exits in their outbounds, and share URLs carry `pinSHA256`. To serve an operator-issued cert instead, set `certificate: {cert_file, key_file}` and a matching `sni` on that node.
+
+```bash
+# hysteria2:// URL for alice
+hexrift --yaml conglomerate.yaml share alice --hy2
+```
+
+See [`HysteriaConfig`](topology-schema.md#hysteriaconfig) for every knob.
 
 ---
 

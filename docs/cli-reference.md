@@ -109,7 +109,7 @@ hexrift nodes --domains --type hub
 hexrift share <username> [options]
 ```
 
-Generate VLESS share URLs — or WireGuard client configs — for a user.
+Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a user.
 
 **Arguments:**
 
@@ -124,6 +124,7 @@ Generate VLESS share URLs — or WireGuard client configs — for a user.
 | `--hub HUB_ID` | all hub nodes | Generate config for a specific hub node |
 | `--fp FINGERPRINT` | from config | Client TLS fingerprint |
 | `--cdn` | off | Generate CDN URL instead of direct Reality URL |
+| `--hy2`, `--hysteria` | off | Generate a `hysteria2://` URL instead of direct Reality URL |
 | `--wg`, `--wireguard` | off | Generate a WireGuard client `.conf` instead of a VLESS URL |
 | `--server` | off | Generate config for the user's `server` identity |
 | `--guest LABEL` | — | Generate config for a specific guest identity |
@@ -133,11 +134,17 @@ Generate VLESS share URLs — or WireGuard client configs — for a user.
 
 !!! note
     `--guest` and `--all-guests` are mutually exclusive. `--server` cannot be combined
-    with `--guest` or `--all-guests`. `--wg` cannot be combined with `--cdn`.
+    with `--guest` or `--all-guests`. `--wg`, `--cdn` and `--hy2` are mutually exclusive.
 
 !!! info "WireGuard configs"
     `--wg` requires the user to have `wireguard` access and the hub to define
     `defaults.hub.wireguard`. Generated configs use `1.1.1.1` as the client DNS resolver.
+
+!!! info "Hysteria URLs"
+    `--hy2` requires the user to have `hysteria` access and the hub to render a Hysteria
+    listener. With the default derived certificate the URL carries `insecure=1&pinSHA256=…`;
+    with an operator `certificate` it carries `insecure=0`. `obfs=salamander&obfs-password=…`
+    is added when the listener enables `obfs`.
 
 **Examples:**
 
@@ -147,6 +154,9 @@ hexrift share alice
 
 # CDN link on a specific hub
 hexrift share alice --cdn --hub euH00
+
+# Hysteria 2 link, bare, piped to clipboard
+hexrift share alice --hy2 --bare | clip
 
 # WireGuard client config for alice
 hexrift share alice --wg

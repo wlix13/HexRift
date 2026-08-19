@@ -83,6 +83,7 @@ Beyond the basic hub/exit split:
 
 - **HAProxy-less nodes** - by default every node runs HAProxy on `:443` in front of Xray. Set `haproxy: false` to drop HAProxy and have Xray's Reality inbound bind `0.0.0.0:443` (or `[::]:443` when ipv6 is supported) directly. `build --haproxy` then emits a no-op stub `haproxy.cfg` so managed HAProxy service stays up without touching `:443`. CDN (`cdn_xhttp_path`) needs HAProxy TLS termination and cannot be combined with `haproxy: false`.
 - **All-in-one node** - set `routing.hub_default: direct` to make a hub egress everything itself (`direct` outbound) instead of routing to exit region. This allows topology with hub node(s) and **no exit regions** - single node clients connect to that proxies straight to the internet. `hub_routes` still apply for per-domain/user exceptions.
+- **Hysteria 2** - `defaults.hub.hysteria:` (or a node-level `hysteria:`) adds a QUIC/UDP inbound for users with `access: [hysteria]`; `hexrift share USER --hy2` prints the `hysteria2://` URL. An exit region with `protocol: hysteria` is dialed by hubs over Hysteria instead of VLESS+Reality (tuning via `defaults.exit.hysteria` → `regions[].hysteria` → `nodes[].hysteria`); an exit that defines `hysteria` on the region/node serves the listener regardless of `protocol`, so switching a region's `protocol` only redeploys hub configs. Hysteria needs a real TLS cert: by default HexRift derives a self-signed Ed25519 leaf from the node's Reality key and pins it (hub outbounds via `pinnedPeerCertSha256`, share URLs via `pinSHA256`); set `certificate: {cert_file, key_file}` + `sni` to serve an operator-issued cert instead. UDP ports must not collide with `wireguard`/`xdns` on the same hub. See [Topology Schema](docs/topology-schema.md#hysteriaconfig).
 - **Site-to-site portals** - `portals:` declares a machine (e.g. a home server) that dials the hubs and opens a reverse tunnel; hub traffic from the portal's member users that matches `routes` egresses there. `publish:` forwards a hub-bound port into the tunnel for the ingress direction - that port is **unauthenticated internet ingress and ignores `portals[].users`**, so set `allow`. `strict: true` (the default) confines portal-side egress to the declared `routes`/`publish` matchers and blackholes the rest. See [Topology Schema](docs/topology-schema.md#portals).
 
 ## Architecture
@@ -92,11 +93,13 @@ hexrift/
   components/
     schema/     # Pydantic models for yaml
     derive/     # Identity derivation (UUIDs, shortIds, emails), defaults resolution,
-                # topology->Xray-fragment construction, and WireGuard derivation/configs
+                # topology->Xray-fragment construction, WireGuard and Hysteria derivation
     keys/       # x25519 + ML-KEM 768 keypair generation and storage
     render/     # Xray config builder + HAProxy Jinja2 templates
   core/         # BaseApplication / Component / Controller framework
-  shared/       # Cross-component helpers (crypto encoding, Xray/xhttp constants)
+  inbounds/     # Pluggable inbound specs (xhttp, cdn, proxy, xdns, wireguard, hysteria) + node contexts
+  links/        # Pluggable hub→exit link protocols (vless+reality, hysteria): dial context + outbound
+  shared/       # Cross-component helpers (crypto encoding, Xray/xhttp/hysteria fragments)
   templates/    # Jinja2 stubs
     haproxy/
     wireguard/
@@ -117,6 +120,8 @@ All identifiers are deterministically derived from the topology:
 - `Hub shortId` = SHA256[`{nodeId}.hub.{namespace}`](:16)
 - `Exit shortId` = SHA256[`{nodeId}.exit.{namespace}`](:16)
 - `WireGuard keypair` = x25519(HMAC-SHA256(reality_private_key, `{identity_uuid}.wireguard.{namespace}`))
+- `Hysteria certificate` = self-signed Ed25519 leaf for the SNI, key = HMAC-SHA256(reality_private_key, `hysteria-tls.{namespace}`); the pin is SHA-256 of its DER
+- `Hysteria obfs password` = base64url(HMAC-SHA256(reality_private_key, `hysteria-obfs.{namespace}`))
 
 ### Keys
 
