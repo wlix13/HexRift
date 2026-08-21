@@ -1,8 +1,10 @@
-"""Pure x25519 / base64 encoding helpers."""
+"""Pure x25519 / HMAC / base64 encoding helpers."""
 
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
@@ -19,6 +21,12 @@ def urlsafe_b64encode_unpadded(data: bytes) -> str:
     """Encode bytes as URL-safe base64 with stripped padding."""
 
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def hmac_from_reality_key(reality_private_key: str, message: str) -> bytes:
+    """HMAC-SHA256 of `message` keyed by a node's raw reality private key."""
+
+    return hmac.new(urlsafe_b64decode_unpadded(reality_private_key), message.encode(), hashlib.sha256).digest()
 
 
 def x25519_raw_bytes(private_key: X25519PrivateKey) -> tuple[bytes, bytes]:
