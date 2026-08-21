@@ -31,10 +31,6 @@ class TestExitHaproxy:
         result = render_haproxy(_exit_ctx(shared=make_shared(ipv6=False)))
         assert "[::]:443" not in result
 
-    def test_ends_with_newline(self):
-        result = render_haproxy(_exit_ctx())
-        assert result.endswith("\n")
-
     def test_cdn_uses_default_trusted_header(self):
         ctx = _exit_ctx(slots=default_slots(cdn=make_cdn()))
         result = render_haproxy(ctx)
@@ -95,10 +91,6 @@ class TestHubHaproxy:
         result = render_haproxy(_hub_ctx(shared=make_shared(ipv6=False)))
         assert "[::]:443" not in result
 
-    def test_ends_with_newline(self):
-        result = render_haproxy(_hub_ctx())
-        assert result.endswith("\n")
-
 
 class TestDisabledHaproxy:
     def test_exit_direct_bind_returns_stub(self):
@@ -118,6 +110,21 @@ class TestDisabledHaproxy:
         assert "\nglobal\n" in result
         assert "\ndefaults\n" in result
 
-    def test_stub_ends_with_newline(self):
-        result = render_haproxy(_exit_ctx(shared=make_shared(haproxy=False)))
+
+class TestBlankLines:
+    @pytest.mark.parametrize(
+        "ctx",
+        [
+            _exit_ctx(),
+            _exit_ctx(slots=default_slots(cdn=make_cdn())),
+            _exit_ctx(shared=make_shared(ipv6=True)),
+            _exit_ctx(shared=make_shared(haproxy=False)),
+            _hub_ctx(),
+            _hub_ctx(slots=default_slots(cdn=make_cdn())),
+        ],
+    )
+    def test_single_trailing_newline_and_no_blank_runs(self, ctx):
+        result = render_haproxy(ctx)
         assert result.endswith("\n")
+        assert not result.endswith("\n\n")
+        assert "\n\n\n" not in result
