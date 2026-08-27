@@ -8,7 +8,8 @@
         "cdn",
         "proxy",
         "wireguard",
-        "xdns"
+        "xdns",
+        "hysteria"
       ],
       "title": "AccessType",
       "type": "string"
@@ -118,6 +119,17 @@
         "keys": {
           "$ref": "#/$defs/KeysConfig"
         },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "observability": {
           "anyOf": [
             {
@@ -136,6 +148,15 @@
       ],
       "title": "ExitDefaults",
       "type": "object"
+    },
+    "ExitProtocol": {
+      "description": "Protocol hubs use to dial an exit region.",
+      "enum": [
+        "vless",
+        "hysteria"
+      ],
+      "title": "ExitProtocol",
+      "type": "string"
     },
     "ExitRoute": {
       "additionalProperties": false,
@@ -309,6 +330,17 @@
           ],
           "default": null
         },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "observatory": {
           "$ref": "#/$defs/ObservatoryConfig"
         },
@@ -407,6 +439,255 @@
         "destination"
       ],
       "title": "HubRoute",
+      "type": "object"
+    },
+    "HysteriaCertificate": {
+      "additionalProperties": false,
+      "properties": {
+        "cert_file": {
+          "minLength": 1,
+          "title": "Cert File",
+          "type": "string"
+        },
+        "key_file": {
+          "minLength": 1,
+          "title": "Key File",
+          "type": "string"
+        },
+        "pin_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pin Sha256"
+        }
+      },
+      "required": [
+        "cert_file",
+        "key_file"
+      ],
+      "title": "HysteriaCertificate",
+      "type": "object"
+    },
+    "HysteriaConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "default": 443,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "obfs": {
+          "default": false,
+          "title": "Obfs",
+          "type": "boolean"
+        },
+        "congestion": {
+          "$ref": "#/$defs/HysteriaCongestion",
+          "default": "bbr"
+        },
+        "up": {
+          "anyOf": [
+            {
+              "pattern": "(?i)^(\\d+(?:\\.\\d+)?)\\s*(t|tb|tbps|g|gb|gbps|m|mb|mbps|k|kb|kbps|b|bps)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Up"
+        },
+        "down": {
+          "anyOf": [
+            {
+              "pattern": "(?i)^(\\d+(?:\\.\\d+)?)\\s*(t|tb|tbps|g|gb|gbps|m|mb|mbps|k|kb|kbps|b|bps)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Down"
+        },
+        "sni": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sni"
+        },
+        "masquerade_url": {
+          "anyOf": [
+            {
+              "pattern": "^https?://\\S+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Masquerade Url"
+        },
+        "certificate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaCertificate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "HysteriaConfig",
+      "type": "object"
+    },
+    "HysteriaCongestion": {
+      "description": "Hysteria QUIC congestion control.",
+      "enum": [
+        "bbr",
+        "brutal"
+      ],
+      "title": "HysteriaCongestion",
+      "type": "string"
+    },
+    "HysteriaOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        },
+        "obfs": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Obfs"
+        },
+        "congestion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaCongestion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "up": {
+          "anyOf": [
+            {
+              "pattern": "(?i)^(\\d+(?:\\.\\d+)?)\\s*(t|tb|tbps|g|gb|gbps|m|mb|mbps|k|kb|kbps|b|bps)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Up"
+        },
+        "down": {
+          "anyOf": [
+            {
+              "pattern": "(?i)^(\\d+(?:\\.\\d+)?)\\s*(t|tb|tbps|g|gb|gbps|m|mb|mbps|k|kb|kbps|b|bps)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Down"
+        },
+        "sni": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sni"
+        },
+        "masquerade_url": {
+          "anyOf": [
+            {
+              "pattern": "^https?://\\S+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Masquerade Url"
+        },
+        "certificate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaCertificate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "HysteriaOverride",
       "type": "object"
     },
     "KeysConfig": {
@@ -818,6 +1099,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/NodeWireguardOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaOverride"
             },
             {
               "type": "null"
@@ -1380,6 +1672,28 @@
           ],
           "default": null,
           "title": "Vless Route"
+        },
+        "protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExitProtocol"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "cdn_xhttp_path": {
           "anyOf": [
