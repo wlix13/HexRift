@@ -16,10 +16,9 @@ from hexrift.components.schema.controller import SchemaController
 from hexrift.core.application import BaseApplication
 
 
-click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.TEXT_MARKUP = "rich"
 click.rich_click.SHOW_ARGUMENTS = True
 click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
-click.rich_click.USE_MARKDOWN = False
 click.rich_click.STYLE_ERRORS_SUGGESTION = "dim italic"
 click.rich_click.MAX_WIDTH = 100
 click.rich_click.COMMAND_GROUPS = {
@@ -28,7 +27,10 @@ click.rich_click.COMMAND_GROUPS = {
             "name": "Generate",
             "commands": ["gen-keys", "build", "gen-portal"],
         },
-        {"name": "Visualize", "commands": ["show", "derive", "share"]},
+        {
+            "name": "Visualize",
+            "commands": ["show", "derive", "share"],
+        },
         {
             "name": "Validate",
             "commands": ["validate", "diff"],
