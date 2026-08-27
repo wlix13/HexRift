@@ -46,6 +46,7 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 |-------|------|----------|-------------|
 | `ipv6` | `bool` | yes | Enable IPv6 on exit nodes by default |
 | `keys` | `KeysConfig` | yes | Encryption key configuration |
+| `hysteria` | `HysteriaConfig` | no | Base Hysteria listener settings for exit regions with `protocol: hysteria` |
 
 ### `defaults.hub`
 
@@ -58,6 +59,7 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `reality` | `RealityConfig` | yes | — | Default Reality config for hub nodes |
 | `xdns` | `XdnsConfig` | no | — | DNS-interception inbound (VLESS over mKCP) |
 | `wireguard` | `WireguardConfig` | no | — | WireGuard inbound configuration |
+| `hysteria` | `HysteriaConfig` | no | — | Hysteria 2 inbound for users with `hysteria` access |
 | `observatory` | `ObservatoryConfig` | no | see below | Health-check / load-balancer probe settings |
 
 ### `KeysConfig`
@@ -107,6 +109,27 @@ Configures a WireGuard inbound on hub nodes. Peer keypairs are derived determini
 | `keepalive` | `int` (≥0) | no | `0` | Persistent keepalive in seconds (`0` disables) |
 | `kernel_mode` | `bool` | no | `false` | Use kernel-mode WireGuard |
 
+### `HysteriaConfig`
+
+Configures a Hysteria 2 listener (QUIC over UDP). On hub nodes it admits users whose `access` includes `hysteria` (plus their `server` identity and `guests`); on exit nodes it admits the hub-exit identities of every hub, and hubs dial it when the exit region sets `protocol: hysteria`. Every field has a default, so `hysteria: {}` is a complete config.
+
+Hysteria requires a real TLS certificate (Xray rejects Reality here). By default HexRift derives a self-signed Ed25519 leaf for the SNI from the node's Reality private key and embeds it inline; peers pin its SHA-256 (`pinnedPeerCertSha256` on hub outbounds, `pinSHA256` in share URLs). Set `certificate` to serve an operator-issued cert instead — then `sni` is required; without `pin_sha256` hub outbounds verify against CA roots and share URLs carry `insecure=0`, with it peers pin that fingerprint exactly as they pin the derived cert.
+
+Auth is the identity UUID, so a client that rewrites the UUID's third segment selects an exit region exactly like a VLESS client does (`vlessRoute`), and warp variants work unchanged.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `port` | `int` (1–65535) | no | `443` | UDP listen port. Only one listener per UDP port, and `wireguard` defaults to this same `443/udp` — a hub node running both must move one of them (`xdns` defaults to `53/udp` and does not clash) |
+| `obfs` | `bool` | no | `false` | Salamander obfuscation; the password is derived from the node's Reality key and shared with peers automatically |
+| `congestion` | `bbr \| brutal` | no | `bbr` | QUIC congestion control. `brutal` sends at a fixed rate and requires `up` and `down` |
+| `up` | `str` | brutal only | — | Send-rate cap of this listener, e.g. `"200 mbps"`. Xray semantics: every value is bits per second with binary multipliers — `1 mbps`, `1 mb`, `1 m` and `1 MB` all mean 1 048 576 bit/s — decimals allowed, ≥ 512 kbps |
+| `down` | `str` | brutal only | — | Receive-rate advertised to peers. Hub outbounds mirror the exit's values (`brutalUp` = exit `down`, `brutalDown` = exit `up`) |
+| `sni` | `str` | with `certificate` | first Reality server name | Name presented in TLS; also the CN/SAN of the derived cert |
+| `masquerade_url` | `str` (`http(s)://…`) | no | `https://{sni}/` | Reverse-proxy target for unauthenticated HTTP/3 probes |
+| `certificate` | `HysteriaCertificate` | no | — | `cert_file` + `key_file` paths on the node; disables the derived cert. Optional `pin_sha256` (SHA-256 of the cert DER, hex with or without colons) keeps peers pinning when the cert is not publicly trusted |
+
+The derived cert is Ed25519, which every Go-based client (Xray, official Hysteria, sing-box, mihomo) accepts; use `certificate` for anything else. Share URLs carry `insecure=1&pinSHA256=…` — a client that honours the pin verifies the exact cert, a client that ignores it connects unverified; switch to `certificate` if that matters.
+
 ---
 
 ## `groups`
@@ -137,7 +160,7 @@ groups:
 |-------|------|----------|-------------|
 | `username` | `str` | yes | Unique username — used as derivation seed |
 | `group` | `str` | yes | Must reference an existing `groups[].id` |
-| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy`, `wireguard`, `xdns` |
+| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy`, `wireguard`, `xdns`, `hysteria` |
 | `uuid` | `UUID` | no | Override auto-derived UUID |
 | `guests` | `list[str]` | no | Guest identity labels |
 
@@ -151,6 +174,7 @@ groups:
 | `proxy` | Mixed proxy inbound access |
 | `wireguard` | WireGuard peer on hub nodes (see `defaults.hub.wireguard`) |
 | `xdns` | DNS-interception inbound on hub nodes (see `defaults.hub.xdns`) |
+| `hysteria` | Hysteria 2 user on hub nodes (see `defaults.hub.hysteria`); `hexrift share USER --hy2` prints the URL |
 
 !!! warning "Proxy trust level"
     `proxy` is the lower-trust one. It exists for clients that speak nothing but SOCKS/HTTP like Telegram client, scraper, some appliance with proxy field and no VPN support - as it authenticates with username and password over plaintext inbound rather than with Reality handshake. Treat it as a way to give a simple app an exit, not as a general-purpose identity.
@@ -195,7 +219,7 @@ Portal ids must not collide with node or region ids, and the derived `{id}-porta
 
 A portal dials with its own shortId, `SHA256("{id}.portal.{namespace}")[:16]`, which every hub node accepts alongside the group and per-user ones. Its identity is therefore independent of the groups its members belong to, and rotating one portal's shortId leaves every other portal and user untouched.
 
-Members are selected by `user_email` in the hub routing rule, so each one needs an access type that carries it — `xhttp`, `cdn`, `xdns`, or `wireguard` — **and** that access type has to render on a hub node. Declaring `cdn` without a `global.cdn` block, or `wireguard`/`xdns` without the matching config, emits no inbound carrying the member's identity, so the rule would match no traffic; both cases are rejected at validation time.
+Members are selected by `user_email` in the hub routing rule, so each one needs an access type that carries it — `xhttp`, `cdn`, `xdns`, `wireguard`, or `hysteria` — **and** that access type has to render on a hub node (for `hysteria`, a hub with a Hysteria inbound). Declaring `cdn` without a `global.cdn` block, or `wireguard`/`xdns` without the matching config, emits no inbound carrying the member's identity, so the rule would match no traffic; both cases are rejected at validation time.
 
 A `proxy`-only or `server`-only member is rejected as well.
 
@@ -217,7 +241,7 @@ Each entry adds a dokodemo-door inbound tagged `{id}-publish-{port}` to the sele
 
 `target` is resolved and dialed **on the portal machine**, so LAN-only names work — `nas.lan:5000`, `192.168.1.10:443`.
 
-Rejected at validation time: `nodes` entries that are unknown, repeated, or sit outside a hub region; an entry whose node scope is empty (a topology with no hub nodes at all); a socket the hub node already binds (Reality `443/tcp`, the proxy inbound `80/tcp`, the metrics listener over TCP, `xdns` and `wireguard` over UDP — each counted only when that inbound actually renders, so an `xdns`/`wireguard` block with no user carrying the matching access reserves nothing); and the same port published twice on an overlapping node set. Reservations are per transport, so a `tcp` publish may reuse the port of a UDP-only listener.
+Rejected at validation time: `nodes` entries that are unknown, repeated, or sit outside a hub region; an entry whose node scope is empty (a topology with no hub nodes at all); a socket the hub node already binds (Reality `443/tcp`, the proxy inbound `80/tcp`, the metrics listener over TCP, `xdns`, `wireguard` and `hysteria` over UDP — each counted only when that inbound actually renders, so an `xdns`/`wireguard`/`hysteria` block with no user carrying the matching access reserves nothing); and the same port published twice on an overlapping node set. Reservations are per transport, so a `tcp` publish may reuse the port of a UDP-only listener. The same registry rejects two built-in inbounds on one socket regardless of portals — e.g. `hysteria` and `wireguard` both left on `443/udp`.
 
 !!! danger "A published port is unauthenticated internet ingress"
     Any source matching the configured `allow` list — or any source that can reach `hub-node:port` at all when `allow` is omitted — gets a connection to `target` inside the portal-side network. Sources outside the allowlist are blocked. There is no VLESS handshake, no UUID, no user — **`portals[].users` does not apply**. That user list governs the egress direction only (whose hub traffic may enter the tunnel); it has no effect whatsoever on published ports. Without `allow` the port is open to the internet, and the target service's own authentication is the only remaining line of defense.
@@ -320,6 +344,8 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `id` | `str` | yes | Unique region identifier |
 | `type` | `exit \| hub` | yes | Region type |
 | `vless_route` | `int` | exit only | Numeric route tag; must be unique across all regions |
+| `protocol` | `vless \| hysteria` | no (exit only) | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
+| `hysteria` | `HysteriaOverride` | no (exit only) | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
 | `lb_strategy` | `str` | no | Load balancer strategy (e.g. `leastLoad`) |
 | `lb_fallback` | `str` | no | Fallback node ID (must be in this region) |
@@ -366,6 +392,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `proxy_inbound` | `bool` | no | Override proxy inbound setting (hub nodes) |
 | `xdns` | `XdnsConfig` | no | Override XDNS settings (hub nodes) |
 | `wireguard` | `NodeWireguardOverride` | no | Override WireGuard settings (hub nodes) |
+| `hysteria` | `HysteriaOverride` | no | Override Hysteria settings; on hubs it also enables the listener without `defaults.hub.hysteria`, on exit nodes it makes the node serve a Hysteria listener regardless of `protocol` |
 
 ### `RealityConfig`
 
@@ -409,6 +436,21 @@ All fields optional; `null` means "use the `defaults.hub.wireguard` value". Set 
 | `mtu` | `int` (576–65535) | Override MTU |
 | `keepalive` | `int` (≥0) | Override persistent keepalive |
 | `kernel_mode` | `bool` | Override kernel-mode setting |
+
+### `HysteriaOverride`
+
+All fields optional; `null` means "use the value from the layer below" — `defaults.hub.hysteria` on hubs, `defaults.exit.hysteria` → `regions[].hysteria` on exits (built-in `HysteriaConfig` defaults when no layer sets a field).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | `bool` | Hub nodes only: `false` drops the listener even when defaults configure it. Exit regions/nodes must switch `protocol` instead |
+| `port` | `int` (1–65535) | Override UDP port |
+| `obfs` | `bool` | Override Salamander obfuscation |
+| `congestion` | `bbr \| brutal` | Override congestion control |
+| `up` / `down` | `str` | Override brutal rates |
+| `sni` | `str` | Override SNI (and derived-cert CN) |
+| `masquerade_url` | `str` | Override masquerade target |
+| `certificate` | `HysteriaCertificate` | Serve an operator cert on this node (`cert_file`, `key_file`, optional `pin_sha256`); requires `sni` |
 
 XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.
 

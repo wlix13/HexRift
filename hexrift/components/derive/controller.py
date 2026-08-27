@@ -8,6 +8,7 @@ from uuid import UUID
 
 from hexrift.components.derive import views
 from hexrift.components.derive.defaults import resolve_node_reality
+from hexrift.components.derive.hysteria import derive_hysteria_endpoint
 from hexrift.components.derive.identity import Namespace, iter_hub_identities
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.derive.wireguard import (
@@ -16,7 +17,7 @@ from hexrift.components.derive.wireguard import (
     render_wireguard_client_conf,
 )
 from hexrift.components.schema.models.regions import Node, Region
-from hexrift.components.schema.models.resolve import resolve_node_wireguard
+from hexrift.components.schema.models.resolve import resolve_node_hysteria, resolve_node_wireguard
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
     WIREGUARD_CLIENT_DNS,
@@ -26,6 +27,7 @@ from hexrift.constants import (
 from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
 from hexrift.inbounds.cdn import build_cdn_share_url
+from hexrift.inbounds.hysteria import build_hysteria_share_url
 from hexrift.inbounds.xhttp import build_reality_share_url
 from hexrift.shared.crypto import x25519_urlsafe_to_std
 
@@ -163,6 +165,113 @@ class DeriveController(BaseController["HexRiftApp"]):
         ns = Namespace(cfg.global_.namespace)
         return [views.Group(id=g.id, short_id=ns.group_short_id(g)) for g in cfg.groups]
 
+    def _cdn_share_urls(
+        self,
+        hub_node_pairs: list[tuple[Region, Node]],
+        identity: _Identity,
+        short_id: str,
+        keys_dir: Path,
+        fingerprint: str,
+    ) -> list[tuple[str, str]]:
+        cfg = self.app.schema.config
+        if cfg.global_.cdn is None:
+            raise DeriveError("CDN is not configured in global settings.")
+        results: list[tuple[str, str]] = []
+        seen_regions: set[str] = set()
+        for hub_region, hub_node in hub_node_pairs:
+            if hub_region.id in seen_regions:
+                continue
+            seen_regions.add(hub_region.id)
+            if not hub_region.cdn_xhttp_path:
+                continue
+            url = build_cdn_share_url(
+                identity_uuid=identity.uuid,
+                cdn_domain=cfg.global_.cdn.hub_domain,
+                cdn_path=hub_region.cdn_xhttp_path,
+                hub_keys=self.app.keys.load_node_keys(hub_node.id, keys_dir),
+                short_id=short_id,
+                fingerprint=fingerprint,
+                fragment=f"{hub_region.id}(CDN)-{identity.label}",
+            )
+            results.append((f"{hub_region.id}  CDN  {identity.label}", url))
+        return results
+
+    def _hysteria_share_urls(
+        self,
+        hub_node_pairs: list[tuple[Region, Node]],
+        identity: _Identity,
+        keys_dir: Path,
+    ) -> list[tuple[str, str]]:
+        cfg = self.app.schema.config
+        ns = Namespace(cfg.global_.namespace)
+
+        endpoints = []
+        for hub_region, hub_node in hub_node_pairs:
+            hy = resolve_node_hysteria(hub_node, hub_region, cfg.defaults)
+            if hy is None:
+                continue
+            hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
+            reality = resolve_node_reality(hub_node, hub_region, cfg.defaults)
+            ep = derive_hysteria_endpoint(hy, reality, hub_keys.reality_private_key, ns.name)
+            endpoints.append((hub_region, hub_node, hy.port, ep))
+
+        per_region: dict[str, set[tuple]] = {}
+        for hub_region, _node, port, ep in endpoints:
+            per_region.setdefault(hub_region.id, set()).add((port, ep.sni, ep.pin, ep.obfs_password))
+
+        results: list[tuple[str, str]] = []
+        emitted: dict[str, set[tuple]] = {}  # region id → emitted endpoint material
+        for hub_region, hub_node, port, ep in endpoints:
+            material = (port, ep.sni, ep.pin, ep.obfs_password)
+            region_emitted = emitted.setdefault(hub_region.id, set())
+            if material in region_emitted:
+                continue
+            region_emitted.add(material)
+            owner = hub_region.id if len(per_region[hub_region.id]) == 1 else hub_node.id
+            url = build_hysteria_share_url(
+                identity_uuid=identity.uuid,
+                hostname=hub_node.hostname,
+                port=port,
+                sni=ep.sni,
+                pin=ep.pin,
+                obfs_password=ep.obfs_password,
+                fragment=f"{owner}-{identity.label}",
+            )
+            results.append((f"{owner}  Hysteria  {identity.label}", url))
+        return results
+
+    def _reality_share_urls(
+        self,
+        hub_node_pairs: list[tuple[Region, Node]],
+        identity: _Identity,
+        short_id: str,
+        keys_dir: Path,
+        fingerprint: str,
+    ) -> list[tuple[str, str]]:
+        cfg = self.app.schema.config
+        results: list[tuple[str, str]] = []
+        seen_default_regions: set[str] = set()
+        for hub_region, hub_node in hub_node_pairs:
+            # Deduplicate: nodes sharing region-default reality → one URL per region
+            if hub_node.reality is None:
+                if hub_region.id in seen_default_regions:
+                    continue
+                seen_default_regions.add(hub_region.id)
+                owner = hub_region.id
+            else:
+                owner = hub_node.id
+            url = build_reality_share_url(
+                identity_uuid=identity.uuid,
+                hostname=hub_node.hostname,
+                hub_keys=self.app.keys.load_node_keys(hub_node.id, keys_dir),
+                reality=resolve_node_reality(hub_node, hub_region, cfg.defaults),
+                short_id=short_id,
+                fingerprint=fingerprint,
+                fragment=f"{owner}-{identity.label}",
+            )
+            results.append((f"{owner}  Reality  {identity.label}", url))
+        return results
+
     def build_share_urls(
         self,
         username: str,
@@ -171,14 +280,12 @@ class DeriveController(BaseController["HexRiftApp"]):
         fingerprint: str,
         *,
         cdn: bool = False,
+        hysteria: bool = False,
         guest: str | None = None,
         server: bool = False,
         all_guests: bool = False,
     ) -> list[tuple[str, str]]:
-        """Generate VLESS share URLs for user (or guest/server, or all guests) on hub node.
-
-        Returns list of (label, url) pairs where label describes hub/mode.
-        """
+        """Share URLs (Reality, CDN or Hysteria) for a user, guest, server, or all guests, as (label, url) pairs."""
 
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
@@ -195,13 +302,19 @@ class DeriveController(BaseController["HexRiftApp"]):
                     keys_dir,
                     fingerprint,
                     cdn=cdn,
+                    hysteria=hysteria,
                     guest=label,
                 ),
             )
 
+        if cdn and hysteria:
+            raise DeriveError("Flags 'cdn' and 'hysteria' are mutually exclusive")
         if cdn:
             if AccessType.CDN not in user.access:
                 raise DeriveError(f"User {username!r} does not have CDN access")
+        elif hysteria:
+            if AccessType.HYSTERIA not in user.access:
+                raise DeriveError(f"User {username!r} does not have Hysteria access")
         elif not server and AccessType.XHTTP not in user.access:
             raise DeriveError(f"User {username!r} does not have XHTTP access")
 
@@ -214,59 +327,15 @@ class DeriveController(BaseController["HexRiftApp"]):
 
         hub_node_pairs = self._hub_node_pairs(hub_id)
 
-        results: list[tuple[str, str]] = []
-
         if cdn:
-            if cfg.global_.cdn is None:
-                raise DeriveError("CDN is not configured in global settings.")
-            cdn_domain = cfg.global_.cdn.hub_domain
-            seen_regions: set[str] = set()
-            for hub_region, hub_node in hub_node_pairs:
-                if hub_region.id in seen_regions:
-                    continue
-                seen_regions.add(hub_region.id)
-                if not hub_region.cdn_xhttp_path:
-                    continue
-                hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                label = f"{hub_region.id}  CDN  {identity.label}"
-                url = build_cdn_share_url(
-                    identity_uuid=identity.uuid,
-                    cdn_domain=cdn_domain,
-                    cdn_path=hub_region.cdn_xhttp_path,
-                    hub_keys=hub_keys,
-                    short_id=g_short_id,
-                    fingerprint=fingerprint,
-                    fragment=f"{hub_region.id}(CDN)-{identity.label}",
-                )
-                results.append((label, url))
+            results = self._cdn_share_urls(hub_node_pairs, identity, g_short_id, keys_dir, fingerprint)
+        elif hysteria:
+            results = self._hysteria_share_urls(hub_node_pairs, identity, keys_dir)
         else:
-            seen_default_regions: set[str] = set()
-            for hub_region, hub_node in hub_node_pairs:
-                # Deduplicate: nodes sharing region-default reality → one URL per region
-                if hub_node.reality is None:
-                    if hub_region.id in seen_default_regions:
-                        continue
-                    seen_default_regions.add(hub_region.id)
-                    fragment = f"{hub_region.id}-{identity.label}"
-                    label = f"{hub_region.id}  Reality  {identity.label}"
-                else:
-                    fragment = f"{hub_node.id}-{identity.label}"
-                    label = f"{hub_node.id}  Reality  {identity.label}"
-
-                hub_keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
-                url = build_reality_share_url(
-                    identity_uuid=identity.uuid,
-                    hostname=hub_node.hostname,
-                    hub_keys=hub_keys,
-                    reality=resolve_node_reality(hub_node, hub_region, cfg.defaults),
-                    short_id=g_short_id,
-                    fingerprint=fingerprint,
-                    fragment=fragment,
-                )
-                results.append((label, url))
+            results = self._reality_share_urls(hub_node_pairs, identity, g_short_id, keys_dir, fingerprint)
 
         if not results:
-            kind = "CDN" if cdn else "Reality"
+            kind = "CDN" if cdn else "Hysteria" if hysteria else "Reality"
             raise DeriveError(f"No {kind} hub nodes found for user {username!r}")
         return results
 

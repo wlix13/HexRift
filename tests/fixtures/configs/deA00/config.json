@@ -1,0 +1,223 @@
+{
+  "log": {
+    "loglevel": "none",
+    "access": "none",
+    "error": "none",
+    "dnsLog": false
+  },
+  "inbounds": [
+    {
+      "tag": "direct-xhttp",
+      "listen": "/dev/shm/xhttp_vless_reality.sock",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "mskA00-deA00@test.hexrift",
+            "id": "25b1dea7-9ee3-5daf-bce1-76cbd8aa04fb",
+            "flow": "xtls-rprx-vision"
+          }
+        ],
+        "decryption": "mlkem768x25519plus.native.600s.AxLSqeSs0HKRFrSW_J-2CRWKe390-6PWlH-LYKBM8RTPgx083JsHDRRL1EdVUcn6sRi9EpNXEKcT_p3mipI9gg"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": {
+          "host": "www.microsoft.com",
+          "path": "/update/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "realitySettings": {
+          "xver": 0,
+          "show": false,
+          "maxTimeDiff": 60000,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["www.microsoft.com"],
+          "privateKey": "YLmtcSZGImyWdpVZAWZIGeGdL3j3I18vEJjogLp7GnY",
+          "shortIds": ["1e55ec7bda6a9496"],
+          "limitFallbackUpload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          },
+          "limitFallbackDownload": {
+            "afterBytes": 16384,
+            "bytesPerSec": 50000,
+            "burstBytesPerSec": 100000
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr",
+          "trustedXForwardedFor": ["X-Real-IP"]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": false
+      }
+    },
+    {
+      "tag": "hysteria-in",
+      "listen": "::",
+      "port": 443,
+      "protocol": "hysteria",
+      "settings": {
+        "version": 2,
+        "users": [
+          {
+            "auth": "25b1dea7-9ee3-5daf-bce1-76cbd8aa04fb",
+            "email": "mskA00-deA00@test.hexrift"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "hysteria",
+        "security": "tls",
+        "tlsSettings": {
+          "certificates": [
+            {
+              "certificate": [
+                "-----BEGIN CERTIFICATE-----",
+                "MIIBJzCB2qADAgECAhQnpqQ2i9WT6O5pII32QGNdV8kHiTAFBgMrZXAwHDEaMBgG",
+                "A1UEAwwRd3d3Lm1pY3Jvc29mdC5jb20wHhcNMjAwMTAxMDAwMDAwWhcNNDkxMjMx",
+                "MjM1OTU5WjAcMRowGAYDVQQDDBF3d3cubWljcm9zb2Z0LmNvbTAqMAUGAytlcAMh",
+                "AK4V+5TFrM1b9I0RTLdzt9ioLs/FF43h82MYwx8TCqsdoy4wLDAcBgNVHREEFTAT",
+                "ghF3d3cubWljcm9zb2Z0LmNvbTAMBgNVHRMBAf8EAjAAMAUGAytlcANBANu9+eEK",
+                "5+L/vdhOKst86gqoqHk33n1w9wU6WdnM++mpVbaUYdXsEaULPyNX5Sg43KN/3i70",
+                "aZn7C6Tw0cpNGwA=",
+                "-----END CERTIFICATE-----"
+              ],
+              "key": [
+                "-----BEGIN PRIVATE KEY-----",
+                "MC4CAQAwBQYDK2VwBCIEIGTljAAR6/k6IM/J6I23/9q8tGp8VDoZXSuF83nbEPVJ",
+                "-----END PRIVATE KEY-----"
+              ]
+            }
+          ],
+          "alpn": ["h3"],
+          "minVersion": "1.3",
+          "enableSessionResumption": true
+        },
+        "hysteriaSettings": {
+          "version": 2,
+          "masquerade": {
+            "type": "proxy",
+            "url": "https://www.microsoft.com/",
+            "rewriteHost": true
+          }
+        },
+        "finalmask": {
+          "quicParams": {
+            "congestion": "brutal",
+            "brutalUp": "200 mbps",
+            "brutalDown": "500 mbps",
+            "maxIncomingStreams": 16384,
+            "maxStreamReceiveWindow": 16777216,
+            "maxConnectionReceiveWindow": 67108864
+          },
+          "udp": [
+            {
+              "type": "salamander",
+              "settings": {
+                "password": "Qd5AUzg_sZ7vuLUyixRD40S7IMeAGpz4jBycQIvAwbQ"
+              }
+            }
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": false
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "UseIPv6v4"
+      }
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole",
+      "settings": {}
+    },
+    {
+      "tag": "warp",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv6v4",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": true
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr",
+          "interface": "warp"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "ip": ["127.0.0.1", "::1"],
+        "port": 53,
+        "outboundTag": "direct"
+      },
+      {
+        "vlessRoute": "65535",
+        "outboundTag": "warp"
+      }
+    ]
+  },
+  "dns": {
+    "servers": [
+      {
+        "address": "127.0.0.1",
+        "port": 53
+      }
+    ],
+    "enableParallelQuery": true,
+    "useSystemHosts": true
+  }
+}

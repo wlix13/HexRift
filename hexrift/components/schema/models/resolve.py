@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from hexrift.components.schema.models.observability import MetricsConfig
-from hexrift.components.schema.models.regions import WireguardConfig
-from hexrift.constants import RegionType
+from hexrift.components.schema.models.regions import HysteriaConfig, WireguardConfig
+from hexrift.constants import ExitProtocol, RegionType
 from hexrift.errors import DeriveError
 
 
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
     from hexrift.components.schema.models.global_ import GlobalConfig
     from hexrift.components.schema.models.observability import MetricsOverride
     from hexrift.components.schema.models.regions import (
+        HysteriaOverride,
         Node,
         NodeWireguardOverride,
         Region,
@@ -73,18 +76,61 @@ def resolve_node_wireguard(node: Node, defaults: DefaultsConfig) -> WireguardCon
     )
 
 
+def resolve_link_protocol(region: Region) -> ExitProtocol:
+    """Protocol hubs use to dial an exit region."""
+
+    return region.protocol if region.protocol is not None else ExitProtocol.VLESS
+
+
+def overlay[T: BaseModel](base: T, override: BaseModel | None) -> T:
+    if override is None:
+        return base
+    values = {}
+    for name in type(base).model_fields:
+        value = getattr(override, name, None)
+        values[name] = value if value is not None else getattr(base, name)
+    return type(base)(**values)
+
+
+def overlay_hysteria(base: HysteriaConfig, override: HysteriaOverride | None) -> HysteriaConfig:
+    """Apply one hysteria override layer on top of a resolved hysteria config."""
+
+    return overlay(base, override)
+
+
+def resolve_hysteria_overlay(node: Node, region: Region, defaults: DefaultsConfig) -> HysteriaConfig:
+    """Fully overlaid hysteria config for a node, whether or not it renders a listener."""
+
+    if region.type == RegionType.EXIT:
+        base = defaults.exit.hysteria or HysteriaConfig()
+        return overlay_hysteria(overlay_hysteria(base, region.hysteria), node.hysteria)
+    return overlay_hysteria(defaults.hub.hysteria or HysteriaConfig(), node.hysteria)
+
+
+def resolve_node_hysteria(node: Node, region: Region, defaults: DefaultsConfig) -> HysteriaConfig | None:
+    """Hysteria listener config for a node, or None when it renders none."""
+
+    if region.type == RegionType.EXIT:
+        listens = (
+            region.hysteria is not None
+            or node.hysteria is not None
+            or resolve_link_protocol(region) == ExitProtocol.HYSTERIA
+        )
+        if not listens:
+            return None
+        return resolve_hysteria_overlay(node, region, defaults)
+
+    if node.hysteria is None:
+        return defaults.hub.hysteria
+    if node.hysteria.enabled is False:
+        return None
+    return resolve_hysteria_overlay(node, region, defaults)
+
+
 def overlay_metrics(base: MetricsConfig, override: MetricsOverride | None) -> MetricsConfig:
     """Apply one metrics override layer on top of a resolved metrics config."""
 
-    if override is None:
-        return base
-    return MetricsConfig(
-        enabled=override.enabled if override.enabled is not None else base.enabled,
-        listen=override.listen if override.listen is not None else base.listen,
-        port=override.port if override.port is not None else base.port,
-        user_stats=override.user_stats if override.user_stats is not None else base.user_stats,
-        online=override.online if override.online is not None else base.online,
-    )
+    return overlay(base, override)
 
 
 def resolve_node_metrics(

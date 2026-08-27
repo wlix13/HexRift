@@ -95,7 +95,7 @@ class TestGenKeysCommand:
         assert (tmp_path / "nlA00.yaml").exists()
         assert (tmp_path / "mskA00.yaml").exists()
 
-    def test_all_summary_shows_two_generated(self, tmp_path):
+    def test_all_summary_shows_all_generated(self, tmp_path):
         result = invoke(
             "--yaml",
             str(FIXTURE_TOPOLOGY),
@@ -104,7 +104,7 @@ class TestGenKeysCommand:
             "--keys-dir",
             str(tmp_path),
         )
-        assert "2 generated" in result.output
+        assert "3 generated" in result.output
 
     def test_skip_existing_without_force(self, tmp_path):
         invoke(
@@ -375,6 +375,34 @@ class TestShareCommand:
         assert result.exit_code == 0
         assert "security=tls" in result.output
 
+    def test_hysteria_url_output(self):
+        result = invoke(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "share",
+            "alice",
+            "--hy2",
+            "--bare",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+        )
+        assert result.exit_code == 0
+        assert result.output.startswith("hysteria2://")
+
+    def test_hysteria_and_cdn_mutually_exclusive(self):
+        result = invoke_catching(
+            "--yaml",
+            str(FIXTURE_TOPOLOGY),
+            "share",
+            "alice",
+            "--hy2",
+            "--cdn",
+            "--keys-dir",
+            str(FIXTURE_KEYS_DIR),
+        )
+        assert result.exit_code != 0
+        assert "--hy2" in result.output and "--cdn" in result.output
+
     def test_all_guests_flag(self):
         result = invoke(
             "--yaml",
@@ -429,6 +457,16 @@ class TestShareCommand:
         assert "strict: on" in result.output
         assert "publish 8443/tcp -> 192.168.1.10:443  allow: 203.0.113.7/32  nodes: all" in result.output
         assert "publish 9000/tcp,udp -> nas.home.arpa:5000  allow: any  nodes: all" in result.output
+
+    def test_show_badges_exit_listening_under_vless(self, tmp_path):
+        topology = make_topology()
+        topology["regions"][0]["hysteria"] = {"port": 8443}
+        topo = tmp_path / "topology.yaml"
+        topo.write_text(yaml.dump(topology))
+        result = invoke("--yaml", str(topo), "show", env=WIDE)
+        assert result.exit_code == 0
+        exit_row = next(line for line in result.output.splitlines() if "exit1" in line)
+        assert "hysteria" in exit_row
 
 
 class TestGenPortalCommand:

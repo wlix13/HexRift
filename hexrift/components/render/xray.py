@@ -12,14 +12,12 @@ from hexrift.constants import (
     DomainStrategy,
     RegionType,
     SpecialDestination,
-    XrayNetwork,
     XrayProtocol,
-    XraySecurity,
 )
 from hexrift.inbounds.base import InboundContext, SharedContext
-from hexrift.inbounds.context import ExitContext, HubContext, HubOutboundContext
+from hexrift.inbounds.context import ExitContext, HubContext
 from hexrift.inbounds.registry import specs_for
-from hexrift.shared.xhttp import make_xhttp_settings
+from hexrift.links.registry import render_link
 from hexrift.shared.xray_defaults import (
     make_dns,
     make_dns_direct_rule,
@@ -148,45 +146,7 @@ def build_hub_config(ctx: HubContext) -> dict:
     inbounds = _build_inbounds(RegionType.HUB, ctx.slots, shared)
     inbounds.extend(ctx.forward_inbounds)
 
-    # Build outbounds list
-    outbounds: list[dict] = []
-
-    def _exit_outbound(ob: HubOutboundContext) -> dict:
-        tag = f"{ob.tag_prefix}{ob.exit_id}"
-        return {
-            "tag": tag,
-            "protocol": XrayProtocol.VLESS,
-            "settings": {
-                "vnext": [
-                    {
-                        "address": ob.address,
-                        "port": 443,
-                        "users": [
-                            {
-                                "id": ob.user_id,
-                                "encryption": ob.encryption,
-                                "flow": ob.flow,
-                            }
-                        ],
-                    }
-                ],
-            },
-            "streamSettings": {
-                "network": XrayNetwork.XHTTP,
-                "security": XraySecurity.REALITY,
-                "xhttpSettings": make_xhttp_settings(ob.xhttp_host, ob.xhttp_path),
-                "realitySettings": {
-                    "publicKey": ob.public_key,
-                    "fingerprint": ob.fingerprint,
-                    "serverName": ob.server_name,
-                    "shortId": ob.short_id,
-                },
-                "sockopt": make_sockopt(shared.ipv6),
-            },
-        }
-
-    for ob in ctx.outbounds + ctx.warp_outbounds:
-        outbounds.append(_exit_outbound(ob))
+    outbounds: list[dict] = [render_link(ob, shared.ipv6) for ob in ctx.outbounds + ctx.warp_outbounds]
 
     outbounds.extend(
         [

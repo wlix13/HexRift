@@ -33,7 +33,7 @@ FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
 FIXTURE_CONFIGS_DIR = FIXTURES_DIR / "configs"
 
-ALL_NODE_IDS = ["nlA00", "mskA00"]
+ALL_NODE_IDS = ["nlA00", "deA00", "mskA00"]
 
 
 def _build_for_node(node_id: str) -> tuple[bytes, str]:
@@ -70,7 +70,7 @@ def test_topology_parses_without_error(real_app: HexRiftApp):
 
 @pytest.mark.integration
 def test_topology_node_count(real_app: HexRiftApp):
-    assert len(real_app.schema.get_all_nodes()) == 2
+    assert len(real_app.schema.get_all_nodes()) == 3
 
 
 @pytest.mark.integration
@@ -85,7 +85,7 @@ def test_topology_group_count(real_app: HexRiftApp):
 
 @pytest.mark.integration
 def test_topology_region_count(real_app: HexRiftApp):
-    assert len(real_app.schema.config.regions) == 2
+    assert len(real_app.schema.config.regions) == 3
 
 
 @pytest.mark.integration
@@ -317,6 +317,7 @@ def test_hub_inbound_order():
         "mixed-inbound",
         "xdns",
         "wireguard-in",
+        "hysteria-in",
         "home-publish-8443",
         "home-publish-9000",
     ]
@@ -361,6 +362,40 @@ def test_hub_xdns_inbound_present():
 
     # mKCP is non-TLS, so xtls-rprx-vision is invalid; clients must carry empty flow.
     assert all(c["flow"] == "" for c in xdns_ib["settings"]["clients"])
+
+
+@pytest.mark.integration
+def test_hysteria_hub_exit_leg_agrees_on_pin_auth_and_obfs():
+    import base64
+    import hashlib
+
+    hub = json.loads(_build_for_node("mskA00")[0])
+    exit_cfg = json.loads(_build_for_node("deA00")[0])
+    out = next(o for o in hub["outbounds"] if o["tag"] == "deA00")
+    inbound = next(ib for ib in exit_cfg["inbounds"] if ib["tag"] == "hysteria-in")
+    pem_lines = inbound["streamSettings"]["tlsSettings"]["certificates"][0]["certificate"]
+    der = base64.b64decode("".join(line for line in pem_lines if not line.startswith("-----")))
+    pin = ":".join(f"{b:02X}" for b in hashlib.sha256(der).digest())
+    assert out["streamSettings"]["tlsSettings"]["pinnedPeerCertSha256"] == pin
+    assert out["streamSettings"]["hysteriaSettings"]["auth"] == inbound["settings"]["users"][0]["auth"]
+    assert (
+        out["streamSettings"]["finalmask"]["udp"][0]["settings"]["password"]
+        == inbound["streamSettings"]["finalmask"]["udp"][0]["settings"]["password"]
+    )
+    # the hub mirrors the exit's rates
+    hub_quic = out["streamSettings"]["finalmask"]["quicParams"]
+    exit_quic = inbound["streamSettings"]["finalmask"]["quicParams"]
+    assert (exit_quic["brutalUp"], exit_quic["brutalDown"]) == ("200 mbps", "500 mbps")
+    assert (hub_quic["brutalDown"], hub_quic["brutalUp"]) == ("200 mbps", "500 mbps")
+
+
+@pytest.mark.integration
+def test_hub_hysteria_inbound_users_gated_by_access():
+    cfg = json.loads(_build_for_node("mskA00")[0])
+    inbound = next(ib for ib in cfg["inbounds"] if ib["tag"] == "hysteria-in")
+    assert (inbound["listen"], inbound["port"]) == ("::", 8443)
+    # alice has hysteria+server access, bob has neither
+    assert [u["email"] for u in inbound["settings"]["users"]] == ["alice@test.hexrift", "alice-server@alice"]
 
 
 @pytest.mark.integration

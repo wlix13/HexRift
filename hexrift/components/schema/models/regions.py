@@ -1,10 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from hexrift.components.schema.models.fields import (
+    Bandwidth,
+    CertPin,
     CidrSubnet,
     DnsName,
     Duration,
     Identifier,
+    MasqueradeUrl,
+    NonBlank,
     NonBlankList,
     Port,
     Rtt,
@@ -13,7 +17,17 @@ from hexrift.components.schema.models.fields import (
 from hexrift.components.schema.models.observability import ObservabilityOverride
 from hexrift.components.schema.models.routing import ExitRoute
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.constants import AuthMethod, HandshakeMethod, LbRole, LbStrategy, RegionType, TlsFingerprint
+from hexrift.constants import (
+    HYSTERIA_INBOUND_PORT,
+    AuthMethod,
+    ExitProtocol,
+    HandshakeMethod,
+    HysteriaCongestion,
+    LbRole,
+    LbStrategy,
+    RegionType,
+    TlsFingerprint,
+)
 
 
 class NodeKeysOverride(BaseModel):
@@ -92,6 +106,41 @@ class NodeWireguardOverride(BaseModel):
     kernel_mode: bool | None = None
 
 
+class HysteriaCertificate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cert_file: NonBlank
+    key_file: NonBlank
+    pin_sha256: CertPin | None = None
+
+
+class HysteriaConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    port: Port = HYSTERIA_INBOUND_PORT
+    obfs: bool = False
+    congestion: HysteriaCongestion = HysteriaCongestion.BBR
+    up: Bandwidth | None = None
+    down: Bandwidth | None = None
+    sni: DnsName | None = None
+    masquerade_url: MasqueradeUrl | None = None
+    certificate: HysteriaCertificate | None = None
+
+
+class HysteriaOverride(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    port: Port | None = None
+    obfs: bool | None = None
+    congestion: HysteriaCongestion | None = None
+    up: Bandwidth | None = None
+    down: Bandwidth | None = None
+    sni: DnsName | None = None
+    masquerade_url: MasqueradeUrl | None = None
+    certificate: HysteriaCertificate | None = None
+
+
 class Node(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -106,6 +155,7 @@ class Node(BaseModel):
     proxy_inbound: bool | None = None
     xdns: XdnsConfig | None = None
     wireguard: NodeWireguardOverride | None = None
+    hysteria: HysteriaOverride | None = None
     observability: ObservabilityOverride | None = None
 
 
@@ -115,6 +165,8 @@ class Region(BaseModel):
     id: Identifier
     type: RegionType
     vless_route: int | None = Field(default=None, ge=0, le=65535)
+    protocol: ExitProtocol | None = None
+    hysteria: HysteriaOverride | None = None
     cdn_xhttp_path: XrayPath | None = None
     lb_strategy: LbStrategy | None = None
     lb_fallback: str | None = None

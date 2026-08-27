@@ -1,7 +1,15 @@
 from hexrift.components.render.xray import build_exit_config, build_hub_config
 from hexrift.components.schema.models.observability import LoggingConfig, MetricsConfig, ObservabilityConfig
-from hexrift.constants import LogLevel, Socket
-from tests.unit.render.helpers import default_slots, make_shared, make_wireguard, make_xdns
+from hexrift.constants import HysteriaCongestion, LogLevel, Socket
+from hexrift.shared.hysteria import HYSTERIA_TRUNK_DIALER_QUIC
+from tests.unit.render.helpers import (
+    default_slots,
+    make_hysteria,
+    make_hysteria_outbound,
+    make_shared,
+    make_wireguard,
+    make_xdns,
+)
 from tests.unit.render.helpers import exit_ctx as _exit_ctx
 from tests.unit.render.helpers import hub_ctx as _hub_ctx
 
@@ -96,6 +104,52 @@ class TestXdnsWireguardInbounds:
         config = build_hub_config(_hub_ctx(slots=default_slots(wireguard=make_wireguard())))
         tags = [ib["tag"] for ib in config["inbounds"]]
         assert "wireguard-in" in tags
+
+
+class TestHysteria:
+    def test_inbound_present_only_with_slot(self):
+        assert "hysteria-in" not in [ib["tag"] for ib in build_hub_config(_hub_ctx())["inbounds"]]
+        config = build_hub_config(_hub_ctx(slots=default_slots(hysteria=make_hysteria())))
+        assert "hysteria-in" in [ib["tag"] for ib in config["inbounds"]]
+
+    def test_pinned_outbound_shape(self):
+        ob = make_hysteria_outbound(
+            obfs_password="pw",  # noqa: S106
+            congestion=HysteriaCongestion.BRUTAL,
+            brutal_up="500 mbps",
+            brutal_down="200 mbps",
+        )
+        config = build_hub_config(_hub_ctx(outbounds=[ob]))
+        out = next(o for o in config["outbounds"] if o["tag"] == "deA00")
+        assert out["protocol"] == "hysteria"
+        assert out["settings"] == {"version": 2, "address": "deA00.ap.example.com", "port": 443}
+        assert out["streamSettings"] == {
+            "network": "hysteria",
+            "security": "tls",
+            "tlsSettings": {
+                "serverName": "vk.com",
+                "alpn": ["h3"],
+                "pinnedPeerCertSha256": "AA:BB",
+                "enableSessionResumption": True,
+            },
+            "hysteriaSettings": {"version": 2, "auth": "bbbbbbbb-0000-0000-0000-000000000000"},
+            "finalmask": {
+                "quicParams": {
+                    "congestion": "brutal",
+                    "brutalUp": "500 mbps",
+                    "brutalDown": "200 mbps",
+                    **HYSTERIA_TRUNK_DIALER_QUIC,
+                },
+                "udp": [{"type": "salamander", "settings": {"password": "pw"}}],
+            },
+            "sockopt": {"domainStrategy": "UseIPv6v4"},
+        }
+
+    def test_operator_cert_outbound_has_no_pin_and_warp_prefix_tags(self):
+        ob = make_hysteria_outbound(pin=None, tag_prefix="warp-")
+        config = build_hub_config(_hub_ctx(warp_outbounds=[ob]))
+        out = next(o for o in config["outbounds"] if o["tag"] == "warp-deA00")
+        assert "pinnedPeerCertSha256" not in out["streamSettings"]["tlsSettings"]
 
 
 class TestDirectBindReality:

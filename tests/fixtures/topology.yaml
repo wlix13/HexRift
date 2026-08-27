@@ -29,6 +29,8 @@ defaults:
       domains: ["dns.google"]
     wireguard:
       subnet: "10.0.0.0/24"
+    hysteria:
+      port: 8443
     observability:
       metrics:
         enabled: true
@@ -42,7 +44,7 @@ groups:
 users:
   - username: alice
     group: main
-    access: [xhttp, cdn, server, proxy, wireguard]
+    access: [xhttp, cdn, server, proxy, wireguard, hysteria]
   - username: bob
     group: guest
     access: [xhttp, wireguard, xdns]
@@ -89,6 +91,21 @@ regions:
             online: false
           logging:
             loglevel: warning
+  - id: de
+    type: exit
+    vless_route: 2000
+    protocol: hysteria
+    hysteria:
+      obfs: true
+      congestion: brutal
+      up: "200 mbps"
+      down: "500 mbps"
+    nodes:
+      - id: deA00
+        hostname: deA00.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+          xhttp_path: /update/
   - id: msk
     type: hub
     cdn_xhttp_path: /cdn/

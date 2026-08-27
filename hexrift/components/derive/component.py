@@ -10,12 +10,15 @@ from rich.table import Table
 from rich.tree import Tree
 
 from hexrift.components.derive.controller import DeriveController
+from hexrift.components.schema.models.resolve import resolve_node_hysteria
 from hexrift.constants import AccessType, RegionType
 from hexrift.core.component import BaseComponent
 
 
 if TYPE_CHECKING:
     from hexrift.app import HexRiftApp
+    from hexrift.components.schema.models.defaults import DefaultsConfig
+    from hexrift.components.schema.models.regions import Region
     from hexrift.components.schema.models.users import User
 
 _ACCESS_STYLE = {
@@ -25,11 +28,16 @@ _ACCESS_STYLE = {
     AccessType.SERVER: "yellow",
     AccessType.WIREGUARD: "green",
     AccessType.XDNS: "magenta",
+    AccessType.HYSTERIA: "red",
 }
 
 
 def _strict_label(strict: bool) -> str:
     return "[green]on[/green]" if strict else "[red]off[/red]"
+
+
+def _listens_hysteria(region: Region, defaults: DefaultsConfig) -> bool:
+    return any(resolve_node_hysteria(node, region, defaults) is not None for node in region.nodes)
 
 
 class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
@@ -75,6 +83,14 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             is_flag=True,
             default=False,
             help="Generate CDN URL instead of direct Reality URL.",
+        )
+        @click.option(
+            "--hy2",
+            "--hysteria",
+            "hysteria",
+            is_flag=True,
+            default=False,
+            help="Generate hysteria2:// URL instead of direct Reality URL.",
         )
         @click.option(
             "--guest",
@@ -123,6 +139,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             hub_id: str | None,
             fp: str | None,
             cdn: bool,
+            hysteria: bool,
             guest: str | None,
             all_guests: bool,
             wireguard: bool,
@@ -130,14 +147,14 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             bare: bool,
             keys_dir: Path,
         ) -> None:
-            """Generate VLESS share URL (or WireGuard config) for user on hub node."""
+            """Generate VLESS/Hysteria share URL (or WireGuard config) for user on hub node."""
 
             if guest and all_guests:
                 raise click.UsageError("--guest and --all-guests are mutually exclusive.")
             if server and (guest or all_guests):
                 raise click.UsageError("--server cannot be combined with --guest or --all-guests.")
-            if wireguard and cdn:
-                raise click.UsageError("--wg cannot be combined with --cdn.")
+            if sum((wireguard, cdn, hysteria)) > 1:
+                raise click.UsageError("--wg, --cdn and --hy2 are mutually exclusive.")
 
             fingerprint = fp or app.schema.config.defaults.hub.exit_connections.fingerprint
 
@@ -157,6 +174,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                     keys_dir,
                     fingerprint,
                     cdn=cdn,
+                    hysteria=hysteria,
                     guest=guest,
                     server=server,
                     all_guests=all_guests,
@@ -225,10 +243,13 @@ def _print_topology(app: HexRiftApp) -> None:
             if region.warp is not None:
                 hex_warp = format(region.warp.vless_route, "04x")
                 extras.append(f"[magenta]warp={region.warp.vless_route} {hex_warp}[/magenta]")
+            if _listens_hysteria(region, cfg.defaults):
+                extras.append("[red]hysteria[/red]")
             extra_str = "  " + "  ".join(extras) if extras else ""
             r_branch = tree.add(f"[green]{region.id}[/green] [dim]exit[/dim]{extra_str}")
         else:
-            r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]")
+            extra_str = "  [red]hysteria[/red]" if _listens_hysteria(region, cfg.defaults) else ""
+            r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]{extra_str}")
         for node in region.nodes:
             tags = []
             if node.lb_role:

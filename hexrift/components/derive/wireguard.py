@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
 import ipaddress
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -11,7 +9,7 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType
 from hexrift.errors import DeriveError
-from hexrift.shared.crypto import urlsafe_b64decode_unpadded, x25519_keypair_from_seed
+from hexrift.shared.crypto import hmac_from_reality_key, x25519_keypair_from_seed
 from hexrift.shared.templates import jinja_env
 
 
@@ -29,9 +27,7 @@ class WireguardPeer:
 def derive_user_wireguard_keypair(reality_private_key: str, identity_uuid: UUID, ns_name: str) -> tuple[str, str]:
     """Deterministically derive WireGuard keypair for one identity (user/server/guest)."""
 
-    key = urlsafe_b64decode_unpadded(reality_private_key)
-    msg = f"{identity_uuid}.wireguard.{ns_name}".encode()
-    seed = hmac.new(key, msg, hashlib.sha256).digest()
+    seed = hmac_from_reality_key(reality_private_key, f"{identity_uuid}.wireguard.{ns_name}")
     return x25519_keypair_from_seed(seed)
 
 

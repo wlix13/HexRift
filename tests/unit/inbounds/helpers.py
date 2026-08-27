@@ -9,7 +9,7 @@ from hexrift.components.schema.models.defaults import (
     ObservatoryConfig,
 )
 from hexrift.components.schema.models.portals import Portal, PortalRoutes
-from hexrift.components.schema.models.regions import Node, Region, WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import HysteriaConfig, Node, Region, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
@@ -26,9 +26,11 @@ def make_defaults(
     proxy_inbound: bool = False,
     xdns: XdnsConfig | None = None,
     wireguard: WireguardConfig | None = None,
+    hysteria: HysteriaConfig | None = None,
+    exit_hysteria: HysteriaConfig | None = None,
 ) -> DefaultsConfig:
     return DefaultsConfig(
-        exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS),
+        exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS, hysteria=exit_hysteria),
         hub=HubDefaults(
             ipv6=False,
             keys=_HUB_KEYS,
@@ -37,6 +39,7 @@ def make_defaults(
             proxy_inbound=proxy_inbound,
             xdns=xdns,
             wireguard=wireguard,
+            hysteria=hysteria,
             observatory=ObservatoryConfig(),
         ),
     )

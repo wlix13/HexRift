@@ -105,6 +105,19 @@ keypair = x25519(seed[:32])
 
 Peer addresses are allocated sequentially from `defaults.hub.wireguard.subnet`: the first host (`.1`) is reserved for the server, then peers are assigned from `.2` in user → server → guest order.
 
+### Hysteria certificate and obfuscation derivation
+
+Hysteria needs a real TLS certificate, and both are derived from the node's Reality private key rather than stored:
+
+```text
+cert_key = Ed25519(HMAC-SHA256(reality_private_key, "hysteria-tls.{namespace}"))
+cert     = self-signed leaf, CN/SAN = sni, fixed serial and validity, signed by cert_key
+pin      = SHA-256(cert DER)                       # pinnedPeerCertSha256 / pinSHA256
+obfs     = base64url(HMAC-SHA256(reality_private_key, "hysteria-obfs.{namespace}"))
+```
+
+Ed25519 signatures are deterministic, so the same key and SNI always yield byte-identical DER and a stable pin; hub nodes that share keys within a region therefore also share the cert. Source: `hexrift/components/derive/hysteria.py`.
+
 ---
 
 ## Key storage
@@ -198,6 +211,19 @@ class HexRiftApp(BaseApplication["HexRiftApp"]):
 ```
 
 ---
+
+## Adding a hub→exit link protocol
+
+Hub→exit outbounds are built by `LinkSpec`s in `hexrift/links/`, the counterpart of the `InboundSpec` registry. Each spec turns one (hub node, exit node, identity UUID) into a `LinkContext` and renders that context to an Xray outbound; `links/registry.py` keys the specs by `ExitProtocol` and `build_hub_context` picks one per exit region via `resolve_link_protocol` (`regions[].protocol`, default `vless`).
+
+To add a protocol:
+
+1. Add the member to `ExitProtocol` in `hexrift/constants.py`.
+2. Create `hexrift/links/<proto>.py` with a `LinkContext` subclass (`protocol` class var + the resolved dial fields) and a `LinkSpec` implementing `build_context(env, identity, tag_prefix)` and `fragment(ctx, ipv6)`; register the instance in `LINK_SPECS`.
+3. Give exits something to listen with: an `InboundSpec` in `hexrift/inbounds/` whose `build_context` returns `None` unless the region's link protocol matches (see `HysteriaSpec`), plus schema for any tuning and its `resolve_*` overlay.
+4. Cover it in `tests/unit/links/` and the golden fixture.
+
+Existing goldens stay byte-identical as long as the VLESS spec is untouched — the registry only decides which spec runs, not the order of outbounds.
 
 ## Developer commands
 
