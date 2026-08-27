@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.12.0](https://github.com/wlix13/HexRift/compare/v0.11.2...v0.12.0) (2026-08-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **links:** make hub-exit link protocol pluggable with vless and hysteria
+* **inbounds:** add hysteria inbound spec and url builder
+* **schema:** add hysteria config, exit protocol and overlay resolvers
+
+### Features
+
+* **derive:** add share --hy2 and hysteria topology badges ([d933ea9](https://github.com/wlix13/HexRift/commit/d933ea93430364147538d9ef09c9766333a7f65c))
+* **derive:** make auto-derivation of hysteria certs, obfs password and endpoints ([7aa6cdb](https://github.com/wlix13/HexRift/commit/7aa6cdb1ac55d74a832ef74111956e2fb39cdfa8))
+* **inbounds:** add hysteria inbound spec and url builder ([a4fb454](https://github.com/wlix13/HexRift/commit/a4fb4540fabd7d35fd6b901cc3ae8fe29ce48faa))
+* **links:** make hub-exit link protocol pluggable with vless and hysteria ([4091977](https://github.com/wlix13/HexRift/commit/40919776ba4853b7461fd13c95126e36c3e4c66c))
+* **schema:** add hysteria config, exit protocol and overlay resolvers ([cf21fb9](https://github.com/wlix13/HexRift/commit/cf21fb91988922e2a880776af99d055293a4cca8))
+
+
+### Bug Fixes
+
+* **app:** update deprecated click markup settings ([6aab243](https://github.com/wlix13/HexRift/commit/6aab243999b07193246216a732260894f67d1495))
+
+
+### Documentation
+
+* **hysteria:** document hysteria links, config knobs and derivation ([351162a](https://github.com/wlix13/HexRift/commit/351162a78d5264f4ba0317367bb6c9b99f7d3c19))
+
 ## [0.11.2](https://github.com/wlix13/HexRift/compare/v0.11.1...v0.11.2) (2026-08-08)
 
 
