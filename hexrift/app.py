@@ -13,6 +13,8 @@ from hexrift.components.render.component import RenderComponent
 from hexrift.components.render.controller import RenderController
 from hexrift.components.schema.component import SchemaComponent
 from hexrift.components.schema.controller import SchemaController
+from hexrift.components.topology.component import TopologyComponent
+from hexrift.components.topology.controller import TopologyController
 from hexrift.core.application import BaseApplication
 
 
@@ -35,6 +37,10 @@ click.rich_click.COMMAND_GROUPS = {
             "name": "Validate",
             "commands": ["validate", "diff"],
         },
+        {
+            "name": "Topology",
+            "commands": ["topology", "nodes"],
+        },
     ],
 }
 
@@ -42,12 +48,19 @@ click.rich_click.COMMAND_GROUPS = {
 class HexRiftApp(BaseApplication["HexRiftApp"]):
     """Main application — component registry and dependency injector."""
 
-    default_components = (SchemaComponent, DeriveComponent, KeysComponent, RenderComponent)
+    default_components = (
+        SchemaComponent,
+        DeriveComponent,
+        KeysComponent,
+        RenderComponent,
+        TopologyComponent,
+    )
 
     schema: SchemaController
     derive: DeriveController
     keys: KeysController
     render: RenderController
+    topology: TopologyController
 
     def __init__(self, yaml_path: Path) -> None:
         self.yaml_path = yaml_path

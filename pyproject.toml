@@ -73,7 +73,7 @@ layers = [
   "hexrift.components.render",
   "hexrift.inbounds",
   "hexrift.links",
-  "hexrift.components.derive | hexrift.components.keys",
+  "hexrift.components.derive | hexrift.components.keys | hexrift.components.topology",
   "hexrift.components.schema",
 ]
 ignore_imports = [
