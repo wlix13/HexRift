@@ -33,7 +33,9 @@ hexrift --yaml conglomerate.yaml <command>
 | `validate` | Validate the topology YAML against the schema |
 | `show` | Visualize the network topology (regions, nodes, users, guests, portals) |
 | `derive [users\|groups\|portals\|nodes\|all]` | Show derived identifiers (UUIDs, shortIds, emails) |
-| `nodes [--names\|--domains] [--type exit\|hub]` | List nodes with hostnames; machine-friendly output for automation |
+| `nodes [--names\|--domains\|--json] [--type exit\|hub]` | List nodes with hostnames; machine-friendly output for automation |
+| `topology add-node NODE_ID [--type exit\|hub] [--region ID] [--hostname HOST] [--no-ipv6] [--reality-dest HOST:PORT] [--reality-server-names LIST] [--reality-xhttp-path PATH]` | Add a node to its region in the topology YAML, creating the region when missing |
+| `topology remove-node NODE_ID` | Remove a node from the topology YAML, keeping its region |
 | `gen-keys [NODE_ID\|--all] [--force] [--keys-dir PATH]` | Generate x25519 + ML-KEM 768 keypairs for nodes |
 | `build [NODE_ID\|--all] --xray\|--haproxy [--keys-dir PATH] [--out-dir PATH]` | Build Xray config.json and/or HAProxy .cfg |
 | `gen-portal [PORTAL_ID\|--all] [--group ID] [--fp FINGERPRINT] [--out-dir PATH] [--keys-dir PATH]` | Build Xray bridge config.json for portal(s) from the top-level `portals:` section |
@@ -54,6 +56,12 @@ hexrift derive all
 
 # List all exit node IDs (for scripts)
 hexrift nodes --names --type exit
+
+# Structured node list (id, hostname, region, type) for other tools
+hexrift nodes --json
+
+# Add a node to the topology file (creates the region if needed)
+hexrift topology add-node nlA20 --reality-dest www.samsung.com:443 --reality-xhttp-path /login/
 
 # Generate keys for all nodes
 hexrift gen-keys --all
