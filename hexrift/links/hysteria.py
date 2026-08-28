@@ -19,7 +19,7 @@ from hexrift.constants import (
 )
 from hexrift.errors import RenderError
 from hexrift.links.base import LinkContext, LinkEnv, LinkSpec
-from hexrift.shared.hysteria import HYSTERIA_TRUNK_DIALER_QUIC, make_hysteria_finalmask
+from hexrift.shared.hysteria import hysteria_trunk_dialer_quic, make_hysteria_finalmask
 from hexrift.shared.xray_defaults import make_udp_sockopt
 
 
@@ -36,6 +36,7 @@ class HysteriaLinkContext(LinkContext):
     congestion: HysteriaCongestion
     brutal_up: str | None  # exit's down
     brutal_down: str | None  # exit's up
+    chrome_parrot: bool  # False: the exit's cert can't be negotiated by Chrome's parroted ClientHello
 
 
 class HysteriaLinkSpec(LinkSpec[HysteriaLinkContext]):
@@ -60,6 +61,7 @@ class HysteriaLinkSpec(LinkSpec[HysteriaLinkContext]):
             congestion=hysteria.congestion,
             brutal_up=hysteria.down,
             brutal_down=hysteria.up,
+            chrome_parrot=ep.chrome_parrot,
         )
 
     def fragment(self, ctx: HysteriaLinkContext, ipv6: bool) -> dict:
@@ -85,7 +87,7 @@ class HysteriaLinkSpec(LinkSpec[HysteriaLinkContext]):
                     ctx.brutal_up,
                     ctx.brutal_down,
                     ctx.obfs_password,
-                    HYSTERIA_TRUNK_DIALER_QUIC,
+                    hysteria_trunk_dialer_quic(ctx.chrome_parrot),
                 ),
                 "sockopt": make_udp_sockopt(ipv6),
             },
