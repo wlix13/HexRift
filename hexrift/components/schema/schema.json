@@ -546,6 +546,17 @@
           "default": null,
           "title": "Masquerade Url"
         },
+        "key_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaKeyType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "certificate": {
           "anyOf": [
             {
@@ -568,6 +579,15 @@
         "brutal"
       ],
       "title": "HysteriaCongestion",
+      "type": "string"
+    },
+    "HysteriaKeyType": {
+      "description": "Key algorithm of TLS certificate Hysteria listener serves.",
+      "enum": [
+        "ed25519",
+        "ecdsa-p256"
+      ],
+      "title": "HysteriaKeyType",
       "type": "string"
     },
     "HysteriaOverride": {
@@ -674,6 +694,17 @@
           ],
           "default": null,
           "title": "Masquerade Url"
+        },
+        "key_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaKeyType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "certificate": {
           "anyOf": [
