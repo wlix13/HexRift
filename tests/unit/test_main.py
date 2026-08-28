@@ -1,7 +1,7 @@
 import pytest
 
 from hexrift import __main__
-from hexrift.errors import DeriveError, Error
+from hexrift.errors import DeriveError, Error, TopologyError
 
 
 def test_domain_error_prints_and_exits_1(monkeypatch, capsys):
@@ -14,6 +14,16 @@ def test_domain_error_prints_and_exits_1(monkeypatch, capsys):
     assert e.value.code == 1
     # The Error base wraps the message in rich markup; rich.print renders the text.
     assert "something derived wrong" in capsys.readouterr().out
+
+
+def test_topology_error_quotes_input_without_markup(monkeypatch, capsys):
+    def boom() -> None:
+        raise TopologyError("Invalid node id: '[/]x'")
+
+    monkeypatch.setattr(__main__, "cli", boom)
+    with pytest.raises(SystemExit):
+        __main__.main()
+    assert "Invalid node id: '[/]x'" in capsys.readouterr().out
 
 
 def test_base_error_subclasses_are_caught(monkeypatch):

@@ -1,3 +1,5 @@
+import json
+import shutil
 from pathlib import Path
 
 import yaml
@@ -347,6 +349,86 @@ class TestNodesCommand:
         result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--type", "hub")
         assert "mskA00" in result.output
         assert "nlA00" not in result.output
+
+    def test_json_output(self):
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--json")
+        assert result.exit_code == 0
+        assert json.loads(result.output) == [
+            {"id": "nlA00", "hostname": "nlA00.ap.test.hexrift", "region": "nl", "type": "exit"},
+            {"id": "deA00", "hostname": "deA00.ap.test.hexrift", "region": "de", "type": "exit"},
+            {"id": "mskA00", "hostname": "mskA00.ap.test.hexrift", "region": "msk", "type": "hub"},
+        ]
+
+    def test_json_output_honours_type_filter(self):
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--json", "--type", "hub")
+        assert json.loads(result.output) == [
+            {"id": "mskA00", "hostname": "mskA00.ap.test.hexrift", "region": "msk", "type": "hub"},
+        ]
+
+
+class TestTopologyCommands:
+    @staticmethod
+    def _copy(tmp_path: Path) -> Path:
+        return Path(shutil.copy(FIXTURE_TOPOLOGY, tmp_path / "topology.yaml"))
+
+    def test_add_node_appends_to_region(self, tmp_path):
+        topo = self._copy(tmp_path)
+        result = invoke(
+            "--yaml",
+            str(topo),
+            "topology",
+            "add-node",
+            "nlA20",
+            "--no-ipv6",
+            "--reality-dest",
+            "www.samsung.com:443",
+            "--reality-server-names",
+            "www.samsung.com, samsung.com",
+            "--reality-xhttp-path",
+            "/login/",
+        )
+        assert result.exit_code == 0
+        assert "added" in result.output and "nlA20.ap.test.hexrift" in result.output
+        assert (
+            "      - id: nlA20\n"
+            "        hostname: nlA20.ap.test.hexrift\n"
+            "        ipv6: false\n"
+            "        reality:\n"
+            "          dest: www.samsung.com:443\n"
+            "          server_names: [www.samsung.com, samsung.com]\n"
+            "          xhttp_path: /login/\n"
+            "        hysteria:\n"
+            "          obfs: true\n"
+            "          sni: nlA20.ap.test.hexrift\n"
+            "          masquerade_url: https://www.samsung.com\n"
+            "  - id: de\n"
+        ) in topo.read_text()
+
+    def test_add_node_creates_region_and_warns_when_invalid(self, tmp_path):
+        topo = self._copy(tmp_path)
+        result = invoke("--yaml", str(topo), "topology", "add-node", "usA00", "--type", "exit")
+        assert result.exit_code == 0
+        assert "created" in result.output
+        assert "must have reality config" in result.output
+        assert "  - id: us\n    type: exit\n    vless_route: " in topo.read_text()
+
+    def test_reality_options_require_dest(self, tmp_path):
+        topo = self._copy(tmp_path)
+        result = invoke_catching("--yaml", str(topo), "topology", "add-node", "nlA20", "--reality-xhttp-path", "/x/")
+        assert result.exit_code != 0
+        assert "--reality-dest" in result.output
+
+    def test_reality_dest_requires_xhttp_path(self, tmp_path):
+        topo = self._copy(tmp_path)
+        result = invoke_catching("--yaml", str(topo), "topology", "add-node", "nlA20", "--reality-dest", "a.com:443")
+        assert result.exit_code != 0
+        assert "--reality-xhttp-path" in result.output
+
+    def test_remove_node_reports_emptied_region(self, tmp_path):
+        topo = self._copy(tmp_path)
+        result = invoke("--yaml", str(topo), "topology", "remove-node", "deA00")
+        assert result.exit_code == 0
+        assert result.output.strip() == "removed  deA00 from region de  (region now empty)"
 
 
 class TestShareCommand:
