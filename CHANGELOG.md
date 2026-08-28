@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.1](https://github.com/wlix13/HexRift/compare/v0.12.0...v0.12.1) (2026-08-28)
+
+
+### Features
+
+* **derive:** derive hysteria certs by key type with deterministic ecdsa-p256 ([9b73382](https://github.com/wlix13/HexRift/commit/9b73382045acc45b20b61a74cec8d5dbc4d7360e))
+* **links:** disable chrome parrot on hub-exit dials to ed25519 exits ([964125e](https://github.com/wlix13/HexRift/commit/964125ecabffe708490c0c9702de33a2d71d91f1))
+* **schema:** add hysteria key_type ([da7e668](https://github.com/wlix13/HexRift/commit/da7e668e4abffb3b58d5e456c23a8b948999ac5f))
+
+
+### Documentation
+
+* **hysteria:** document key_type and chrome parrot behaviour ([864d5c8](https://github.com/wlix13/HexRift/commit/864d5c81699e098d2a0be319ba3fbdbd25ac8b94))
+
 ## [0.12.0](https://github.com/wlix13/HexRift/compare/v0.11.2...v0.12.0) (2026-08-27)
 
 
