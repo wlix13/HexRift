@@ -390,6 +390,24 @@ def test_hysteria_hub_exit_leg_agrees_on_pin_auth_and_obfs():
 
 
 @pytest.mark.integration
+def test_hysteria_key_type_selects_cert_and_chrome_parrot():
+    from cryptography import x509
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    # region nl: key_type ecdsa-p256 listener served next to VLESS+Reality
+    nl = json.loads(_build_for_node("nlA00")[0])
+    inbound = next(ib for ib in nl["inbounds"] if ib["tag"] == "hysteria-in")
+    pem = "\n".join(inbound["streamSettings"]["tlsSettings"]["certificates"][0]["certificate"])
+    assert isinstance(x509.load_pem_x509_certificate(pem.encode()).public_key(), ec.EllipticCurvePublicKey)
+
+    hub = json.loads(_build_for_node("mskA00")[0])
+    assert next(o for o in hub["outbounds"] if o["tag"] == "nlA00")["protocol"] == "vless"
+    # region de: default ed25519 exit, so the hub drops Chrome's parroted ClientHello
+    de = next(o for o in hub["outbounds"] if o["tag"] == "deA00")
+    assert de["streamSettings"]["finalmask"]["quicParams"]["disableChromeParrot"] is True
+
+
+@pytest.mark.integration
 def test_hub_hysteria_inbound_users_gated_by_access():
     cfg = json.loads(_build_for_node("mskA00")[0])
     inbound = next(ib for ib in cfg["inbounds"] if ib["tag"] == "hysteria-in")

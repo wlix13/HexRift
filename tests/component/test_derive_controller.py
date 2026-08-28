@@ -398,13 +398,14 @@ class TestBuildShareUrls:
 class TestBuildHysteriaShareUrls:
     def test_url_pins_hub_derived_cert(self, app: HexRiftApp):
         from hexrift.components.derive.hysteria import derive_hysteria_certificate
+        from hexrift.constants import HysteriaKeyType
 
         pairs = app.derive.build_share_urls("alice", None, FIXTURE_KEYS_DIR, "chrome", hysteria=True)
         assert len(pairs) == 1
         label, url = pairs[0]
         assert label == "msk  Hysteria  alice"
         pin = derive_hysteria_certificate(
-            "UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf-3GDy6nCUQ", "www.microsoft.com", NS_HEX
+            "UH7E3J0NAZgzdhkkZ6nZlZ1fsQ6DvTOSf-3GDy6nCUQ", "www.microsoft.com", NS_HEX, HysteriaKeyType.ED25519
         ).pin
         assert url.startswith("hysteria2://4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6@mskA00.ap.test.hexrift:8443/?")
         assert f"sni=www.microsoft.com&insecure=1&pinSHA256={pin}" in url

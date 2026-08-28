@@ -139,6 +139,7 @@ class TestHysteria:
                     "brutalUp": "500 mbps",
                     "brutalDown": "200 mbps",
                     **HYSTERIA_TRUNK_DIALER_QUIC,
+                    "disableChromeParrot": False,
                 },
                 "udp": [{"type": "salamander", "settings": {"password": "pw"}}],
             },

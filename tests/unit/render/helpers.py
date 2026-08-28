@@ -118,6 +118,7 @@ def make_hysteria_outbound(**overrides: Any) -> HysteriaLinkContext:
         "congestion": HysteriaCongestion.BBR,
         "brutal_up": None,
         "brutal_down": None,
+        "chrome_parrot": True,
     }
     defaults.update(overrides)
     return HysteriaLinkContext(**defaults)

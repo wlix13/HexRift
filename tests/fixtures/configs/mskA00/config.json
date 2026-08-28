@@ -553,7 +553,8 @@
             "brutalDown": "200 mbps",
             "keepAlivePeriod": 10,
             "maxStreamReceiveWindow": 16777216,
-            "maxConnectionReceiveWindow": 67108864
+            "maxConnectionReceiveWindow": 67108864,
+            "disableChromeParrot": true
           },
           "udp": [
             {
