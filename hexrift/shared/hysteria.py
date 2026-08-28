@@ -27,12 +27,19 @@ HYSTERIA_TRUNK_DIALER_QUIC: Final[Mapping[str, int]] = {
 }
 
 
+def hysteria_trunk_dialer_quic(chrome_parrot: bool) -> Mapping[str, int | bool]:
+    return {
+        **HYSTERIA_TRUNK_DIALER_QUIC,
+        "disableChromeParrot": not bool(chrome_parrot),
+    }
+
+
 def make_hysteria_finalmask(
     congestion: HysteriaCongestion,
     brutal_up: str | None,
     brutal_down: str | None,
     obfs_password: str | None,
-    quic_tuning: Mapping[str, int] | None = None,
+    quic_tuning: Mapping[str, int | bool] | None = None,
 ) -> dict:
     quic: dict = {"congestion": congestion}
     if brutal_up is not None:

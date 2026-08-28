@@ -78,6 +78,8 @@ regions:
     type: exit
     vless_route: 1000
     cdn_xhttp_path: /cdn/
+    hysteria:
+      key_type: ecdsa-p256
     nodes:
       - id: nlA00
         hostname: nlA00.ap.test.hexrift

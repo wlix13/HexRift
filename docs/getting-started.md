@@ -221,7 +221,7 @@ regions:
     nodes: [...]
 ```
 
-Hysteria needs a real TLS certificate. Nothing extra is required: HexRift derives a self-signed Ed25519 leaf from each node's Reality key (no new key files) and pins it on the other side — hubs pin exits in their outbounds, and share URLs carry `pinSHA256`. To serve an operator-issued cert instead, set `certificate: {cert_file, key_file}` and a matching `sni` on that node.
+Hysteria needs a real TLS certificate. Nothing extra is required: HexRift derives a self-signed leaf from each node's Reality key (no new key files) and pins it on the other side — hubs pin exits in their outbounds, and share URLs carry `pinSHA256`. `key_type` picks the algorithm: `ed25519` (default) or `ecdsa-p256`. Xray's Hysteria dialer parrots Chrome's QUIC ClientHello, which cannot negotiate Ed25519, so HexRift sets `disableChromeParrot` on hub→exit dials to `ed25519` exits; a `hysteria2://` URL has no such switch, so prefer `ecdsa-p256` on hubs that Xray-based client apps will dial. To serve an operator-issued cert instead, set `certificate: {cert_file, key_file}` and a matching `sni` on that node.
 
 ```bash
 # hysteria2:// URL for alice

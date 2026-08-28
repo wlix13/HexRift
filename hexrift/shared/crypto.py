@@ -9,10 +9,18 @@ import ipaddress
 from datetime import datetime
 
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.x509.oid import NameOID
+
+
+SECP256R1_ORDER = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+"""Group order of the P-256 curve."""
+
+type CertPrivateKey = Ed25519PrivateKey | ec.EllipticCurvePrivateKey
+"""Key types `self_signed_cert` can sign with."""
 
 
 def urlsafe_b64decode_unpadded(value: str) -> bytes:
@@ -75,22 +83,41 @@ def x25519_keypair_from_seed(seed: bytes) -> tuple[str, str]:
     return base64.b64encode(private).decode(), base64.b64encode(public).decode()
 
 
-def self_signed_ed25519_cert(
-    seed: bytes,
+def ed25519_key_from_seed(seed: bytes) -> Ed25519PrivateKey:
+    """Ed25519 private key whose scalar seed is first 32 bytes of `seed`."""
+
+    return Ed25519PrivateKey.from_private_bytes(seed[:32])
+
+
+def ecdsa_p256_key_from_seed(seed: bytes) -> ec.EllipticCurvePrivateKey:
+    """ECDSA P-256 private key whose scalar is first 32 bytes of `seed` reduced into [1, order - 1]."""
+
+    scalar = int.from_bytes(seed[:32], "big") % (SECP256R1_ORDER - 1) + 1
+    return ec.derive_private_key(scalar, ec.SECP256R1())
+
+
+def cert_serial_from_seed(seed: bytes) -> int:
+    """Positive 159-bit odd serial derived from `seed`."""
+
+    return (int.from_bytes(hashlib.sha256(seed).digest()[:20], "big") >> 1) | 1
+
+
+def self_signed_cert(
+    key: CertPrivateKey,
     common_name: str,
     not_before: datetime,
     not_after: datetime,
+    *,
+    serial: int,
 ) -> tuple[str, str, bytes]:
-    """Deterministic self-signed Ed25519 leaf for `common_name`: (cert PEM, PKCS#8 key PEM, DER SHA-256)."""
+    """Deterministic self-signed leaf for `common_name`: (cert PEM, PKCS#8 key PEM, DER SHA-256)."""
 
-    key = Ed25519PrivateKey.from_private_bytes(seed[:32])
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
-    serial = (int.from_bytes(hashlib.sha256(seed).digest()[:20], "big") >> 1) | 1
     try:
         san: x509.GeneralName = x509.IPAddress(ipaddress.ip_address(common_name))
     except ValueError:
         san = x509.DNSName(common_name)
-    cert = (
+    builder = (
         x509.CertificateBuilder()
         .subject_name(name)
         .issuer_name(name)
@@ -100,8 +127,11 @@ def self_signed_ed25519_cert(
         .not_valid_after(not_after)
         .add_extension(x509.SubjectAlternativeName([san]), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .sign(key, algorithm=None)
     )
+    if isinstance(key, Ed25519PrivateKey):
+        cert = builder.sign(key, algorithm=None)
+    else:
+        cert = builder.sign(key, hashes.SHA256(), ecdsa_deterministic=True)
     key_pem = key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,

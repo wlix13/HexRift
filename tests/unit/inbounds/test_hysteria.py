@@ -2,6 +2,8 @@ from types import SimpleNamespace
 from typing import cast
 from uuid import UUID
 
+import pytest
+
 from hexrift.components.derive.hysteria import derive_hysteria_certificate, derive_hysteria_obfs_password
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
@@ -9,7 +11,7 @@ from hexrift.components.schema.models.regions import HysteriaCertificate, Hyster
 from hexrift.components.schema.models.resolve import resolve_node_hysteria
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.constants import ExitProtocol, HysteriaCongestion, RegionType
+from hexrift.constants import ExitProtocol, HysteriaCongestion, HysteriaKeyType, RegionType
 from hexrift.inbounds.base import InboundEnv
 from hexrift.inbounds.hysteria import HYSTERIA_SPEC, build_hysteria_share_url
 from hexrift.links.registry import render_link
@@ -85,6 +87,22 @@ class TestResolveNodeHysteria:
             port=8443, obfs=True, sni="e.example.com"
         )
 
+    def test_key_type_overlays_like_every_other_field(self):
+        node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(port=8443))
+        region = Region(
+            id="exit1",
+            type=RegionType.EXIT,
+            vless_route=1,
+            protocol=ExitProtocol.HYSTERIA,
+            hysteria=HysteriaOverride(key_type=HysteriaKeyType.ECDSA_P256),
+            nodes=[node],
+        )
+        hy = resolve_node_hysteria(node, region, make_defaults())
+        assert hy is not None and hy.key_type is HysteriaKeyType.ECDSA_P256
+        node_ed = node.model_copy(update={"hysteria": HysteriaOverride(key_type=HysteriaKeyType.ED25519)})
+        hy = resolve_node_hysteria(node_ed, region, make_defaults())
+        assert hy is not None and hy.key_type is HysteriaKeyType.ED25519
+
     def test_exit_none_unless_region_protocol_is_hysteria(self):
         node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY)
         region = Region(id="exit1", type=RegionType.EXIT, vless_route=1, nodes=[node])
@@ -134,6 +152,13 @@ class TestHysteriaSpecBuildContext:
     def test_exit_none_without_hub_nodes(self):
         assert HYSTERIA_SPEC.build_context(_exit_env([])) is None
 
+    def test_hub_key_type_selects_served_cert(self):
+        hy = HysteriaConfig(key_type=HysteriaKeyType.ECDSA_P256)
+        ctx = HYSTERIA_SPEC.build_context(_hub_env(users=[make_user(access=["hysteria"])], hysteria=hy))
+        assert ctx is not None
+        cert = derive_hysteria_certificate(_PRIV, "vk.com", "t.ns", HysteriaKeyType.ECDSA_P256)
+        assert ctx.certificates == [{"certificate": cert.cert_pem.splitlines(), "key": cert.key_pem.splitlines()}]
+
     def test_operator_certificate_files_and_obfs(self):
         hy = HysteriaConfig(
             obfs=True, sni="hub.example.com", certificate=HysteriaCertificate(cert_file="/c.pem", key_file="/k.pem")
@@ -150,7 +175,7 @@ class TestHysteriaSpecFragment:
         ctx = HYSTERIA_SPEC.build_context(env)
         assert ctx is not None
         frag = HYSTERIA_SPEC.fragment(ctx, make_shared(ipv6=True, route_only=True))
-        cert = derive_hysteria_certificate(_PRIV, "vk.com", "t.ns")
+        cert = derive_hysteria_certificate(_PRIV, "vk.com", "t.ns", HysteriaKeyType.ED25519)
         assert frag["tag"] == "hysteria-in"
         assert (frag["listen"], frag["port"], frag["protocol"]) == ("::", 443, "hysteria")
         assert frag["settings"] == {"version": 2, "users": ctx.users}
@@ -271,8 +296,9 @@ class TestBuildHubContextExitProtocol:
         assert (ob.auth, warp.auth) == (str(uid), str(ns.warp_uuid(uid)))
         assert (ob.tag_prefix, warp.tag_prefix) == ("", "warp-")
         assert (ob.brutal_up, ob.brutal_down) == ("500 mbps", "200 mbps")
-        assert ob.pin == derive_hysteria_certificate(_PRIV, "a.com", "t.ns").pin
+        assert ob.pin == derive_hysteria_certificate(_PRIV, "a.com", "t.ns", HysteriaKeyType.ED25519).pin
         assert ob.address == "exitN1.ap.t.ns"
+        assert ob.chrome_parrot is False  # Chrome's ClientHello can't negotiate the ed25519 leaf
         quic = render_link(ob, ipv6=True)["streamSettings"]["finalmask"]["quicParams"]
         assert quic == {
             "congestion": "brutal",
@@ -281,6 +307,48 @@ class TestBuildHubContextExitProtocol:
             "keepAlivePeriod": 10,
             "maxStreamReceiveWindow": 16 * 1024 * 1024,
             "maxConnectionReceiveWindow": 64 * 1024 * 1024,
+            "disableChromeParrot": True,
+        }
+
+    def test_ecdsa_exit_keeps_chrome_parrot(self):
+        from hexrift.inbounds.context import build_hub_context
+        from hexrift.links.hysteria import HysteriaLinkContext
+
+        cfg = self._config("hysteria", hysteria={"key_type": "ecdsa-p256"})
+        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        (ob,) = ctx.outbounds
+        assert isinstance(ob, HysteriaLinkContext)
+        assert ob.chrome_parrot is True
+        assert ob.pin == derive_hysteria_certificate(_PRIV, "a.com", "t.ns", HysteriaKeyType.ECDSA_P256).pin
+        quic = render_link(ob, ipv6=True)["streamSettings"]["finalmask"]["quicParams"]
+        assert quic == {
+            "congestion": "bbr",
+            "keepAlivePeriod": 10,
+            "maxStreamReceiveWindow": 16 * 1024 * 1024,
+            "maxConnectionReceiveWindow": 64 * 1024 * 1024,
+            "disableChromeParrot": False,
+        }
+
+    @pytest.mark.parametrize(("key_type", "chrome_parrot"), [(None, True), ("ecdsa-p256", True), ("ed25519", False)])
+    def test_operator_certificate_key_type_declares_the_parrot(self, key_type: str | None, chrome_parrot: bool):
+        from hexrift.inbounds.context import build_hub_context
+        from hexrift.links.hysteria import HysteriaLinkContext
+
+        hysteria: dict = {"sni": "exit.example.com", "certificate": {"cert_file": "/c.pem", "key_file": "/k.pem"}}
+        if key_type is not None:
+            hysteria["key_type"] = key_type
+        cfg = self._config("hysteria", hysteria=hysteria)
+        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        (ob,) = ctx.outbounds
+        assert isinstance(ob, HysteriaLinkContext)
+        assert ob.chrome_parrot is chrome_parrot
+        quic = render_link(ob, ipv6=True)["streamSettings"]["finalmask"]["quicParams"]
+        assert quic == {
+            "congestion": "bbr",
+            "keepAlivePeriod": 10,
+            "maxStreamReceiveWindow": 16 * 1024 * 1024,
+            "maxConnectionReceiveWindow": 64 * 1024 * 1024,
+            "disableChromeParrot": not chrome_parrot,
         }
 
     def test_operator_certificate_pin_is_pinned_by_hubs(self):

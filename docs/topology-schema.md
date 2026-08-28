@@ -113,7 +113,7 @@ Configures a WireGuard inbound on hub nodes. Peer keypairs are derived determini
 
 Configures a Hysteria 2 listener (QUIC over UDP). On hub nodes it admits users whose `access` includes `hysteria` (plus their `server` identity and `guests`); on exit nodes it admits the hub-exit identities of every hub, and hubs dial it when the exit region sets `protocol: hysteria`. Every field has a default, so `hysteria: {}` is a complete config.
 
-Hysteria requires a real TLS certificate (Xray rejects Reality here). By default HexRift derives a self-signed Ed25519 leaf for the SNI from the node's Reality private key and embeds it inline; peers pin its SHA-256 (`pinnedPeerCertSha256` on hub outbounds, `pinSHA256` in share URLs). Set `certificate` to serve an operator-issued cert instead — then `sni` is required; without `pin_sha256` hub outbounds verify against CA roots and share URLs carry `insecure=0`, with it peers pin that fingerprint exactly as they pin the derived cert.
+Hysteria requires a real TLS certificate (Xray rejects Reality here). By default HexRift derives a self-signed leaf for the SNI from the node's Reality private key (`key_type` selects `ed25519` or `ecdsa-p256`) and embeds it inline; peers pin its SHA-256 (`pinnedPeerCertSha256` on hub outbounds, `pinSHA256` in share URLs). Set `certificate` to serve an operator-issued cert instead — then `sni` is required; without `pin_sha256` hub outbounds verify against CA roots and share URLs carry `insecure=0`, with it peers pin that fingerprint exactly as they pin the derived cert.
 
 Auth is the identity UUID, so a client that rewrites the UUID's third segment selects an exit region exactly like a VLESS client does (`vlessRoute`), and warp variants work unchanged.
 
@@ -126,9 +126,10 @@ Auth is the identity UUID, so a client that rewrites the UUID's third segment se
 | `down` | `str` | brutal only | — | Receive-rate advertised to peers. Hub outbounds mirror the exit's values (`brutalUp` = exit `down`, `brutalDown` = exit `up`) |
 | `sni` | `str` | with `certificate` | first Reality server name | Name presented in TLS; also the CN/SAN of the derived cert |
 | `masquerade_url` | `str` (`http(s)://…`) | no | `https://{sni}/` | Reverse-proxy target for unauthenticated HTTP/3 probes |
+| `key_type` | `ed25519 \| ecdsa-p256` | no | `ed25519` (derived cert); unset with `certificate` | Key algorithm of the derived cert. With `certificate` it is the operator's declaration of what the files hold — HexRift cannot inspect them, and unset means "not Ed25519", which is what CAs issue. Hubs dialing an `ed25519` cert set `disableChromeParrot` because Chrome's parroted ClientHello omits Ed25519 from `signature_algorithms`; `ecdsa-p256` keeps the parrot |
 | `certificate` | `HysteriaCertificate` | no | — | `cert_file` + `key_file` paths on the node; disables the derived cert. Optional `pin_sha256` (SHA-256 of the cert DER, hex with or without colons) keeps peers pinning when the cert is not publicly trusted |
 
-The derived cert is Ed25519, which every Go-based client (Xray, official Hysteria, sing-box, mihomo) accepts; use `certificate` for anything else. Share URLs carry `insecure=1&pinSHA256=…` — a client that honours the pin verifies the exact cert, a client that ignores it connects unverified; switch to `certificate` if that matters.
+Official Hysteria, sing-box and mihomo accept either key type. Xray's Hysteria dialer parrots Chrome's QUIC ClientHello by default and can only negotiate `ecdsa-p256`: HexRift disables the parrot on hub→exit dials to `ed25519` exits, but a `hysteria2://` share URL carries no such switch, so a hub listener that Xray-based client apps dial should set `key_type: ecdsa-p256`. Share URLs carry `insecure=1&pinSHA256=…` — a client that honours the pin verifies the exact cert, a client that ignores it connects unverified; switch to `certificate` if that matters.
 
 ---
 
@@ -450,6 +451,7 @@ All fields optional; `null` means "use the value from the layer below" — `defa
 | `up` / `down` | `str` | Override brutal rates |
 | `sni` | `str` | Override SNI (and derived-cert CN) |
 | `masquerade_url` | `str` | Override masquerade target |
+| `key_type` | `ed25519 \| ecdsa-p256` | Override the derived cert's key algorithm, or declare an operator cert's |
 | `certificate` | `HysteriaCertificate` | Serve an operator cert on this node (`cert_file`, `key_file`, optional `pin_sha256`); requires `sni` |
 
 XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.

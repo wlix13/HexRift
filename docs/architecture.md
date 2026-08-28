@@ -110,13 +110,15 @@ Peer addresses are allocated sequentially from `defaults.hub.wireguard.subnet`: 
 Hysteria needs a real TLS certificate, and both are derived from the node's Reality private key rather than stored:
 
 ```text
-cert_key = Ed25519(HMAC-SHA256(reality_private_key, "hysteria-tls.{namespace}"))
+seed     = HMAC-SHA256(reality_private_key, "hysteria-tls.{namespace}")             # key_type: ed25519
+         | HMAC-SHA256(reality_private_key, "hysteria-tls-ecdsa-p256.{namespace}")  # key_type: ecdsa-p256
+cert_key = Ed25519(seed) | ECDSA-P256(seed mod (n - 1) + 1)
 cert     = self-signed leaf, CN/SAN = sni, fixed serial and validity, signed by cert_key
 pin      = SHA-256(cert DER)                       # pinnedPeerCertSha256 / pinSHA256
 obfs     = base64url(HMAC-SHA256(reality_private_key, "hysteria-obfs.{namespace}"))
 ```
 
-Ed25519 signatures are deterministic, so the same key and SNI always yield byte-identical DER and a stable pin; hub nodes that share keys within a region therefore also share the cert. Source: `hexrift/components/derive/hysteria.py`.
+Ed25519 signs deterministically by construction and ECDSA uses RFC 6979 nonces, so the same key and SNI always yield byte-identical DER and a stable pin; hub nodes that share keys within a region therefore also share the cert. Hubs dialing an `ed25519` exit add `disableChromeParrot` to the trunk's `quicParams`: Xray's Hysteria dialer parrots Chrome's QUIC ClientHello, whose `signature_algorithms` omit Ed25519, so the exit would have no certificate to offer. Source: `hexrift/components/derive/hysteria.py`.
 
 ---
 
