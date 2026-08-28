@@ -75,8 +75,14 @@ hexrift derive all
 ## nodes
 
 ```bash
-hexrift nodes [--names | --domains] [--type exit|hub]
+hexrift nodes list [--names | --domains | --json] [--type exit|hub]
+hexrift nodes add <NODE_ID> [options]
+hexrift nodes remove <NODE_ID>
 ```
+
+`add` and `remove` edit the `regions:` section of the topology YAML in place: only the edited lines change, everything else is kept byte for byte, and YAML shapes that cannot be spliced safely are refused with a message saying why. After writing, the file is re-validated. A validation failure is reported as a warning and the edit is kept, so a missing piece such as an exit node's `reality` block can be filled in by hand.
+
+### list
 
 List nodes with their hostnames. Designed for use in shell scripts.
 
@@ -86,19 +92,70 @@ List nodes with their hostnames. Designed for use in shell scripts.
 |--------|-------------|
 | `--names` | Output node IDs only (one per line) |
 | `--domains` | Output hostnames only (one per line) |
+| `--json` | Output a JSON array of `{id, hostname, region, type}` objects, in topology order |
 | `--type exit\|hub` | Filter by region type |
 
 **Examples:**
 
 ```bash
 # Tab-separated ID + hostname (default)
-hexrift nodes
+hexrift nodes list
 
 # All exit node IDs — useful for loops
-hexrift nodes --names --type exit
+hexrift nodes list --names --type exit
 
 # All hub hostnames
-hexrift nodes --domains --type hub
+hexrift nodes list --domains --type hub
+
+# Structured output for other tools
+hexrift nodes list --json --type exit | jq -r '.[].hostname'
+```
+
+`--json` output:
+
+```json
+[
+  {"id": "nlA00", "hostname": "nlA00.aphelion.example.com", "region": "nl", "type": "exit"},
+  {"id": "mskA00", "hostname": "mskA00.perigee.example.com", "region": "msk", "type": "hub"}
+]
+```
+
+### add
+
+Add `NODE_ID` to its region, creating the region when missing (exits get an unused `vless_route`). A balanced region without `lb_fallback` gets its first primary node written as one. Adding a node that is already present is a no-op.
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--type exit\|hub` | region's type | Region type, required only when the region has to be created |
+| `--region ID` | leading lowercase letters of `NODE_ID` | Region to add the node to (`nlA20` → `nl`) |
+| `--hostname HOST` | derived | Exits: `<NODE_ID>.<aphelion_domain>`. Hubs: domain of the existing hub nodes |
+| `--no-ipv6` | off | Write `ipv6: false` on the node |
+| `--hysteria` | on when the region has `protocol: hysteria` or a `hysteria:` block | Write a `hysteria` block (`obfs: true`, `sni` = hostname, `masquerade_url` from the Reality dest) |
+| `--reality-dest HOST:PORT` | — | Reality `dest`, also the Hysteria masquerade target |
+| `--reality-server-names LIST` | — | Comma-separated Reality `server_names`, requires `--reality-dest` |
+| `--reality-xhttp-path PATH` | — | Reality `xhttp_path`, required together with `--reality-dest` |
+
+### remove
+
+Remove `NODE_ID` from its region, dropping `hub_routes` and `lb_fallback` entries that point at it, and routes to the region once it is empty. An emptied region keeps its settings. A node that is not in the topology is skipped.
+
+**Examples:**
+
+```bash
+# New exit node in the existing `nl` region
+hexrift nodes add nlA40 --reality-dest www.samsung.com:443 \
+  --reality-server-names www.samsung.com,samsung.com --reality-xhttp-path /login/
+
+# New hub node, hostname follows the other `msk` hubs
+hexrift nodes add mskA30 --no-ipv6
+
+# First node of a new exit region, `--type` is required
+hexrift nodes add frA00 --type exit
+
+# Decommission
+hexrift nodes remove nlA40
 ```
 
 ---
