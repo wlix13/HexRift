@@ -68,6 +68,17 @@ class ExitProtocol(StrEnum):
     HYSTERIA = "hysteria"
 
 
+class HysteriaKeyType(StrEnum):
+    """Key algorithm of TLS certificate Hysteria listener serves."""
+
+    ED25519 = "ed25519"
+    ECDSA_P256 = "ecdsa-p256"
+
+    @property
+    def supports_chrome_parrot(self) -> bool:
+        return self is not HysteriaKeyType.ED25519
+
+
 class HysteriaCongestion(StrEnum):
     """Hysteria QUIC congestion control."""
 
@@ -254,6 +265,9 @@ HYSTERIA_VERSION = 2
 
 HYSTERIA_ALPN = ("h3",)
 """ALPN the Hysteria listener must advertise."""
+
+HYSTERIA_DERIVED_KEY_TYPE = HysteriaKeyType.ED25519
+"""Key type of the derived Hysteria certificate when `key_type` is unset."""
 
 HYSTERIA_MIN_BANDWIDTH_BPS = 65536
 """Xray rejects brutal rates below this many bytes per second (512 kbps)."""

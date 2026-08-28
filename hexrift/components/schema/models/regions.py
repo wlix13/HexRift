@@ -23,6 +23,7 @@ from hexrift.constants import (
     ExitProtocol,
     HandshakeMethod,
     HysteriaCongestion,
+    HysteriaKeyType,
     LbRole,
     LbStrategy,
     RegionType,
@@ -124,6 +125,7 @@ class HysteriaConfig(BaseModel):
     down: Bandwidth | None = None
     sni: DnsName | None = None
     masquerade_url: MasqueradeUrl | None = None
+    key_type: HysteriaKeyType | None = None
     certificate: HysteriaCertificate | None = None
 
 
@@ -138,6 +140,7 @@ class HysteriaOverride(BaseModel):
     down: Bandwidth | None = None
     sni: DnsName | None = None
     masquerade_url: MasqueradeUrl | None = None
+    key_type: HysteriaKeyType | None = None
     certificate: HysteriaCertificate | None = None
 
 
