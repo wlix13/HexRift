@@ -326,7 +326,7 @@ tests = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography" },
+    { name = "cryptography", specifier = ">=45" },
     { name = "jinja2" },
     { name = "kyber-py" },
     { name = "pydantic" },

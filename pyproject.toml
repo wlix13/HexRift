@@ -16,7 +16,7 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-  "cryptography",
+  "cryptography>=45",
   "jinja2",
   "kyber-py",
   "pydantic",
