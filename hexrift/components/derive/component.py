@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -182,8 +183,24 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             _print_share_urls(app, pairs, bare=bare)
 
         @base.command("nodes")
-        @click.option("--names", "output", flag_value="names", help="Output node IDs only.")
-        @click.option("--domains", "output", flag_value="domains", help="Output hostnames only.")
+        @click.option(
+            "--names",
+            "output",
+            flag_value="names",
+            help="Output node IDs only.",
+        )
+        @click.option(
+            "--domains",
+            "output",
+            flag_value="domains",
+            help="Output hostnames only.",
+        )
+        @click.option(
+            "--json",
+            "output",
+            flag_value="json",
+            help="Output JSON array with id, hostname, region and type per node.",
+        )
         @click.option(
             "--type",
             "region_type",
@@ -199,6 +216,10 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             if region_type:
                 pairs = [(r, n) for r, n in pairs if r.type.value.lower() == region_type]
 
+            if output == "json":
+                rows = [{"id": n.id, "hostname": n.hostname, "region": r.id, "type": r.type.value} for r, n in pairs]
+                click.echo(json.dumps(rows, indent=2))
+                return
             for _, node in pairs:
                 if output == "names":
                     click.echo(node.id)
