@@ -1,5 +1,6 @@
 import shutil
 import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -187,15 +188,20 @@ class TestFileHandling:
         HexRiftApp(yaml_path=topo).topology.remove_node("deA00")
         assert topo.read_bytes() == crlf.replace(DE_A00_BLOCK.encode().replace(b"\n", b"\r\n"), b"")
 
-    def test_keeps_mode_and_symlink(self, tmp_path: Path):
+    def test_edits_symlink_target_in_place(self, tmp_path: Path):
         real = tmp_path / "real.yaml"
         shutil.copy(FIXTURE_TOPOLOGY, real)
-        real.chmod(0o600)
         link = tmp_path / "topology.yaml"
         link.symlink_to(real)
         HexRiftApp(yaml_path=link).topology.remove_node("deA00")
-        assert link.is_symlink() and stat.S_IMODE(real.stat().st_mode) == 0o600
+        assert link.is_symlink()
         assert DE_EMPTY_BLOCK in real.read_text()
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="chmod not enforced on Windows")
+    def test_keeps_file_mode(self, topo: Path):
+        topo.chmod(0o600)
+        HexRiftApp(yaml_path=topo).topology.remove_node("deA00")
+        assert stat.S_IMODE(topo.stat().st_mode) == 0o600
 
     def test_failed_replace_leaves_no_tmp_file(self, topo: Path, monkeypatch: pytest.MonkeyPatch):
         def refuse(self: Path, target: Path) -> Path:

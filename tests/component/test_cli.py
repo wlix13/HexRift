@@ -322,13 +322,13 @@ class TestDeriveCommand:
 
 class TestNodesCommand:
     def test_lists_both_nodes(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list")
         assert result.exit_code == 0
         assert "nlA00" in result.output
         assert "mskA00" in result.output
 
     def test_names_only_flag(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--names")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--names")
         lines = [line.strip() for line in result.output.splitlines() if line.strip()]
         # Should be just IDs, no tabs
         assert all("\t" not in line for line in lines)
@@ -336,22 +336,22 @@ class TestNodesCommand:
         assert "mskA00" in lines
 
     def test_domains_only_flag(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--domains")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--domains")
         assert "nlA00.ap.test.hexrift" in result.output
         assert "mskA00.ap.test.hexrift" in result.output
 
     def test_type_filter_exit(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--type", "exit")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--type", "exit")
         assert "nlA00" in result.output
         assert "mskA00" not in result.output
 
     def test_type_filter_hub(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--type", "hub")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--type", "hub")
         assert "mskA00" in result.output
         assert "nlA00" not in result.output
 
     def test_json_output(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--json")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--json")
         assert result.exit_code == 0
         assert json.loads(result.output) == [
             {"id": "nlA00", "hostname": "nlA00.ap.test.hexrift", "region": "nl", "type": "exit"},
@@ -360,7 +360,7 @@ class TestNodesCommand:
         ]
 
     def test_json_output_honours_type_filter(self):
-        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "--json", "--type", "hub")
+        result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--json", "--type", "hub")
         assert json.loads(result.output) == [
             {"id": "mskA00", "hostname": "mskA00.ap.test.hexrift", "region": "msk", "type": "hub"},
         ]
@@ -376,8 +376,8 @@ class TestTopologyCommands:
         result = invoke(
             "--yaml",
             str(topo),
-            "topology",
-            "add-node",
+            "nodes",
+            "add",
             "nlA20",
             "--no-ipv6",
             "--reality-dest",
@@ -406,7 +406,7 @@ class TestTopologyCommands:
 
     def test_add_node_creates_region_and_warns_when_invalid(self, tmp_path):
         topo = self._copy(tmp_path)
-        result = invoke("--yaml", str(topo), "topology", "add-node", "usA00", "--type", "exit")
+        result = invoke("--yaml", str(topo), "nodes", "add", "usA00", "--type", "exit")
         assert result.exit_code == 0
         assert "created" in result.output
         assert "must have reality config" in result.output
@@ -414,19 +414,19 @@ class TestTopologyCommands:
 
     def test_reality_options_require_dest(self, tmp_path):
         topo = self._copy(tmp_path)
-        result = invoke_catching("--yaml", str(topo), "topology", "add-node", "nlA20", "--reality-xhttp-path", "/x/")
+        result = invoke_catching("--yaml", str(topo), "nodes", "add", "nlA20", "--reality-xhttp-path", "/x/")
         assert result.exit_code != 0
         assert "--reality-dest" in result.output
 
     def test_reality_dest_requires_xhttp_path(self, tmp_path):
         topo = self._copy(tmp_path)
-        result = invoke_catching("--yaml", str(topo), "topology", "add-node", "nlA20", "--reality-dest", "a.com:443")
+        result = invoke_catching("--yaml", str(topo), "nodes", "add", "nlA20", "--reality-dest", "a.com:443")
         assert result.exit_code != 0
         assert "--reality-xhttp-path" in result.output
 
     def test_remove_node_reports_emptied_region(self, tmp_path):
         topo = self._copy(tmp_path)
-        result = invoke("--yaml", str(topo), "topology", "remove-node", "deA00")
+        result = invoke("--yaml", str(topo), "nodes", "remove", "deA00")
         assert result.exit_code == 0
         assert result.output.strip() == "removed  deA00 from region de  (region now empty)"
 
