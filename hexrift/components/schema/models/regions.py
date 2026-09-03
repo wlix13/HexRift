@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from hexrift.components.schema.models.fields import (
     Bandwidth,
@@ -176,4 +178,4 @@ class Region(BaseModel):
     lb_least_load: LeastLoadSettings | None = None
     routing: RegionRouting | None = None
     warp: WarpConfig | None = None
-    nodes: list[Node]
+    nodes: Annotated[list[Node], BeforeValidator(lambda v: [] if v is None else v)]

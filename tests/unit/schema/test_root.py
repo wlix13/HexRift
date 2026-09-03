@@ -214,6 +214,29 @@ def test_hub_default_not_valid_region():
         ConglomerateConfig.model_validate(d)
 
 
+def test_bare_nodes_key_is_region_without_nodes():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["nodes"] = None
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.regions[0].nodes == []
+
+
+def test_hub_default_region_without_nodes_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["nodes"] = None
+    d["routing"]["hub_default"] = "exit1"
+    with pytest.raises(ValidationError, match="hub_default 'exit1' is a region with no nodes"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_hub_route_to_region_without_nodes_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][0]["nodes"] = None
+    d["routing"]["hub_routes"] = [{"destination": "exit1", "domains": ["x.com"]}]
+    with pytest.raises(ValidationError, match="hub_route destination 'exit1' is a region with no nodes"):
+        ConglomerateConfig.model_validate(d)
+
+
 def test_hub_default_direct_valid():
     d = copy.deepcopy(_valid_config())
     d["routing"]["hub_default"] = "direct"

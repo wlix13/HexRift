@@ -165,6 +165,7 @@ class ConglomerateConfig(BaseModel):
     def _validate_references(self) -> "ConglomerateConfig":
         group_ids = {g.id for g in self.groups}
         region_ids = {r.id for r in self.regions}
+        empty_region_ids = {r.id for r in self.regions if not r.nodes}
         node_ids: set[str] = set()
         hub_nodes: dict[str, tuple[Region, Node]] = {}
 
@@ -317,6 +318,8 @@ class ConglomerateConfig(BaseModel):
         hub_default = self.routing.hub_default
         if hub_default not in (region_ids | SPECIAL_DESTINATIONS):
             raise ValueError(f"hub_default {hub_default!r} is not a known region or special destination")
+        if hub_default in empty_region_ids:
+            raise ValueError(f"hub_default {hub_default!r} is a region with no nodes")
 
         # exit_routes_global destinations
         for route in self.routing.exit_routes_global:
@@ -328,6 +331,8 @@ class ConglomerateConfig(BaseModel):
         for route in self.routing.hub_routes:
             if route.destination not in valid_destinations:
                 raise ValueError(f"hub_route destination {route.destination!r} is unknown")
+            if route.destination in empty_region_ids:
+                raise ValueError(f"hub_route destination {route.destination!r} is a region with no nodes")
             for u in route.users or []:
                 if u not in usernames:
                     raise ValueError(f"hub_route user {u!r} is not a known user")
