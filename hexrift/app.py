@@ -84,4 +84,9 @@ def cli(ctx: click.Context, yaml_path: Path) -> None:
     ctx.obj = HexRiftApp(yaml_path=yaml_path)
 
 
+@cli.group()
+def nodes() -> None:
+    """List and edit nodes of the topology YAML."""
+
+
 HexRiftApp.register_cli(cli)

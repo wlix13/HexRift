@@ -182,7 +182,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
                 )
             _print_share_urls(app, pairs, bare=bare)
 
-        @base.command("nodes")
+        @cls.subgroup(base, "nodes").command("list")
         @click.option(
             "--names",
             "output",
@@ -209,8 +209,8 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             help="Filter by region type.",
         )
         @click.pass_obj
-        def nodes(app: HexRiftApp, output: str | None, region_type: str | None) -> None:
-            """List all nodes with their hostnames (can be used in automation scripts)."""
+        def list_nodes(app: HexRiftApp, output: str | None, region_type: str | None) -> None:
+            """List nodes with their hostnames (for automation scripts)."""
 
             pairs = app.schema.get_all_nodes()
             if region_type:
