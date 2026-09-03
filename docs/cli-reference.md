@@ -75,8 +75,16 @@ hexrift derive all
 ## nodes
 
 ```bash
-hexrift nodes [--names | --domains | --json] [--type exit|hub]
+hexrift nodes list [--names | --domains | --json] [--type exit|hub]
+hexrift nodes add <NODE_ID> [options]
+hexrift nodes remove <NODE_ID>
 ```
+
+`add` and `remove` edit the `regions:` section of the topology YAML in place. Only the edited lines change and a missing final newline is added, comments, key order and blank lines elsewhere are kept. Files with YAML anchors, a flow-style or duplicated `regions:`/`hub_routes:`, or differently indented list items are refused. A region written in flow style, or with a non-empty flow `nodes:` list, refuses only its own edits, and `nodes: []` becomes a block list on the first `add`.
+
+After writing, the file is re-validated. A validation failure is reported as a warning and the edit is kept, so a missing piece (typically an exit node's `reality` block, or a new `hub_default` when its region was emptied) can be filled in by hand.
+
+### list
 
 List nodes with their hostnames. Designed for use in shell scripts.
 
@@ -93,16 +101,16 @@ List nodes with their hostnames. Designed for use in shell scripts.
 
 ```bash
 # Tab-separated ID + hostname (default)
-hexrift nodes
+hexrift nodes list
 
 # All exit node IDs — useful for loops
-hexrift nodes --names --type exit
+hexrift nodes list --names --type exit
 
 # All hub hostnames
-hexrift nodes --domains --type hub
+hexrift nodes list --domains --type hub
 
 # Structured output for other tools
-hexrift nodes --json --type exit | jq -r '.[].hostname'
+hexrift nodes list --json --type exit | jq -r '.[].hostname'
 ```
 
 `--json` output:
@@ -114,20 +122,7 @@ hexrift nodes --json --type exit | jq -r '.[].hostname'
 ]
 ```
 
----
-
-## topology
-
-```bash
-hexrift topology add-node <NODE_ID> [options]
-hexrift topology remove-node <NODE_ID>
-```
-
-Edit the `regions:` section of the topology YAML in place. Only the edited lines change and a missing final newline is added, comments, key order and blank lines elsewhere are kept. Files with YAML anchors, a flow-style or duplicated `regions:`/`hub_routes:`, or differently indented list items are refused. A region written in flow style, or with a non-empty flow `nodes:` list, refuses only its own edits, and `nodes: []` becomes a block list on the first `add-node`.
-
-After writing, the file is re-validated. A validation failure is reported as a warning and the edit is kept, so a missing piece (typically an exit node's `reality` block, or a new `hub_default` when its region was emptied) can be filled in by hand.
-
-### add-node
+### add
 
 Add `NODE_ID` to its region, ordered by id. A missing region is created at the end of the section, exits get a random unused `vless_route`. Exit nodes are written with a `hysteria` block next to `reality` (`obfs: true`, `sni` set to the hostname, `masquerade_url` set to `https://` plus the Reality dest, port kept unless it is 443), so a new exit serves Hysteria alongside VLESS+Reality and fits a `protocol: hysteria` region without hand edits. In a region with `lb_strategy` but no `lb_fallback`, the current first primary node is written as `lb_fallback`. Adding a node that is already present is a no-op.
 
@@ -143,25 +138,25 @@ Add `NODE_ID` to its region, ordered by id. A missing region is created at the e
 | `--reality-server-names LIST` | — | Comma-separated Reality `server_names`, requires `--reality-dest` |
 | `--reality-xhttp-path PATH` | — | Reality `xhttp_path`, required together with `--reality-dest` |
 
-### remove-node
+### remove
 
-Remove `NODE_ID` from its region. `hub_routes` entries and `lb_fallback` pointing at it are dropped with it, and so are `hub_routes` entries pointing at the region when this was its last node. An emptied region keeps its block and settings, renders nothing, and takes nodes again with `add-node`; other references (`hub_default`, portal `publish`) surface through the validation warning. A node that is not in the topology is skipped.
+Remove `NODE_ID` from its region. `hub_routes` entries and `lb_fallback` pointing at it are dropped with it, and so are `hub_routes` entries pointing at the region when this was its last node. An emptied region keeps its block and settings, renders nothing, and takes nodes again with `add`; other references (`hub_default`, portal `publish`) surface through the validation warning. A node that is not in the topology is skipped.
 
 **Examples:**
 
 ```bash
 # New exit node in the existing `nl` region
-hexrift topology add-node nlA40 --reality-dest www.samsung.com:443 \
+hexrift nodes add nlA40 --reality-dest www.samsung.com:443 \
   --reality-server-names www.samsung.com,samsung.com --reality-xhttp-path /login/
 
 # New hub node, hostname follows the other `msk` hubs
-hexrift topology add-node mskA30 --no-ipv6
+hexrift nodes add mskA30 --no-ipv6
 
 # First node of a new exit region, `--type` is required
-hexrift topology add-node frA00 --type exit
+hexrift nodes add frA00 --type exit
 
 # Decommission
-hexrift topology remove-node nlA40
+hexrift nodes remove nlA40
 ```
 
 ---
