@@ -22,11 +22,9 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
 
     @classmethod
     def expose_cli(cls, base: click.Group) -> None:
-        @base.group()
-        def topology() -> None:
-            """Edit nodes in topology YAML in place."""
+        nodes = cls.subgroup(base, "nodes")
 
-        @topology.command("add-node")
+        @nodes.command("add")
         @click.argument("node_id")
         @click.option(
             "--type",
@@ -117,7 +115,7 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
                 )
             _warn_invalid(app, result.validation_error)
 
-        @topology.command("remove-node")
+        @nodes.command("remove")
         @click.argument("node_id")
         @click.pass_obj
         def remove_node(app: HexRiftApp, node_id: str) -> None:

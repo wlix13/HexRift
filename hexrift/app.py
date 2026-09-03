@@ -39,7 +39,7 @@ click.rich_click.COMMAND_GROUPS = {
         },
         {
             "name": "Topology",
-            "commands": ["topology", "nodes"],
+            "commands": ["nodes"],
         },
     ],
 }
