@@ -85,7 +85,7 @@ def test_topology_group_count(real_app: HexRiftApp):
 
 @pytest.mark.integration
 def test_topology_region_count(real_app: HexRiftApp):
-    assert len(real_app.schema.config.regions) == 3
+    assert len(real_app.schema.config.regions) == 4
 
 
 @pytest.mark.integration
