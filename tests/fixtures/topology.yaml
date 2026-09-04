@@ -115,3 +115,10 @@ regions:
       - id: mskA00
         hostname: mskA00.ap.test.hexrift
         proxy_inbound: true
+  - id: jp
+    type: exit
+    vless_route: 3000
+    lb_strategy: leastLoad
+    warp:
+      vless_route: 3001
+    nodes:

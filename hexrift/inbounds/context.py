@@ -14,6 +14,7 @@ from hexrift.components.derive.topology import (
     build_balancers,
     build_burst_observatory_selectors,
     build_hub_routing_rules,
+    rendered_exit_regions,
     resolve_node_publishes,
 )
 from hexrift.components.keys.store import NodeKeys
@@ -125,7 +126,7 @@ def build_hub_context(
     ns = env.ns
 
     # Build exit outbounds
-    exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
+    exit_regions = rendered_exit_regions(config)
 
     ec = resolve_exit_connections(node, config.defaults)
     outbounds: list[LinkContext] = []

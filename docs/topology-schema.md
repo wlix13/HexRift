@@ -353,7 +353,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `lb_least_load` | `LeastLoadSettings` | no | leastLoad tuning |
 | `routing` | `RegionRouting` | no | Per-region routing overrides (exit only) |
 | `warp` | `WarpConfig` | no | Warp tunnel configuration |
-| `nodes` | `list[Node]` | yes | At least one node required |
+| `nodes` | `list[Node]` | yes | May be a bare key: a region without nodes keeps its settings, renders nothing, and is refused as `hub_default` or a `hub_routes` destination |
 
 ### `LeastLoadSettings`
 

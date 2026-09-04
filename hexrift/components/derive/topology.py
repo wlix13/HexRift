@@ -90,6 +90,10 @@ def build_publish_rules(published: list[PublishedPort]) -> list[dict]:
     return rules
 
 
+def rendered_exit_regions(config: ConglomerateConfig) -> list[Region]:
+    return [r for r in config.regions if r.type == RegionType.EXIT and r.nodes]
+
+
 def _resolve_fallback_tag(region: Region) -> str:
     if not region.nodes:
         raise DeriveError(f"Region {region.id!r} has no nodes")
@@ -219,7 +223,7 @@ def build_hub_routing_rules(config: ConglomerateConfig, published: list[Publishe
 
     ns = Namespace(config.global_.namespace)
     routing = config.routing
-    exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
+    exit_regions = rendered_exit_regions(config)
     region_map = {r.id: r for r in config.regions}
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
 

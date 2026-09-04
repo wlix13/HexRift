@@ -22,6 +22,15 @@ class BaseComponent(Generic[ApplicationType, ControllerType]):  # noqa: UP046
     def expose_cli(cls, base: click.Group) -> None:
         """Register Click commands on base group."""
 
+    @staticmethod
+    def subgroup(base: click.Group, name: str) -> click.Group:
+        """Group declared on `base` by the app, for commands several components contribute to."""
+
+        group = base.commands[name]
+        if not isinstance(group, click.Group):
+            raise TypeError(f"{name!r} on {base.name!r} is not a group")
+        return group
+
     def on_register(self) -> None:
         """Called after component is registered with application."""
 

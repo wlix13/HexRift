@@ -5,6 +5,7 @@ from hexrift.components.derive.topology import (
     publish_tag,
     region_outbound_tag,
     region_warp_outbound_tag,
+    rendered_exit_regions,
     resolve_node_publishes,
 )
 from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
@@ -336,6 +337,22 @@ class TestBuildHubRoutingRules:
         rules = _rules(cfg)
         assert [r for r in rules if "vlessRoute" in r] == []
         assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
+
+    def test_exit_region_without_nodes_renders_nothing(self):
+        d = _minimal_cfg_dict()
+        d["regions"].append(
+            {
+                "id": "exit2",
+                "type": "exit",
+                "vless_route": 2000,
+                "lb_strategy": "leastLoad",
+                "warp": {"vless_route": 2001},
+                "nodes": None,
+            }
+        )
+        cfg = ConglomerateConfig.model_validate(d)
+        assert [r.id for r in rendered_exit_regions(cfg)] == ["exit1"]
+        assert [r["vlessRoute"] for r in _rules(cfg) if "vlessRoute" in r] == ["1000"]
 
 
 def _cfg_with_publish(publish: list[dict], hub_node_ids: tuple[str, ...] = ("hubN1",)) -> ConglomerateConfig:
