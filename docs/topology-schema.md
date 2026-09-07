@@ -348,7 +348,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `protocol` | `vless \| hysteria` | no (exit only) | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
 | `hysteria` | `HysteriaOverride` | no (exit only) | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
-| `lb_strategy` | `str` | no | Load balancer strategy (e.g. `leastLoad`) |
+| `lb_strategy` | `str` | no | Load balancer strategy (e.g. `leastLoad`), rendered only while the region has more than one node |
 | `lb_fallback` | `str` | no | Fallback node ID (must be in this region) |
 | `lb_least_load` | `LeastLoadSettings` | no | leastLoad tuning |
 | `routing` | `RegionRouting` | no | Per-region routing overrides (exit only) |

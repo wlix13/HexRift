@@ -110,7 +110,7 @@ def _make_region(
     warp: WarpConfig | None = None,
 ) -> Region:
     if nodes is None:
-        nodes = [Node(id="n1", hostname="n1.test")]
+        nodes = [Node(id="n1", hostname="n1.test"), Node(id="n2", hostname="n2.test")]
     return Region.model_construct(
         id=region_id,
         type=rtype,
@@ -486,6 +486,15 @@ class TestBuildBalancers:
         result = build_balancers([r])
         assert len(result) == 1
         assert result[0]["tag"] == "lb-exit1"
+
+    def test_single_node_region_renders_without_balancer(self):
+        r = _make_region(
+            lb_strategy="random", warp=WarpConfig(vless_route=65535), nodes=[Node(id="n1", hostname="n1.test")]
+        )
+        assert build_balancers([r]) == []
+        assert build_burst_observatory_selectors([r]) == []
+        assert region_outbound_tag(r) == "n1"
+        assert region_warp_outbound_tag(r) == "warp-n1"
 
     def test_includes_warp_balancer(self):
         r = _make_region(
