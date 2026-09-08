@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.12.2](https://github.com/wlix13/HexRift/compare/v0.12.1...v0.12.2) (2026-09-08)
+
+
+### Features
+
+* **schema:** accept regions without nodes, hubs render nothing for them ([d410bff](https://github.com/wlix13/HexRift/commit/d410bffe5b7f9aa413ca2c529779e1a810b7dea8))
+* **topology:** add nodes group with list, add and remove commands ([36b9e54](https://github.com/wlix13/HexRift/commit/36b9e54d8d47f759e6626e7563eb118f3f3fd6ea))
+
+
+### Bug Fixes
+
+* **derive:** render single-node regions without balancer ([77760a7](https://github.com/wlix13/HexRift/commit/77760a72f2a14fa3cfd1cbc04b018a1a51026a0f))
+
+
+### Documentation
+
+* **topology:** document topology commands and nodes --json ([e09d665](https://github.com/wlix13/HexRift/commit/e09d665ec5f33027c19f55113dde7ed2dbf85b01))
+
 ## [0.12.1](https://github.com/wlix13/HexRift/compare/v0.12.0...v0.12.1) (2026-08-28)
 
 
