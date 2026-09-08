@@ -10,7 +10,8 @@ BaseApplication  (singleton registry + dependency injector)
     ├── SchemaComponent    → SchemaController    (app.schema)
     ├── DeriveComponent    → DeriveController    (app.derive)
     ├── KeysComponent      → KeysController      (app.keys)
-    └── RenderComponent    → RenderController    (app.render)
+    ├── RenderComponent    → RenderController    (app.render)
+    └── TopologyComponent  → TopologyController  (app.topology)
 ```
 
 ### `BaseApplication` (`hexrift/core/application.py`)
@@ -19,14 +20,14 @@ BaseApplication  (singleton registry + dependency injector)
 - Iterates `default_components` on `__init__`, calling `self.register(component_cls)`.
 - `register(...)` instantiates the component, stores it in `self.components`,
   exposes controller attributes (when enabled), then runs `component.on_register()`.
-- Exposes each controller as an attribute: `app.schema`, `app.derive`, `app.keys`, `app.render`.
+- Exposes each controller as an attribute: `app.schema`, `app.derive`, `app.keys`, `app.render`, `app.topology`.
 - Holds a shared `rich.Console` for all output.
 
 ### `BaseComponent` (`hexrift/core/component.py`)
 
 - Layer between Click CLI and business logic.
 - Defines `name`, `controller_class`, and optionally `expose_controller`.
-- `expose_cli(base: click.Group)` registers Click commands on the main group at import time.
+- `expose_cli(base: click.Group)` registers Click commands, or a command group the component owns (`nodes` in `TopologyComponent`), on the main group at import time.
 
 ### `BaseController` (`hexrift/core/controller.py`)
 
@@ -153,7 +154,7 @@ File permissions are set to `0o600` (owner read/write only).
 
 ## Adding a component
 
-Follow the pattern established by the existing four components:
+Follow the pattern established by the existing components:
 
 ### 1. Create module structure
 

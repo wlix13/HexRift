@@ -44,3 +44,10 @@ class RegionError(Error):
 
 class RenderError(Error):
     """Config rendering failed."""
+
+
+class TopologyError(Error):
+    """Topology file edit failed."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(escape(message))

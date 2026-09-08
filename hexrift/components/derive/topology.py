@@ -90,6 +90,10 @@ def build_publish_rules(published: list[PublishedPort]) -> list[dict]:
     return rules
 
 
+def rendered_exit_regions(config: ConglomerateConfig) -> list[Region]:
+    return [r for r in config.regions if r.type == RegionType.EXIT and r.nodes]
+
+
 def _resolve_fallback_tag(region: Region) -> str:
     if not region.nodes:
         raise DeriveError(f"Region {region.id!r} has no nodes")
@@ -114,12 +118,16 @@ def _build_strategy(region: Region) -> dict:
     return strategy
 
 
+def _balanced(region: Region) -> bool:
+    return region.lb_strategy is not None and len(region.nodes) > 1
+
+
 def build_balancers(exit_regions: list[Region]) -> list[dict]:
     """Build lb-{region} balancers (and lb-warp-{region} for warp-enabled regions) with lb_strategy."""
 
     balancers = []
     for region in exit_regions:
-        if region.lb_strategy is None:
+        if not _balanced(region):
             continue
         fb_tag = _resolve_fallback_tag(region)
         strategy = _build_strategy(region)
@@ -147,7 +155,7 @@ def build_balancers(exit_regions: list[Region]) -> list[dict]:
 def region_outbound_tag(region: Region) -> str:
     """Tag for routing to region: balancer tag or single node id."""
 
-    if region.lb_strategy is not None:
+    if _balanced(region):
         return f"{TagPrefix.LB}{region.id}"
     if not region.nodes:
         raise DeriveError(f"Region {region.id!r} has no nodes")
@@ -156,7 +164,7 @@ def region_outbound_tag(region: Region) -> str:
 
 
 def region_warp_outbound_tag(region: Region) -> str:
-    if region.lb_strategy is not None:
+    if _balanced(region):
         return f"{TagPrefix.LB_WARP}{region.id}"
     if not region.nodes:
         raise DeriveError(f"Region {region.id!r} has no nodes")
@@ -166,7 +174,7 @@ def region_warp_outbound_tag(region: Region) -> str:
 
 
 def _balancer_key(region: Region) -> str:
-    return "balancerTag" if region.lb_strategy is not None else "outboundTag"
+    return "balancerTag" if _balanced(region) else "outboundTag"
 
 
 def _route_user_filter(route: HubRoute, ns: Namespace) -> dict:
@@ -219,7 +227,7 @@ def build_hub_routing_rules(config: ConglomerateConfig, published: list[Publishe
 
     ns = Namespace(config.global_.namespace)
     routing = config.routing
-    exit_regions = [r for r in config.regions if r.type == RegionType.EXIT]
+    exit_regions = rendered_exit_regions(config)
     region_map = {r.id: r for r in config.regions}
     node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
 
@@ -354,7 +362,7 @@ def build_burst_observatory_selectors(exit_regions: list[Region]) -> list[str]:
 
     selectors: list[str] = []
     for region in exit_regions:
-        if region.lb_strategy is not None:
+        if _balanced(region):
             selectors.append(region.id)
             if region.warp is not None:
                 selectors.append(f"{TagPrefix.WARP}{region.id}")

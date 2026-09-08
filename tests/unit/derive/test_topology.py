@@ -5,6 +5,7 @@ from hexrift.components.derive.topology import (
     publish_tag,
     region_outbound_tag,
     region_warp_outbound_tag,
+    rendered_exit_regions,
     resolve_node_publishes,
 )
 from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
@@ -109,7 +110,7 @@ def _make_region(
     warp: WarpConfig | None = None,
 ) -> Region:
     if nodes is None:
-        nodes = [Node(id="n1", hostname="n1.test")]
+        nodes = [Node(id="n1", hostname="n1.test"), Node(id="n2", hostname="n2.test")]
     return Region.model_construct(
         id=region_id,
         type=rtype,
@@ -337,6 +338,22 @@ class TestBuildHubRoutingRules:
         assert [r for r in rules if "vlessRoute" in r] == []
         assert rules[-1] == {"network": "TCP,UDP", "outboundTag": "direct"}
 
+    def test_exit_region_without_nodes_renders_nothing(self):
+        d = _minimal_cfg_dict()
+        d["regions"].append(
+            {
+                "id": "exit2",
+                "type": "exit",
+                "vless_route": 2000,
+                "lb_strategy": "leastLoad",
+                "warp": {"vless_route": 2001},
+                "nodes": None,
+            }
+        )
+        cfg = ConglomerateConfig.model_validate(d)
+        assert [r.id for r in rendered_exit_regions(cfg)] == ["exit1"]
+        assert [r["vlessRoute"] for r in _rules(cfg) if "vlessRoute" in r] == ["1000"]
+
 
 def _cfg_with_publish(publish: list[dict], hub_node_ids: tuple[str, ...] = ("hubN1",)) -> ConglomerateConfig:
     d = _minimal_cfg_dict()
@@ -469,6 +486,15 @@ class TestBuildBalancers:
         result = build_balancers([r])
         assert len(result) == 1
         assert result[0]["tag"] == "lb-exit1"
+
+    def test_single_node_region_renders_without_balancer(self):
+        r = _make_region(
+            lb_strategy="random", warp=WarpConfig(vless_route=65535), nodes=[Node(id="n1", hostname="n1.test")]
+        )
+        assert build_balancers([r]) == []
+        assert build_burst_observatory_selectors([r]) == []
+        assert region_outbound_tag(r) == "n1"
+        assert region_warp_outbound_tag(r) == "warp-n1"
 
     def test_includes_warp_balancer(self):
         r = _make_region(
