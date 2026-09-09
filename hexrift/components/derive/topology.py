@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region
+from hexrift.components.schema.models.regions import ExitRegion, HubNode, LeastLoadSettings
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
 from hexrift.constants import (
@@ -13,7 +13,6 @@ from hexrift.constants import (
     LbRole,
     LbStrategy,
     PublishNetwork,
-    RegionType,
     SpecialDestination,
     TagPrefix,
     TagSuffix,
@@ -45,7 +44,7 @@ class PublishedPort:
     allow: list[str]
 
 
-def resolve_node_publishes(config: ConglomerateConfig, node: Node) -> list[PublishedPort]:
+def resolve_node_publishes(config: ConglomerateConfig, node: HubNode) -> list[PublishedPort]:
     """Published ports resolved by single hub node, in portal then declaration order."""
 
     resolved: list[PublishedPort] = []
@@ -90,11 +89,11 @@ def build_publish_rules(published: list[PublishedPort]) -> list[dict]:
     return rules
 
 
-def rendered_exit_regions(config: ConglomerateConfig) -> list[Region]:
-    return [r for r in config.regions if r.type == RegionType.EXIT and r.nodes]
+def rendered_exit_regions(config: ConglomerateConfig) -> list[ExitRegion]:
+    return [r for r in config.exit_regions if r.nodes]
 
 
-def _resolve_fallback_tag(region: Region) -> str:
+def _resolve_fallback_tag(region: ExitRegion) -> str:
     if not region.nodes:
         raise DeriveError(f"Region {region.id!r} has no nodes")
     if region.lb_fallback is None:
@@ -108,7 +107,7 @@ def _resolve_fallback_tag(region: Region) -> str:
     return region.lb_fallback
 
 
-def _build_strategy(region: Region) -> dict:
+def _build_strategy(region: ExitRegion) -> dict:
     """Build strategy for balancer with leastLoad settings when applicable."""
 
     strategy: dict = {"type": region.lb_strategy}
@@ -118,11 +117,11 @@ def _build_strategy(region: Region) -> dict:
     return strategy
 
 
-def _balanced(region: Region) -> bool:
+def _balanced(region: ExitRegion) -> bool:
     return region.lb_strategy is not None and len(region.nodes) > 1
 
 
-def build_balancers(exit_regions: list[Region]) -> list[dict]:
+def build_balancers(exit_regions: list[ExitRegion]) -> list[dict]:
     """Build lb-{region} balancers (and lb-warp-{region} for warp-enabled regions) with lb_strategy."""
 
     balancers = []
@@ -152,7 +151,7 @@ def build_balancers(exit_regions: list[Region]) -> list[dict]:
     return balancers
 
 
-def region_outbound_tag(region: Region) -> str:
+def region_outbound_tag(region: ExitRegion) -> str:
     """Tag for routing to region: balancer tag or single node id."""
 
     if _balanced(region):
@@ -163,7 +162,7 @@ def region_outbound_tag(region: Region) -> str:
     return primary[0].id if primary else region.nodes[0].id
 
 
-def region_warp_outbound_tag(region: Region) -> str:
+def region_warp_outbound_tag(region: ExitRegion) -> str:
     if _balanced(region):
         return f"{TagPrefix.LB_WARP}{region.id}"
     if not region.nodes:
@@ -173,7 +172,7 @@ def region_warp_outbound_tag(region: Region) -> str:
     return f"{TagPrefix.WARP}{node.id}"
 
 
-def _balancer_key(region: Region) -> str:
+def _balancer_key(region: ExitRegion) -> str:
     return "balancerTag" if _balanced(region) else "outboundTag"
 
 
@@ -228,8 +227,8 @@ def build_hub_routing_rules(config: ConglomerateConfig, published: list[Publishe
     ns = Namespace(config.global_.namespace)
     routing = config.routing
     exit_regions = rendered_exit_regions(config)
-    region_map = {r.id: r for r in config.regions}
-    node_map = {n.id: (r, n) for r in config.regions for n in r.nodes}
+    region_map = {r.id: r for r in config.exit_regions}
+    node_map = {n.id: (r, n) for r in config.exit_regions for n in r.nodes}
 
     # 0. Published ports: ahead of every other rule so none can re-steer published connections
     rules: list[dict] = build_publish_rules(published)
@@ -357,7 +356,7 @@ def build_hub_routing_rules(config: ConglomerateConfig, published: list[Publishe
     return rules
 
 
-def build_burst_observatory_selectors(exit_regions: list[Region]) -> list[str]:
+def build_burst_observatory_selectors(exit_regions: list[ExitRegion]) -> list[str]:
     """Selectors for burstObservatory: all regions with LB + warp variants for warp-enabled."""
 
     selectors: list[str] = []

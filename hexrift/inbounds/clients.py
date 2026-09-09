@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import Node
+from hexrift.components.schema.models.regions import ExitNode, HubNode
 from hexrift.components.schema.models.users import User
 from hexrift.constants import VLESS_FLOW, AccessType
 
@@ -31,8 +31,8 @@ def hysteria_users(clients: list[ClientEntry]) -> list[HysteriaUser]:
 
 
 def get_exit_clients(
-    hub_nodes: list[Node],
-    exit_node: Node,
+    hub_nodes: list[HubNode],
+    exit_node: ExitNode,
     ns: Namespace,
     flow: str = VLESS_FLOW,
 ) -> list[ClientEntry]:

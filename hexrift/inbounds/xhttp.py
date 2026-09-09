@@ -131,7 +131,7 @@ class XhttpSpec(InboundSpec[XhttpContext]):
     def build_context(self, env: InboundEnv) -> XhttpContext:
         reality = resolve_node_reality(env.node, env.region, env.config.defaults)
         if env.role == RegionType.EXIT:
-            clients = get_exit_clients(env.hub_nodes, env.node, env.ns, flow=env.node_keys.flow)
+            clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow)
             short_ids = [env.ns.exit_short_id(env.node.id)]
         else:
             clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)

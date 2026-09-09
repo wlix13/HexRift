@@ -1,4 +1,4 @@
-from hexrift.components.schema.models.regions import Node
+from hexrift.components.schema.models.regions import HubNode
 from hexrift.inbounds.proxy import PROXY_SPEC, ProxyContext, resolve_node_proxy_inbound
 from tests.unit.inbounds.helpers import make_defaults
 from tests.unit.render.helpers import make_shared
@@ -6,15 +6,15 @@ from tests.unit.render.helpers import make_shared
 
 class TestResolveNodeProxyInbound:
     def test_node_override_wins(self):
-        node = Node(id="n", hostname="h.example.com", proxy_inbound=True)
+        node = HubNode(id="n", hostname="h.example.com", proxy_inbound=True)
         assert resolve_node_proxy_inbound(node, make_defaults(proxy_inbound=False)) is True
 
     def test_node_override_disables(self):
-        node = Node(id="n", hostname="h.example.com", proxy_inbound=False)
+        node = HubNode(id="n", hostname="h.example.com", proxy_inbound=False)
         assert resolve_node_proxy_inbound(node, make_defaults(proxy_inbound=True)) is False
 
     def test_falls_back_to_hub_default(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         assert resolve_node_proxy_inbound(node, make_defaults(proxy_inbound=True)) is True
 
 

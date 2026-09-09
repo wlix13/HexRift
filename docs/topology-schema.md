@@ -311,7 +311,7 @@ portals:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `hub_default` | `str` | yes | — | Default region tag for unmatched hub traffic; must reference an existing `regions[].id` |
+| `hub_default` | `str` | yes | — | Default destination for unmatched hub traffic: an exit region id or a special destination (`direct`, `blocked`, `warp`) |
 | `exit_warp_global` | `list[str]` | no | `[]` | Domain list routed to the warp interface on all exit nodes |
 | `exit_routes_global` | `list[ExitRoute]` | no | `[]` | Global exit routing rules applied to all exit nodes |
 | `hub_routes` | `list[HubRoute]` | no | `[]` | Hub routing rules (ordered; first match wins) |
@@ -340,20 +340,33 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 
 ## `regions`
 
+`type` picks the model: `exit` regions validate as `ExitRegion` holding `ExitNode`s, `hub` regions as `HubRegion` holding `HubNode`s. A field of the other kind (`vless_route` on a hub region, `xdns` on an exit node) is rejected as an unknown field.
+
+### `ExitRegion`
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | `str` | yes | Unique region identifier |
-| `type` | `exit \| hub` | yes | Region type |
-| `vless_route` | `int` | exit only | Numeric route tag; must be unique across all regions |
-| `protocol` | `vless \| hysteria` | no (exit only) | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
-| `hysteria` | `HysteriaOverride` | no (exit only) | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
+| `type` | `exit` | yes | Region type |
+| `vless_route` | `int` | yes | Numeric route tag; must be unique across all regions |
+| `protocol` | `vless \| hysteria` | no | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
+| `hysteria` | `HysteriaOverride` | no | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
 | `lb_strategy` | `str` | no | Load balancer strategy (e.g. `leastLoad`), rendered only while the region has more than one node |
 | `lb_fallback` | `str` | no | Fallback node ID (must be in this region) |
 | `lb_least_load` | `LeastLoadSettings` | no | leastLoad tuning |
-| `routing` | `RegionRouting` | no | Per-region routing overrides (exit only) |
+| `routing` | `RegionRouting` | no | Per-region routing overrides |
 | `warp` | `WarpConfig` | no | Warp tunnel configuration |
-| `nodes` | `list[Node]` | yes | May be a bare key: a region without nodes keeps its settings, renders nothing, and is refused as `hub_default` or a `hub_routes` destination |
+| `nodes` | `list[ExitNode]` | yes | May be a bare key: a region without nodes keeps its settings, renders nothing, and is refused as `hub_default` or a `hub_routes` destination |
+
+### `HubRegion`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `str` | yes | Unique region identifier |
+| `type` | `hub` | yes | Region type |
+| `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
+| `nodes` | `list[HubNode]` | yes | May be a bare key, as for exit regions |
 
 ### `LeastLoadSettings`
 
@@ -379,21 +392,36 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 
 ---
 
-## `Node`
+## `ExitNode`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | `str` | yes | Unique node identifier (globally unique across all regions) |
 | `hostname` | `str` | yes | Node FQDN |
 | `ipv6` | `bool` | no | Override default IPv6 setting |
+| `haproxy` | `bool` | no | Override `defaults.exit.haproxy` |
 | `lb_role` | `backup` | no | Mark as load-balancer backup node |
-| `reality` | `RealityConfig` | exit nodes | Reality TLS config (required for all exit nodes) |
+| `reality` | `RealityConfig` | yes | Reality config hubs dial |
 | `keys` | `NodeKeysOverride` | no | Override default key settings |
-| `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings (hub nodes) |
-| `proxy_inbound` | `bool` | no | Override proxy inbound setting (hub nodes) |
-| `xdns` | `XdnsConfig` | no | Override XDNS settings (hub nodes) |
-| `wireguard` | `NodeWireguardOverride` | no | Override WireGuard settings (hub nodes) |
-| `hysteria` | `HysteriaOverride` | no | Override Hysteria settings; on hubs it also enables the listener without `defaults.hub.hysteria`, on exit nodes it makes the node serve a Hysteria listener regardless of `protocol` |
+| `hysteria` | `HysteriaOverride` | no | Node-level overlay on the region's Hysteria settings; makes the node serve a Hysteria listener regardless of `protocol` |
+| `observability` | `ObservabilityOverride` | no | Override metrics and logging settings |
+
+## `HubNode`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `str` | yes | Unique node identifier (globally unique across all regions) |
+| `hostname` | `str` | yes | Node FQDN |
+| `ipv6` | `bool` | no | Override default IPv6 setting |
+| `haproxy` | `bool` | no | Override `defaults.hub.haproxy` |
+| `reality` | `RealityConfig` | no | Replaces `defaults.hub.reality` for this node |
+| `keys` | `NodeKeysOverride` | no | Override default key settings |
+| `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings |
+| `proxy_inbound` | `bool` | no | Override proxy inbound setting |
+| `xdns` | `XdnsConfig` | no | Override XDNS settings |
+| `wireguard` | `NodeWireguardOverride` | no | Override WireGuard settings |
+| `hysteria` | `HysteriaOverride` | no | Override Hysteria settings; also enables the listener without `defaults.hub.hysteria` |
+| `observability` | `ObservabilityOverride` | no | Override metrics and logging settings |
 
 ### `RealityConfig`
 
@@ -464,7 +492,7 @@ XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.
 global:
   namespace: mynet
   aphelion_domain: exit.example.com
-  bridge_domain: hub.example.com
+
 
 defaults:
   exit:
@@ -498,7 +526,7 @@ users:
     access: [xhttp, cdn, wireguard, xdns]
 
 routing:
-  hub_default: hub-eu
+  hub_default: exit-nl
 
 regions:
   - id: exit-nl

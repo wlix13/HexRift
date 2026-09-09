@@ -9,7 +9,7 @@ from hexrift.components.schema.models.defaults import (
     ObservatoryConfig,
 )
 from hexrift.components.schema.models.portals import Portal, PortalRoutes
-from hexrift.components.schema.models.regions import HysteriaConfig, Node, Region, WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import HubNode, HubRegion, HysteriaConfig, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
@@ -78,11 +78,11 @@ def make_portal(
     )
 
 
-def make_hub_region(**kwargs) -> Region:
+def make_hub_region(**kwargs) -> HubRegion:
     defaults = {
         "id": "hub1",
         "type": RegionType.HUB,
-        "nodes": [Node(id="hubN1", hostname="h.test.ns")],
+        "nodes": [HubNode(id="hubN1", hostname="h.test.ns")],
     }
     defaults.update(kwargs)
-    return Region.model_validate(defaults)
+    return HubRegion.model_validate(defaults)

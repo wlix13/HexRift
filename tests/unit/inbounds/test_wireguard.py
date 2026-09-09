@@ -6,7 +6,7 @@ import pytest
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.wireguard import derive_user_wireguard_keypair, iter_hub_wireguard_allocs
 from hexrift.components.keys.store import NodeKeys
-from hexrift.components.schema.models.regions import Node, NodeWireguardOverride, WireguardConfig
+from hexrift.components.schema.models.regions import HubNode, NodeWireguardOverride, WireguardConfig
 from hexrift.components.schema.models.resolve import resolve_node_wireguard
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.errors import DeriveError
@@ -22,20 +22,20 @@ _PRIV = "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"  # any 32-byte urlsafe-b64
 
 class TestResolveNodeWireguard:
     def test_falls_back_to_hub_default(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         result = resolve_node_wireguard(node, make_defaults(wireguard=_BASE_WG))
         assert result == _BASE_WG
 
     def test_none_when_unconfigured(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         assert resolve_node_wireguard(node, make_defaults()) is None
 
     def test_override_disabled(self):
-        node = Node(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(enabled=False))
+        node = HubNode(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(enabled=False))
         assert resolve_node_wireguard(node, make_defaults(wireguard=_BASE_WG)) is None
 
     def test_override_merges_on_base(self):
-        node = Node(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(port=51820))
+        node = HubNode(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(port=51820))
         result = resolve_node_wireguard(node, make_defaults(wireguard=_BASE_WG))
         assert result is not None
         assert result.port == 51820
@@ -43,12 +43,12 @@ class TestResolveNodeWireguard:
         assert result.keepalive == 25  # from base
 
     def test_override_without_subnet_or_base_raises(self):
-        node = Node(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(port=51820))
+        node = HubNode(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(port=51820))
         with pytest.raises(DeriveError):
             resolve_node_wireguard(node, make_defaults())
 
     def test_override_subnet_without_base(self):
-        node = Node(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(subnet="10.9.0.0/24"))
+        node = HubNode(id="n", hostname="h.example.com", wireguard=NodeWireguardOverride(subnet="10.9.0.0/24"))
         result = resolve_node_wireguard(node, make_defaults())
         assert result is not None
         assert result.subnet == "10.9.0.0/24"

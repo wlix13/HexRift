@@ -26,7 +26,7 @@ from hexrift.components.schema.models.observability import (
     ObservabilityConfig,
     ObservabilityOverride,
 )
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, LogLevel, RegionType, TlsFingerprint
 from hexrift.errors import DeriveError
@@ -51,13 +51,13 @@ def _defaults() -> DefaultsConfig:
     )
 
 
-def _exit_region(**kwargs) -> Region:
+def _exit_region(**kwargs) -> ExitRegion:
     defaults = {
         "id": "exit1",
         "type": RegionType.EXIT,
         "vless_route": 1000,
         "nodes": [
-            Node(
+            ExitNode(
                 id="exitN1",
                 hostname="e.test.ns",
                 reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"),
@@ -65,22 +65,22 @@ def _exit_region(**kwargs) -> Region:
         ],
     }
     defaults.update(kwargs)
-    return Region.model_validate(defaults)
+    return ExitRegion.model_validate(defaults)
 
 
-def _hub_region(**kwargs) -> Region:
+def _hub_region(**kwargs) -> HubRegion:
     defaults = {
         "id": "hub1",
         "type": RegionType.HUB,
         "nodes": [
-            Node(
+            HubNode(
                 id="hubN1",
                 hostname="h.test.ns",
             ),
         ],
     }
     defaults.update(kwargs)
-    return Region.model_validate(defaults)
+    return HubRegion.model_validate(defaults)
 
 
 def _global(observability: ObservabilityConfig | None = None) -> GlobalConfig:
@@ -94,24 +94,24 @@ def _global(observability: ObservabilityConfig | None = None) -> GlobalConfig:
 class TestResolveNodeReality:
     def test_node_override_returned_as_is(self):
         node_reality = RealityConfig(dest="b.com:443", xhttp_path="/b/")
-        node = Node(id="n", hostname="h.example.com", reality=node_reality)
+        node = ExitNode(id="n", hostname="h.example.com", reality=node_reality)
         result = resolve_node_reality(node, _exit_region(), _defaults())
         assert result.dest == "b.com:443"
 
     def test_hub_node_falls_back_to_hub_default(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         result = resolve_node_reality(node, _hub_region(), _defaults())
         assert result.dest == _HUB_REALITY.dest
 
     def test_exit_node_no_reality_raises(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = ExitNode(id="n", hostname="h.example.com")
         # Build exit region manually without requiring node reality (region doesn't validate this)
-        region = Region(
+        region = ExitRegion(
             id="exit1",
             type=RegionType.EXIT,
             vless_route=1000,
             nodes=[
-                Node(
+                ExitNode(
                     id="n",
                     hostname="h.example.com",
                 ),
@@ -123,27 +123,27 @@ class TestResolveNodeReality:
 
 class TestResolveNodeIpv6:
     def test_node_override_true(self):
-        node = Node(id="n", hostname="h", ipv6=True)
+        node = ExitNode(id="n", hostname="h", ipv6=True)
         assert resolve_node_ipv6(node, _exit_region(), _defaults()) is True
 
     def test_node_override_false(self):
-        node = Node(id="n", hostname="h", ipv6=False)
+        node = ExitNode(id="n", hostname="h", ipv6=False)
         assert resolve_node_ipv6(node, _exit_region(), _defaults()) is False
 
     def test_exit_default_when_none(self):
-        node = Node(id="n", hostname="h")
+        node = ExitNode(id="n", hostname="h")
         # defaults().exit.ipv6 = True
         assert resolve_node_ipv6(node, _exit_region(), _defaults()) is True
 
     def test_hub_default_when_none(self):
-        node = Node(id="n", hostname="h")
+        node = HubNode(id="n", hostname="h")
         # defaults().hub.ipv6 = False
         assert resolve_node_ipv6(node, _hub_region(), _defaults()) is False
 
 
 class TestResolveNodeHaproxy:
     def test_node_override_false(self):
-        node = Node(id="n", hostname="h", haproxy=False)
+        node = ExitNode(id="n", hostname="h", haproxy=False)
         assert resolve_node_haproxy(node, _exit_region(), _defaults()) is False
 
     def test_node_override_true_beats_default(self):
@@ -157,13 +157,13 @@ class TestResolveNodeHaproxy:
                 observatory=ObservatoryConfig(),
             ),
         )
-        node = Node(id="n", hostname="h", haproxy=True)
+        node = ExitNode(id="n", hostname="h", haproxy=True)
         assert resolve_node_haproxy(node, _exit_region(), defaults) is True
 
     def test_default_true_when_none(self):
-        node = Node(id="n", hostname="h")
+        node = ExitNode(id="n", hostname="h")
         assert resolve_node_haproxy(node, _exit_region(), _defaults()) is True
-        assert resolve_node_haproxy(node, _hub_region(), _defaults()) is True
+        assert resolve_node_haproxy(HubNode(id="n", hostname="h"), _hub_region(), _defaults()) is True
 
     def test_exit_default_false_honored(self):
         defaults = DefaultsConfig(
@@ -176,10 +176,10 @@ class TestResolveNodeHaproxy:
                 observatory=ObservatoryConfig(),
             ),
         )
-        node = Node(id="n", hostname="h")
+        node = ExitNode(id="n", hostname="h")
         assert resolve_node_haproxy(node, _exit_region(), defaults) is False
         # hub default still True
-        assert resolve_node_haproxy(node, _hub_region(), defaults) is True
+        assert resolve_node_haproxy(HubNode(id="n", hostname="h"), _hub_region(), defaults) is True
 
 
 class TestResolveNodeObservability:
@@ -192,14 +192,14 @@ class TestResolveNodeObservability:
                 },
             )
         )
-        node = Node(id="n", hostname="h")
+        node = HubNode(id="n", hostname="h")
         result = resolve_node_observability(node, _hub_region(), _defaults(), global_)
         assert result.metrics.enabled is True
         assert result.metrics.port == 9000
         assert result.logging.loglevel is LogLevel.INFO
 
     def test_built_in_defaults_when_nothing_configured(self):
-        node = Node(id="n", hostname="h")
+        node = HubNode(id="n", hostname="h")
         result = resolve_node_observability(node, _hub_region(), _defaults(), _global())
         assert result.metrics.enabled is False
         assert result.metrics.listen == IPv4Address("127.0.0.1")
@@ -228,7 +228,7 @@ class TestResolveNodeObservability:
                 observability=ObservabilityOverride(metrics=MetricsOverride(enabled=True)),
             ),
         )
-        node = Node(id="n", hostname="h")
+        node = HubNode(id="n", hostname="h")
         result = resolve_node_observability(node, _hub_region(), defaults, global_)
         assert result.metrics.enabled is True  # role override wins
         assert result.metrics.port == 9000  # inherited from global (role didn't set it)
@@ -245,7 +245,7 @@ class TestResolveNodeObservability:
                 observability=ObservabilityOverride(metrics=MetricsOverride(enabled=True)),
             ),
         )
-        node = Node(id="n", hostname="h")
+        node = ExitNode(id="n", hostname="h")
         # exit region: hub-scoped role override must not apply
         result = resolve_node_observability(node, _exit_region(), defaults, _global())
         assert result.metrics.enabled is False
@@ -276,7 +276,7 @@ class TestResolveNodeObservability:
                 ),
             ),
         )
-        node = Node(
+        node = HubNode(
             id="n",
             hostname="h",
             observability=ObservabilityOverride(
@@ -303,7 +303,7 @@ class TestResolveNodeObservability:
                 },
             )
         )
-        node = Node(
+        node = HubNode(
             id="n",
             hostname="h",
             observability=ObservabilityOverride(
@@ -319,7 +319,7 @@ class TestResolveNodeObservability:
         assert result.logging.loglevel is LogLevel.NONE
 
     def test_node_logging_override_independent_of_metrics(self):
-        node = Node(
+        node = HubNode(
             id="n",
             hostname="h",
             observability=ObservabilityOverride(

@@ -7,7 +7,7 @@ from hexrift.components.schema.models.defaults import (
     KeysConfig,
     ObservatoryConfig,
 )
-from hexrift.components.schema.models.regions import Node, NodeKeysOverride, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, NodeKeysOverride
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
 
@@ -31,14 +31,14 @@ def _defaults() -> DefaultsConfig:
     )
 
 
-def _exit_region() -> Region:
-    return Region.model_validate(
+def _exit_region() -> ExitRegion:
+    return ExitRegion.model_validate(
         {
             "id": "exit1",
             "type": RegionType.EXIT,
             "vless_route": 1000,
             "nodes": [
-                Node(
+                ExitNode(
                     id="exitN1",
                     hostname="e.test.ns",
                     reality=RealityConfig(
@@ -51,13 +51,13 @@ def _exit_region() -> Region:
     )
 
 
-def _hub_region() -> Region:
-    return Region.model_validate(
+def _hub_region() -> HubRegion:
+    return HubRegion.model_validate(
         {
             "id": "hub1",
             "type": RegionType.HUB,
             "nodes": [
-                Node(
+                HubNode(
                     id="hubN1",
                     hostname="h.test.ns",
                 )
@@ -68,29 +68,29 @@ def _hub_region() -> Region:
 
 class TestResolveNodeKeys:
     def test_exit_no_override_returns_exit_defaults(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = ExitNode(id="n", hostname="h.example.com")
         result = resolve_node_keys(node, _exit_region(), _defaults())
         assert result.auth == "mlkem768"
         assert result.mode == "native"
 
     def test_hub_no_override_returns_hub_defaults(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         result = resolve_node_keys(node, _hub_region(), _defaults())
         assert result.auth == "x25519"
 
     def test_override_mode_replaces_base(self):
-        node = Node(id="n", hostname="h.example.com", keys=NodeKeysOverride(mode="auto"))
+        node = ExitNode(id="n", hostname="h.example.com", keys=NodeKeysOverride(mode="auto"))
         result = resolve_node_keys(node, _exit_region(), _defaults())
         assert result.mode == "auto"
         assert result.session_time == "600s"  # not overridden
 
     def test_override_enabled_false(self):
-        node = Node(id="n", hostname="h.example.com", keys=NodeKeysOverride(enabled=False))
+        node = ExitNode(id="n", hostname="h.example.com", keys=NodeKeysOverride(enabled=False))
         result = resolve_node_keys(node, _exit_region(), _defaults())
         assert result.enabled is False
 
     def test_partial_override_keeps_base_fields(self):
-        node = Node(id="n", hostname="h.example.com", keys=NodeKeysOverride(session_time="300s"))
+        node = ExitNode(id="n", hostname="h.example.com", keys=NodeKeysOverride(session_time="300s"))
         result = resolve_node_keys(node, _exit_region(), _defaults())
         assert result.session_time == "300s"
         assert result.mode == "native"  # from base

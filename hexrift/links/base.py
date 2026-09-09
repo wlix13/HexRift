@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from hexrift.components.derive.identity import Namespace
     from hexrift.components.keys.store import NodeKeys
     from hexrift.components.schema.models.defaults import ExitConnectionsConfig
-    from hexrift.components.schema.models.regions import Node, Region
+    from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode
     from hexrift.components.schema.models.root import ConglomerateConfig
     from hexrift.constants import ExitProtocol
 
@@ -37,9 +37,9 @@ class LinkEnv:
     """Inputs for dialing one exit node from one hub node."""
 
     config: ConglomerateConfig
-    hub: Node
-    exit_region: Region
-    exit_node: Node
+    hub: HubNode
+    exit_region: ExitRegion
+    exit_node: ExitNode
     exit_keys: NodeKeys
     ns: Namespace
     exit_connections: ExitConnectionsConfig

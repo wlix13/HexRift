@@ -10,6 +10,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from hexrift.components.derive.controller import DeriveController
+from hexrift.components.schema.models.regions import ExitNode
 from hexrift.components.schema.models.resolve import resolve_node_hysteria
 from hexrift.constants import AccessType, RegionType
 from hexrift.core.component import BaseComponent
@@ -226,7 +227,7 @@ def _print_topology(app: HexRiftApp) -> None:
             r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]{extra_str}")
         for node in region.nodes:
             tags = []
-            if node.lb_role:
+            if isinstance(node, ExitNode) and node.lb_role:
                 tags.append(f"LB: [dim]{node.lb_role}[/dim]")
             tag_str = "  " + " ".join(tags) if tags else ""
             r_branch.add(f"[bold]{node.id}[/bold]  [dim]{node.hostname}[/dim]{tag_str}")

@@ -55,7 +55,7 @@ class WireguardSpec(InboundSpec[WireguardContext]):
     context_type = WireguardContext
 
     def build_context(self, env: InboundEnv) -> WireguardContext | None:
-        wireguard = resolve_node_wireguard(env.node, env.config.defaults)
+        wireguard = resolve_node_wireguard(env.hub_node, env.config.defaults)
         if wireguard is None:
             return None
         peers = get_hub_wireguard_peers(
