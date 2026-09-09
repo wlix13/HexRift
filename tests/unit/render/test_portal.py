@@ -4,6 +4,8 @@ from hexrift.components.keys.store import NodeKeys
 from hexrift.components.render.portal import build_portal_config, build_portal_rules
 from hexrift.components.schema.models.portals import Portal
 from hexrift.components.schema.models.root import ConglomerateConfig
+from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
+from hexrift.shared.xray_defaults import make_sockopt
 
 
 KEYS = NodeKeys(
@@ -24,7 +26,11 @@ def _portal(**overrides: Any) -> Portal:
     return Portal.model_validate(base)
 
 
-def _config(**portal_overrides: Any) -> ConglomerateConfig:
+def _config(
+    tls: dict[str, Any] | None = None,
+    access: list[str] | None = None,
+    **portal_overrides: Any,
+) -> ConglomerateConfig:
     portal: dict[str, Any] = {
         "id": "home",
         "users": ["alice"],
@@ -65,7 +71,7 @@ def _config(**portal_overrides: Any) -> ConglomerateConfig:
                 {
                     "username": "alice",
                     "group": "grp1",
-                    "access": ["xhttp"],
+                    "access": access or ["xhttp"],
                 }
             ],
             "portals": [portal],
@@ -76,12 +82,8 @@ def _config(**portal_overrides: Any) -> ConglomerateConfig:
                 {
                     "id": "hub1",
                     "type": "hub",
-                    "nodes": [
-                        {
-                            "id": "hubN1",
-                            "hostname": "h.t.ns",
-                        }
-                    ],
+                    **({"tls": tls} if tls else {}),
+                    "nodes": [{"id": "hubN1", "hostname": "h.t.ns"}],
                 },
             ],
         }
@@ -242,3 +244,17 @@ class TestBuildPortalConfig:
                 "outboundTag": "direct",
             },
         ]
+
+
+class TestTlsHubDial:
+    def test_tls_hub_is_dialed_over_tls_at_its_hostname(self):
+        cfg = _config(tls={"certificate": {"cert_file": "/c", "key_file": "/k"}, "xhttp_path": "/t/"}, access=["tls"])
+        out = build_portal_config(cfg, "home", {"hubN1": KEYS}, "chrome")["outbounds"][0]
+        assert out["tag"] == "portal-hubN1"
+        assert out["streamSettings"] == {
+            "network": "xhttp",
+            "security": "tls",
+            "tlsSettings": {"serverName": "h.t.ns", "alpn": ["h2", "http/1.1"], "fingerprint": "chrome"},
+            "xhttpSettings": {"host": "h.t.ns", "path": "/t/", "mode": "auto", "extra": XHTTP_EXTRA, "xmux": XMUX},
+            "sockopt": make_sockopt(None),
+        }

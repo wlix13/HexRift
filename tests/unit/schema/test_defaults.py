@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hexrift.components.schema.models.defaults import ExitConnectionsConfig, KeysConfig, ObservatoryConfig
+from hexrift.components.schema.models.defaults import ExitConnectionsConfig, HubDefaults, KeysConfig, ObservatoryConfig
 from hexrift.constants import HandshakeMethod, TlsFingerprint
 
 
@@ -119,4 +119,27 @@ class TestExitConnectionsConfig:
                     "method": "mlkem768x25519plus",
                     "fingerprint": "netscape",
                 },
+            )
+
+
+class TestHubDefaults:
+    @pytest.mark.parametrize(
+        "direct",
+        [
+            {},
+            {
+                "reality": {"dest": "a.com:443", "xhttp_path": "/x/"},
+                "tls": {"certificate": {"cert_file": "/c", "key_file": "/k"}},
+            },
+        ],
+    )
+    def test_exactly_one_direct_security(self, direct: dict):
+        with pytest.raises(ValidationError, match="exactly one of reality or tls"):
+            HubDefaults.model_validate(
+                {
+                    "ipv6": True,
+                    "keys": {"mode": "native", "session_time": "600s"},
+                    "exit_connections": {"method": "mlkem768x25519plus"},
+                    **direct,
+                }
             )

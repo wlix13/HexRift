@@ -26,7 +26,14 @@ from hexrift.components.schema.models.observability import (
     ObservabilityConfig,
     ObservabilityOverride,
 )
-from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion
+from hexrift.components.schema.models.regions import (
+    CertificateFiles,
+    ExitNode,
+    ExitRegion,
+    HubNode,
+    HubRegion,
+    TlsConfig,
+)
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, LogLevel, RegionType, TlsFingerprint
 from hexrift.errors import DeriveError
@@ -370,3 +377,28 @@ class TestDeriveXhttpHost:
         )
         with pytest.raises(DeriveError, match="missing"):
             derive_xhttp_host(r)
+
+
+def _tls_defaults() -> DefaultsConfig:
+    return DefaultsConfig(
+        exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS),
+        hub=HubDefaults(
+            ipv6=False,
+            keys=_HUB_KEYS,
+            exit_connections=_EXIT_CONNS,
+            tls=TlsConfig(certificate=CertificateFiles(cert_file="/c", key_file="/k")),
+            observatory=ObservatoryConfig(),
+        ),
+    )
+
+
+class TestHubRealityLevels:
+    def test_region_reality_beats_default_and_node_beats_region(self):
+        region = _hub_region(reality=RealityConfig(dest="r.com:443", xhttp_path="/r/"))
+        assert resolve_node_reality(HubNode(id="n", hostname="h"), region, _defaults()).dest == "r.com:443"
+        node = HubNode(id="n", hostname="h", reality=RealityConfig(dest="b.com:443", xhttp_path="/b/"))
+        assert resolve_node_reality(node, region, _defaults()).dest == "b.com:443"
+
+    def test_tls_region_has_no_reality(self):
+        with pytest.raises(DeriveError, match="serves TLS"):
+            resolve_node_reality(HubNode(id="n", hostname="h"), _hub_region(), _tls_defaults())
