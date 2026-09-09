@@ -226,7 +226,7 @@ class TestBuildShareUrls:
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
         restricted_app = HexRiftApp(yaml_path=p)
-        with pytest.raises(DeriveError, match="does not have XHTTP access"):
+        with pytest.raises(DeriveError, match="does not have xhttp or tls access"):
             restricted_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
 
     def test_cdn_not_configured_raises(self, app: HexRiftApp, tmp_path: Path):

@@ -140,8 +140,9 @@ class TestRegionDispatch:
         ],
     )
     def test_other_kind_fields_rejected(self, region: dict, field: str):
-        with pytest.raises(ValidationError, match=f"{field}\\n  Extra inputs are not permitted"):
+        with pytest.raises(ValidationError) as e:
             TypeAdapter(list[Region]).validate_python([region])
+        assert [(err["type"], err["loc"][-1]) for err in e.value.errors()] == [("extra_forbidden", field)]
 
 
 class TestRegionValidation:

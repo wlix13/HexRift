@@ -106,7 +106,7 @@ class TestGenKeysCommand:
             "--keys-dir",
             str(tmp_path),
         )
-        assert "3 generated" in result.output
+        assert "4 generated" in result.output
 
     def test_skip_existing_without_force(self, tmp_path):
         invoke(
@@ -357,12 +357,14 @@ class TestNodesCommand:
             {"id": "nlA00", "hostname": "nlA00.ap.test.hexrift", "region": "nl", "type": "exit"},
             {"id": "deA00", "hostname": "deA00.ap.test.hexrift", "region": "de", "type": "exit"},
             {"id": "mskA00", "hostname": "mskA00.ap.test.hexrift", "region": "msk", "type": "hub"},
+            {"id": "spbA00", "hostname": "spbA00.ap.test.hexrift", "region": "spb", "type": "hub"},
         ]
 
     def test_json_output_honours_type_filter(self):
         result = invoke("--yaml", str(FIXTURE_TOPOLOGY), "nodes", "list", "--json", "--type", "hub")
         assert json.loads(result.output) == [
             {"id": "mskA00", "hostname": "mskA00.ap.test.hexrift", "region": "msk", "type": "hub"},
+            {"id": "spbA00", "hostname": "spbA00.ap.test.hexrift", "region": "spb", "type": "hub"},
         ]
 
 

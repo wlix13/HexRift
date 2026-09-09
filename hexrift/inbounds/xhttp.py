@@ -1,4 +1,4 @@
-"""Direct VLESS inbound over XHTTP with Reality."""
+"""Direct VLESS inbound over XHTTP with Reality or TLS."""
 
 from __future__ import annotations
 
@@ -12,10 +12,12 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.groups import Group
+from hexrift.components.schema.models.resolve import resolve_region_tls
 from hexrift.components.schema.models.shared import RealityConfig, RealityFallbackLimits
 from hexrift.constants import (
     REALITY_INBOUND_PORT,
     VLESS_FLOW,
+    XHTTP_TLS_ALPN,
     AccessType,
     RegionType,
     Socket,
@@ -23,14 +25,16 @@ from hexrift.constants import (
     XrayProtocol,
     XraySecurity,
 )
+from hexrift.errors import RenderError
 from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
-from hexrift.inbounds.clients import ClientEntry, get_exit_clients
+from hexrift.inbounds.clients import ClientEntry, get_exit_clients, get_hub_access_clients
 from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
 if TYPE_CHECKING:
     from hexrift.components.schema.models.portals import Portal
+    from hexrift.components.schema.models.regions import CertificateFiles, TlsConfig
     from hexrift.components.schema.models.users import User
 
 
@@ -70,16 +74,21 @@ def get_hub_vless_clients(
                         "flow": flow,
                     }
                 )
-    for portal in portals:
-        clients.append(
-            {
-                "email": ns.portal_email(portal.id),
-                "id": str(ns.portal_uuid(portal.id, override=portal.uuid)),
-                "flow": flow,
-                "reverse": {"tag": portal_tag(portal.id)},
-            }
-        )
-    return clients
+    return clients + get_portal_clients(portals, ns, flow)
+
+
+def get_portal_clients(portals: list[Portal], ns: Namespace, flow: str = VLESS_FLOW) -> list[ClientEntry]:
+    """One reverse client per portal."""
+
+    return [
+        {
+            "email": ns.portal_email(portal.id),
+            "id": str(ns.portal_uuid(portal.id, override=portal.uuid)),
+            "flow": flow,
+            "reverse": {"tag": portal_tag(portal.id)},
+        }
+        for portal in portals
+    ]
 
 
 def get_hub_short_ids(groups: list[Group], ns: Namespace) -> list[str]:
@@ -114,13 +123,22 @@ def get_hub_user_short_ids(users: list[User], ns: Namespace) -> list[str]:
 @dataclass(frozen=True)
 class XhttpContext(InboundContext):
     clients: list[ClientEntry]  # exit: hub-exit UUIDs; hub: users + servers + guests + portals
+    xhttp_host: str
+    xhttp_path: str
+
+
+@dataclass(frozen=True)
+class RealityXhttpContext(XhttpContext):
     short_ids: list[str]  # exit: single exit shortId; hub: group + per-user shortIds
     dest: str
     server_names: list[str]
     private_key: str
-    xhttp_host: str
-    xhttp_path: str
     fallback_limits: RealityFallbackLimits
+
+
+@dataclass(frozen=True)
+class TlsXhttpContext(XhttpContext):
+    certificate: CertificateFiles  # operator cert for xhttp_host, node hostname
 
 
 class XhttpSpec(InboundSpec[XhttpContext]):
@@ -129,25 +147,39 @@ class XhttpSpec(InboundSpec[XhttpContext]):
     context_type = XhttpContext
 
     def build_context(self, env: InboundEnv) -> XhttpContext:
-        reality = resolve_node_reality(env.node, env.region, env.config.defaults)
         if env.role == RegionType.EXIT:
             clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow)
-            short_ids = [env.ns.exit_short_id(env.node.id)]
-        else:
-            clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)
-            short_ids = (
-                get_hub_short_ids(env.config.groups, env.ns)
-                + get_hub_portal_short_ids(env.config.portals, env.ns)
-                + get_hub_user_short_ids(env.config.users, env.ns)
+            return self._reality_context(env, clients, [env.ns.exit_short_id(env.node.id)])
+        tls = resolve_region_tls(env.hub_region, env.config.defaults)
+        if tls is not None:
+            return TlsXhttpContext(
+                clients=get_hub_access_clients(
+                    env.config.users, env.ns, AccessType.TLS, env.node_keys.flow, include_server=True
+                )
+                + get_portal_clients(env.config.portals, env.ns, env.node_keys.flow),
+                xhttp_host=env.node.hostname,
+                xhttp_path=tls.xhttp_path,
+                certificate=tls.certificate,
             )
-        return XhttpContext(
+        clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)
+        short_ids = (
+            get_hub_short_ids(env.config.groups, env.ns)
+            + get_hub_portal_short_ids(env.config.portals, env.ns)
+            + get_hub_user_short_ids(env.config.users, env.ns)
+        )
+        return self._reality_context(env, clients, short_ids)
+
+    @staticmethod
+    def _reality_context(env: InboundEnv, clients: list[ClientEntry], short_ids: list[str]) -> RealityXhttpContext:
+        reality = resolve_node_reality(env.node, env.region, env.config.defaults)
+        return RealityXhttpContext(
             clients=clients,
+            xhttp_host=derive_xhttp_host(reality),
+            xhttp_path=reality.xhttp_path,
             short_ids=short_ids,
             dest=reality.dest,
             server_names=derive_server_names(reality),
             private_key=env.node_keys.reality_private_key,
-            xhttp_host=derive_xhttp_host(reality),
-            xhttp_path=reality.xhttp_path,
             fallback_limits=reality.fallback_limits,
         )
 
@@ -161,6 +193,29 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             # Xray binds only IPv4 if `0.0.0.0`, dualstack if `::` (if no ipv6Only sockopt)
             fragment["listen"] = "::" if shared.ipv6 else "0.0.0.0"  # noqa: S104
             fragment["port"] = REALITY_INBOUND_PORT
+        if isinstance(ctx, TlsXhttpContext):
+            security = XraySecurity.TLS
+            settings: dict = {
+                "alpn": list(XHTTP_TLS_ALPN),
+                "certificates": [
+                    {"certificateFile": ctx.certificate.cert_file, "keyFile": ctx.certificate.key_file},
+                ],
+            }
+        elif isinstance(ctx, RealityXhttpContext):
+            security = XraySecurity.REALITY
+            settings = {
+                "xver": 0,
+                "show": False,
+                "maxTimeDiff": 60000,
+                "dest": ctx.dest,
+                "serverNames": ctx.server_names,
+                "privateKey": ctx.private_key,
+                "shortIds": ctx.short_ids,
+                "limitFallbackUpload": ctx.fallback_limits.xray_settings,
+                "limitFallbackDownload": ctx.fallback_limits.xray_settings,
+            }
+        else:
+            raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
         fragment.update(
             {
                 "protocol": XrayProtocol.VLESS,
@@ -170,19 +225,9 @@ class XhttpSpec(InboundSpec[XhttpContext]):
                 },
                 "streamSettings": {
                     "network": XrayNetwork.XHTTP,
-                    "security": XraySecurity.REALITY,
+                    "security": security,
                     "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path),
-                    "realitySettings": {
-                        "xver": 0,
-                        "show": False,
-                        "maxTimeDiff": 60000,
-                        "dest": ctx.dest,
-                        "serverNames": ctx.server_names,
-                        "privateKey": ctx.private_key,
-                        "shortIds": ctx.short_ids,
-                        "limitFallbackUpload": ctx.fallback_limits.xray_settings,
-                        "limitFallbackDownload": ctx.fallback_limits.xray_settings,
-                    },
+                    f"{security}Settings": settings,  # Xray keys them realitySettings / tlsSettings
                     "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
                 },
                 "sniffing": make_sniffing(shared.route_only),
@@ -220,6 +265,34 @@ def build_reality_share_url(
             "type=xhttp",
             f"host={xhttp_host}",
             f"path={quote(reality.xhttp_path, safe='')}",
+            "mode=auto",
+        ]
+    )
+    return f"vless://{identity_uuid}@{hostname}:443?{params}#{quote(fragment, safe='')}"
+
+
+def build_tls_share_url(
+    *,
+    identity_uuid: UUID,
+    hostname: str,
+    hub_keys: NodeKeys,
+    tls: TlsConfig,
+    fingerprint: str,
+    fragment: str,
+) -> str:
+    """Build direct share URL: VLESS over XHTTP with TLS."""
+
+    params = "&".join(
+        [
+            f"encryption={hub_keys.encryption}",
+            f"flow={hub_keys.client_flow}",
+            f"security={XraySecurity.TLS}",
+            f"sni={hostname}",
+            f"fp={fingerprint}",
+            f"alpn={quote(','.join(XHTTP_TLS_ALPN), safe='')}",
+            "type=xhttp",
+            f"host={hostname}",
+            f"path={quote(tls.xhttp_path, safe='')}",
             "mode=auto",
         ]
     )

@@ -517,7 +517,7 @@ def test_portal_publish_reality_port_reserved():
             },
         ]
     )
-    with pytest.raises(ValidationError, match="already binds it for the reality inbound"):
+    with pytest.raises(ValidationError, match="already binds it for the direct inbound"):
         ConglomerateConfig.model_validate(d)
 
 
@@ -835,9 +835,7 @@ def test_hub_node_opting_out_unbound_by_hub_defaults():
 def test_exit_metrics_port_colliding_with_reality_rejected():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["nodes"][0]["observability"] = {"metrics": {"enabled": True, "port": 443}}
-    with pytest.raises(
-        ValidationError, match="the metrics api listener and the reality inbound both bind tcp port 443"
-    ):
+    with pytest.raises(ValidationError, match="the metrics api listener and the direct inbound both bind tcp port 443"):
         ConglomerateConfig.model_validate(d)
 
 

@@ -1,8 +1,8 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from hexrift.components.schema.models.fields import Duration
 from hexrift.components.schema.models.observability import ObservabilityOverride
-from hexrift.components.schema.models.regions import HysteriaConfig, WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import HysteriaConfig, TlsConfig, WireguardConfig, XdnsConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, TlsFingerprint
 
@@ -51,12 +51,19 @@ class HubDefaults(BaseModel):
     haproxy: bool = True
     keys: KeysConfig
     exit_connections: ExitConnectionsConfig
-    reality: RealityConfig
+    reality: RealityConfig | None = None
+    tls: TlsConfig | None = None
     xdns: XdnsConfig | None = None
     wireguard: WireguardConfig | None = None
     hysteria: HysteriaConfig | None = None
     observatory: ObservatoryConfig = Field(default_factory=ObservatoryConfig)
     observability: ObservabilityOverride | None = None
+
+    @model_validator(mode="after")
+    def _one_direct_security(self) -> "HubDefaults":
+        if (self.reality is None) == (self.tls is None):
+            raise ValueError("defaults.hub: set exactly one of reality or tls for direct inbound")
+        return self
 
 
 class DefaultsConfig(BaseModel):

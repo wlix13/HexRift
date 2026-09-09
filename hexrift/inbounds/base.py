@@ -11,7 +11,7 @@ from typing import ClassVar
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import ObservabilityConfig
-from hexrift.components.schema.models.regions import ExitNode, HubNode, Node, Region
+from hexrift.components.schema.models.regions import ExitNode, HubNode, HubRegion, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, RegionType
 from hexrift.errors import RenderError
@@ -58,6 +58,12 @@ class InboundEnv:
     @cached_property
     def hub_nodes(self) -> list[HubNode]:
         return [n for r in self.config.hub_regions for n in r.nodes]
+
+    @property
+    def hub_region(self) -> HubRegion:
+        if not isinstance(self.region, HubRegion):
+            raise RenderError(f"Region {self.region.id!r} is not a hub region")
+        return self.region
 
     @property
     def hub_node(self) -> HubNode:

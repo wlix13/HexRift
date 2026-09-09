@@ -44,7 +44,7 @@ groups:
 users:
   - username: alice
     group: main
-    access: [xhttp, cdn, server, proxy, wireguard, hysteria]
+    access: [xhttp, tls, cdn, server, proxy, wireguard, hysteria]
   - username: bob
     group: guest
     access: [xhttp, wireguard, xdns]
@@ -122,3 +122,16 @@ regions:
     warp:
       vless_route: 3001
     nodes:
+  - id: spb
+    type: hub
+    tls:
+      certificate:
+        cert_file: /usr/local/etc/xray/certs/fullchain.pem
+        key_file: /usr/local/etc/xray/certs/privkey.pem
+      xhttp_path: /tls/
+    nodes:
+      - id: spbA00
+        hostname: spbA00.ap.test.hexrift
+        haproxy: false
+        hysteria:
+          enabled: false

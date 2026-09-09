@@ -16,6 +16,11 @@
             "email": "mskA00-nlA00@test.hexrift",
             "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
             "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "spbA00-nlA00@test.hexrift",
+            "id": "9e39f5a5-f052-560c-917f-408e1e96cf6f",
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "mlkem768x25519plus.native.600s.7hyY0QXmAnhSh5YLX0S57wzhQTgOGjchWxCYDiJEh4gMrNjOmJHvnYRWTzGZwkyJrwAnFJ42ixBvMnR2s5hB0w"
@@ -95,6 +100,11 @@
             "email": "mskA00-nlA00@test.hexrift",
             "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
             "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "spbA00-nlA00@test.hexrift",
+            "id": "9e39f5a5-f052-560c-917f-408e1e96cf6f",
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "mlkem768x25519plus.native.600s.7hyY0QXmAnhSh5YLX0S57wzhQTgOGjchWxCYDiJEh4gMrNjOmJHvnYRWTzGZwkyJrwAnFJ42ixBvMnR2s5hB0w"
@@ -161,6 +171,10 @@
           {
             "auth": "17d3c9f0-7373-5f77-9298-e18c4055e471",
             "email": "mskA00-nlA00@test.hexrift"
+          },
+          {
+            "auth": "9e39f5a5-f052-560c-917f-408e1e96cf6f",
+            "email": "spbA00-nlA00@test.hexrift"
           }
         ]
       },

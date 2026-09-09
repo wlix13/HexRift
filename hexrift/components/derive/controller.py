@@ -17,7 +17,7 @@ from hexrift.components.derive.wireguard import (
     render_wireguard_client_conf,
 )
 from hexrift.components.schema.models.regions import HubNode, HubRegion
-from hexrift.components.schema.models.resolve import resolve_node_hysteria, resolve_node_wireguard
+from hexrift.components.schema.models.resolve import resolve_node_hysteria, resolve_node_wireguard, resolve_region_tls
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
     WIREGUARD_CLIENT_DNS,
@@ -28,7 +28,7 @@ from hexrift.core.controller import BaseController
 from hexrift.errors import DeriveError
 from hexrift.inbounds.cdn import build_cdn_share_url
 from hexrift.inbounds.hysteria import build_hysteria_share_url
-from hexrift.inbounds.xhttp import build_reality_share_url
+from hexrift.inbounds.xhttp import build_reality_share_url, build_tls_share_url
 from hexrift.shared.crypto import x25519_urlsafe_to_std
 
 
@@ -240,18 +240,38 @@ class DeriveController(BaseController["HexRiftApp"]):
             results.append((f"{owner}  Hysteria  {identity.label}", url))
         return results
 
-    def _reality_share_urls(
+    def _direct_share_urls(
         self,
         hub_node_pairs: list[tuple[HubRegion, HubNode]],
+        user: User,
         identity: _Identity,
         short_id: str,
         keys_dir: Path,
         fingerprint: str,
+        *,
+        server: bool,
     ) -> list[tuple[str, str]]:
         cfg = self.app.schema.config
         results: list[tuple[str, str]] = []
         seen_default_regions: set[str] = set()
         for hub_region, hub_node in hub_node_pairs:
+            tls = resolve_region_tls(hub_region, cfg.defaults)
+            if tls is not None:
+                if AccessType.TLS not in user.access:
+                    continue
+                # Cert names host, so TLS URLs are per node
+                url = build_tls_share_url(
+                    identity_uuid=identity.uuid,
+                    hostname=hub_node.hostname,
+                    hub_keys=self.app.keys.load_node_keys(hub_node.id, keys_dir),
+                    tls=tls,
+                    fingerprint=fingerprint,
+                    fragment=f"{hub_node.id}-{identity.label}",
+                )
+                results.append((f"{hub_node.id}  TLS  {identity.label}", url))
+                continue
+            if not server and AccessType.XHTTP not in user.access:
+                continue
             # Deduplicate: nodes sharing region-default reality → one URL per region
             if hub_node.reality is None:
                 if hub_region.id in seen_default_regions:
@@ -285,7 +305,7 @@ class DeriveController(BaseController["HexRiftApp"]):
         server: bool = False,
         all_guests: bool = False,
     ) -> list[tuple[str, str]]:
-        """Share URLs (Reality, CDN or Hysteria) for a user, guest, server, or all guests, as (label, url) pairs."""
+        """Share URLs for user, guest, server, or all guests, as (label, url) pairs."""
 
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
@@ -315,8 +335,8 @@ class DeriveController(BaseController["HexRiftApp"]):
         elif hysteria:
             if AccessType.HYSTERIA not in user.access:
                 raise DeriveError(f"User {username!r} does not have Hysteria access")
-        elif not server and AccessType.XHTTP not in user.access:
-            raise DeriveError(f"User {username!r} does not have XHTTP access")
+        elif not server and not {AccessType.XHTTP, AccessType.TLS} & set(user.access):
+            raise DeriveError(f"User {username!r} does not have xhttp or tls access")
 
         identity = self._resolve_identity(user, ns, guest=guest, server=server)
 
@@ -332,10 +352,12 @@ class DeriveController(BaseController["HexRiftApp"]):
         elif hysteria:
             results = self._hysteria_share_urls(hub_node_pairs, identity, keys_dir)
         else:
-            results = self._reality_share_urls(hub_node_pairs, identity, g_short_id, keys_dir, fingerprint)
+            results = self._direct_share_urls(
+                hub_node_pairs, user, identity, g_short_id, keys_dir, fingerprint, server=server
+            )
 
         if not results:
-            kind = "CDN" if cdn else "Hysteria" if hysteria else "Reality"
+            kind = "CDN" if cdn else "Hysteria" if hysteria else "direct"
             raise DeriveError(f"No {kind} hub nodes found for user {username!r}")
         return results
 

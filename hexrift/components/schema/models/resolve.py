@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from hexrift.components.schema.models.observability import MetricsConfig
-from hexrift.components.schema.models.regions import HysteriaConfig, WireguardConfig
+from hexrift.components.schema.models.regions import HysteriaConfig, TlsConfig, WireguardConfig
 from hexrift.constants import ExitProtocol, RegionType
 from hexrift.errors import DeriveError
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from hexrift.components.schema.models.regions import (
         ExitRegion,
         HubNode,
+        HubRegion,
         HysteriaOverride,
         Node,
         NodeWireguardOverride,
@@ -76,6 +77,23 @@ def resolve_node_wireguard(node: HubNode, defaults: DefaultsConfig) -> Wireguard
         keepalive=override.keepalive if override.keepalive is not None else (base.keepalive if base else 0),
         kernel_mode=override.kernel_mode if override.kernel_mode is not None else (base.kernel_mode if base else False),
     )
+
+
+def resolve_region_tls(region: HubRegion, defaults: DefaultsConfig) -> TlsConfig | None:
+    """TLS config of hub region's direct inbounds, None when region serves Reality."""
+
+    if region.reality is not None:
+        return None
+    base = defaults.hub.tls
+    if region.tls is None:
+        return base
+    if base is None:
+        if region.tls.certificate is None:
+            raise DeriveError(
+                f"Hub region {region.id!r}: tls.certificate must be set (defaults.hub.tls is not configured)"
+            )
+        base = TlsConfig(certificate=region.tls.certificate)
+    return overlay(base, region.tls)
 
 
 def resolve_link_protocol(region: ExitRegion) -> ExitProtocol:

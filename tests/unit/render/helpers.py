@@ -12,7 +12,7 @@ from hexrift.inbounds.hysteria import HysteriaContext
 from hexrift.inbounds.proxy import ProxyContext
 from hexrift.inbounds.wireguard import WireguardContext
 from hexrift.inbounds.xdns import XdnsContext
-from hexrift.inbounds.xhttp import XhttpContext
+from hexrift.inbounds.xhttp import RealityXhttpContext, XhttpContext
 from hexrift.links.hysteria import HysteriaLinkContext
 
 
@@ -45,7 +45,7 @@ def make_xhttp(**overrides: Any) -> XhttpContext:
         "fallback_limits": RealityFallbackLimits(),
     }
     defaults.update(overrides)
-    return XhttpContext(**defaults)
+    return RealityXhttpContext(**defaults)
 
 
 def make_cdn(**overrides: Any) -> CdnContext:
