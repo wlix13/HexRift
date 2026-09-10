@@ -64,24 +64,24 @@ def get_hub_access_clients(
         user_base = ns.user_uuid(u.username, override=u.uuid)
         clients.append(
             {
-                "id": str(user_base),
                 "email": ns.user_email(u.username),
+                "id": str(user_base),
                 "flow": flow,
             }
         )
         if include_server and AccessType.SERVER in u.access:
             clients.append(
                 {
-                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
                     "email": ns.server_email(u.username),
+                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
                     "flow": flow,
                 }
             )
         for label in u.guests:
             clients.append(
                 {
-                    "id": str(ns.guest_uuid(label, u.username, user_base=user_base)),
                     "email": ns.guest_email(label, u.username),
+                    "id": str(ns.guest_uuid(label, u.username, user_base=user_base)),
                     "flow": flow,
                 }
             )

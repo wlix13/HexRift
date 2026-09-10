@@ -134,13 +134,13 @@
       "settings": {
         "clients": [
           {
-            "id": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6",
             "email": "alice@test.hexrift",
+            "id": "4fb83369-f8f1-534f-bf6c-6bd0fdaf2fa6",
             "flow": "xtls-rprx-vision"
           },
           {
-            "id": "57391a98-59cb-56ae-aa8e-e3f7a166e09e",
             "email": "alice-server@alice",
+            "id": "57391a98-59cb-56ae-aa8e-e3f7a166e09e",
             "flow": "xtls-rprx-vision"
           }
         ],
@@ -228,18 +228,18 @@
       "settings": {
         "clients": [
           {
-            "id": "a5f242a8-5b2f-5415-bc2a-1ef107ce93cd",
             "email": "bob@test.hexrift",
+            "id": "a5f242a8-5b2f-5415-bc2a-1ef107ce93cd",
             "flow": ""
           },
           {
-            "id": "34b1975b-5059-5875-9c97-4acf78b1e35f",
             "email": "laptop@bob",
+            "id": "34b1975b-5059-5875-9c97-4acf78b1e35f",
             "flow": ""
           },
           {
-            "id": "6f416c36-94e2-5562-9a2e-86eca9847f59",
             "email": "phone@bob",
+            "id": "6f416c36-94e2-5562-9a2e-86eca9847f59",
             "flow": ""
           }
         ],
