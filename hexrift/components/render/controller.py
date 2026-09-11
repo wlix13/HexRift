@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from hexrift.components.render.haproxy import render_haproxy
 from hexrift.components.render.portal import build_portal_config
 from hexrift.components.render.xray import build_exit_config, build_hub_config, serialize_config
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
 from hexrift.errors import RenderError
@@ -42,19 +43,18 @@ class RenderController(BaseController["HexRiftApp"]):
     def _build_context(self, node_id: str, keys_dir: Path) -> ExitContext | HubContext:
         """Build context for node."""
 
-        region, node = self.app.schema.get_node(node_id)
         cfg = self.app.schema.config
+        pair = self.app.schema.get_node(node_id)
         node_keys = self.app.keys.load_node_keys(node_id, keys_dir)
 
-        if region.type == RegionType.EXIT:
-            return build_exit_context(cfg, region, node, node_keys)
-        exit_node_keys = {
-            n.id: self.app.keys.load_node_keys(n.id, keys_dir)
-            for r in cfg.regions
-            if r.type == RegionType.EXIT
-            for n in r.nodes
-        }
-        return build_hub_context(cfg, region, node, node_keys, exit_node_keys)
+        match pair:
+            case (ExitRegion() as region, ExitNode() as node):
+                return build_exit_context(cfg, region, node, node_keys)
+            case (HubRegion() as region, HubNode() as node):
+                exit_node_keys = {
+                    n.id: self.app.keys.load_node_keys(n.id, keys_dir) for r in cfg.exit_regions for n in r.nodes
+                }
+                return build_hub_context(cfg, region, node, node_keys, exit_node_keys)
 
     @staticmethod
     def _xray_config(ctx: ExitContext | HubContext) -> dict:

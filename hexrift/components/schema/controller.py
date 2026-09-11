@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import yaml
 from pydantic import ValidationError
 
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import ExitRegion, HubRegion, NodePair, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
@@ -49,14 +49,21 @@ class SchemaController(BaseController["HexRiftApp"]):
             return self.load(self.app.yaml_path)
         return self._config
 
-    def get_exit_regions(self) -> list[Region]:
-        return [r for r in self.config.regions if r.type == RegionType.EXIT]
+    def get_exit_regions(self) -> list[ExitRegion]:
+        return self.config.exit_regions
 
-    def get_hub_regions(self) -> list[Region]:
-        return [r for r in self.config.regions if r.type == RegionType.HUB]
+    def get_hub_regions(self) -> list[HubRegion]:
+        return self.config.hub_regions
 
-    def get_all_nodes(self) -> list[tuple[Region, Node]]:
-        return [(region, node) for region in self.config.regions for node in region.nodes]
+    def get_all_nodes(self) -> list[NodePair]:
+        pairs: list[NodePair] = []
+        for region in self.config.regions:
+            # same body twice, ty narrows node type per branch only
+            if region.type == RegionType.EXIT:
+                pairs.extend((region, node) for node in region.nodes)
+            else:
+                pairs.extend((region, node) for node in region.nodes)
+        return pairs
 
     def get_region(self, region_id: str) -> Region:
         for region in self.config.regions:
@@ -64,9 +71,8 @@ class SchemaController(BaseController["HexRiftApp"]):
                 return region
         raise RegionError(f"Region not found: {region_id!r}")
 
-    def get_node(self, node_id: str) -> tuple[Region, Node]:
-        for region in self.config.regions:
-            for node in region.nodes:
-                if node.id == node_id:
-                    return region, node
+    def get_node(self, node_id: str) -> NodePair:
+        for pair in self.get_all_nodes():
+            if pair[1].id == node_id:
+                return pair
         raise NodeError(f"Node not found: {node_id!r}")

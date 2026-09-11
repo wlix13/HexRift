@@ -24,6 +24,7 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.render.haproxy import render_haproxy
 from hexrift.components.render.portal import build_portal_config
 from hexrift.components.render.xray import build_exit_config, build_hub_config, serialize_config
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion
 from hexrift.constants import RegionType
 from hexrift.inbounds.context import build_exit_context, build_hub_context
 
@@ -40,26 +41,19 @@ def _build_for_node(node_id: str) -> tuple[bytes, str]:
     """Build xray config bytes + haproxy cfg for node using committed keys."""
 
     app = HexRiftApp(yaml_path=FIXTURE_TOPOLOGY)
-    region, node = app.schema.get_node(node_id)
     cfg = app.schema.config
     node_keys = app.keys.load_node_keys(node_id, FIXTURE_KEYS_DIR)
 
-    if region.type == RegionType.EXIT:
-        ctx = build_exit_context(cfg, region, node, node_keys)
-        xray_config = build_exit_config(ctx)
-        haproxy_cfg = render_haproxy(ctx)
-    else:
-        exit_node_keys = {
-            n.id: app.keys.load_node_keys(n.id, FIXTURE_KEYS_DIR)
-            for r in cfg.regions
-            if r.type == RegionType.EXIT
-            for n in r.nodes
-        }
-        ctx = build_hub_context(cfg, region, node, node_keys, exit_node_keys)
-        xray_config = build_hub_config(ctx)
-        haproxy_cfg = render_haproxy(ctx)
-
-    return serialize_config(xray_config), haproxy_cfg
+    match app.schema.get_node(node_id):
+        case (ExitRegion() as region, ExitNode() as node):
+            exit_ctx = build_exit_context(cfg, region, node, node_keys)
+            return serialize_config(build_exit_config(exit_ctx)), render_haproxy(exit_ctx)
+        case (HubRegion() as region, HubNode() as node):
+            exit_node_keys = {
+                n.id: app.keys.load_node_keys(n.id, FIXTURE_KEYS_DIR) for r in cfg.exit_regions for n in r.nodes
+            }
+            hub_ctx = build_hub_context(cfg, region, node, node_keys, exit_node_keys)
+            return serialize_config(build_hub_config(hub_ctx)), render_haproxy(hub_ctx)
 
 
 @pytest.mark.integration

@@ -19,7 +19,7 @@ from hexrift.components.derive.topology import (
 )
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.defaults import ObservatoryConfig
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, LbRole, RegionType, TagPrefix
 from hexrift.inbounds.base import InboundContext, InboundEnv, SharedContext
@@ -75,8 +75,8 @@ def _make_shared(config: ConglomerateConfig, region: Region, node: Node, node_ke
 
 def build_exit_context(
     config: ConglomerateConfig,
-    region: Region,
-    node: Node,
+    region: ExitRegion,
+    node: ExitNode,
     node_keys: NodeKeys,
 ) -> ExitContext:
     env = InboundEnv(config, region, node, node_keys)
@@ -116,8 +116,8 @@ def build_exit_context(
 
 def build_hub_context(
     config: ConglomerateConfig,
-    region: Region,
-    node: Node,
+    region: HubRegion,
+    node: HubNode,
     node_keys: NodeKeys,
     exit_node_keys: dict[str, NodeKeys],  # {exitNodeId: NodeKeys}
 ) -> HubContext:

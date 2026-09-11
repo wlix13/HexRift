@@ -16,7 +16,7 @@ from hexrift.components.derive.wireguard import (
     iter_hub_wireguard_allocs,
     render_wireguard_client_conf,
 )
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import HubNode, HubRegion
 from hexrift.components.schema.models.resolve import resolve_node_hysteria, resolve_node_wireguard
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
@@ -93,14 +93,14 @@ class DeriveController(BaseController["HexRiftApp"]):
             )
         return _Identity(user_base, ns.user_email(user.username), user.username)
 
-    def _hub_node_pairs(self, hub_id: str | None) -> list[tuple[Region, Node]]:
+    def _hub_node_pairs(self, hub_id: str | None) -> list[tuple[HubRegion, HubNode]]:
         cfg = self.app.schema.config
         if hub_id is not None:
-            hub_region, hub_node = self.app.schema.get_node(hub_id)
-            if hub_region.type != RegionType.HUB:
-                raise DeriveError(f"Node {hub_id!r} is not a hub node")
-            return [(hub_region, hub_node)]
-        return [(region, node) for region in cfg.regions if region.type == RegionType.HUB for node in region.nodes]
+            match self.app.schema.get_node(hub_id):
+                case (HubRegion() as hub_region, HubNode() as hub_node):
+                    return [(hub_region, hub_node)]
+            raise DeriveError(f"Node {hub_id!r} is not a hub node")
+        return [(region, node) for region in cfg.hub_regions for node in region.nodes]
 
     def _for_all_guests(self, user: User, build_one: Callable[[str], list[tuple[str, str]]]) -> list[tuple[str, str]]:
         if not user.guests:
@@ -167,7 +167,7 @@ class DeriveController(BaseController["HexRiftApp"]):
 
     def _cdn_share_urls(
         self,
-        hub_node_pairs: list[tuple[Region, Node]],
+        hub_node_pairs: list[tuple[HubRegion, HubNode]],
         identity: _Identity,
         short_id: str,
         keys_dir: Path,
@@ -198,7 +198,7 @@ class DeriveController(BaseController["HexRiftApp"]):
 
     def _hysteria_share_urls(
         self,
-        hub_node_pairs: list[tuple[Region, Node]],
+        hub_node_pairs: list[tuple[HubRegion, HubNode]],
         identity: _Identity,
         keys_dir: Path,
     ) -> list[tuple[str, str]]:
@@ -242,7 +242,7 @@ class DeriveController(BaseController["HexRiftApp"]):
 
     def _reality_share_urls(
         self,
-        hub_node_pairs: list[tuple[Region, Node]],
+        hub_node_pairs: list[tuple[HubRegion, HubNode]],
         identity: _Identity,
         short_id: str,
         keys_dir: Path,
@@ -419,7 +419,7 @@ class DeriveController(BaseController["HexRiftApp"]):
     def derive_nodes(self) -> list[views.Node]:
         cfg = self.app.schema.config
         ns = Namespace(cfg.global_.namespace)
-        hub_nodes = [n for r in cfg.regions if r.type == RegionType.HUB for n in r.nodes]
+        hub_nodes = [n for r in cfg.hub_regions for n in r.nodes]
         rows: list[views.Node] = []
         for region in cfg.regions:
             for node in region.nodes:

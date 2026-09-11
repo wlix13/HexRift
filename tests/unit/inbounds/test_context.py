@@ -87,7 +87,7 @@ def _exit_cfg(node_haproxy: bool | None) -> ConglomerateConfig:
 
 def _shared(node_haproxy: bool | None):
     cfg = _exit_cfg(node_haproxy)
-    region, node = cfg.regions[0], cfg.regions[0].nodes[0]
+    region, node = cfg.exit_regions[0], cfg.exit_regions[0].nodes[0]
     return build_exit_context(cfg, region, node, KEYS).shared
 
 

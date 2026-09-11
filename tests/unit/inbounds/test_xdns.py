@@ -1,24 +1,24 @@
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import Node, XdnsConfig
+from hexrift.components.schema.models.regions import HubNode, XdnsConfig
 from hexrift.inbounds.xdns import get_hub_xdns_clients, resolve_node_xdns
 from tests.unit.inbounds.helpers import make_defaults, make_user
 
 
 class TestResolveNodeXdns:
     def test_node_override_wins(self):
-        node = Node(id="n", hostname="h.example.com", xdns=XdnsConfig(domains=["dns.node"]))
+        node = HubNode(id="n", hostname="h.example.com", xdns=XdnsConfig(domains=["dns.node"]))
         result = resolve_node_xdns(node, make_defaults(xdns=XdnsConfig(domains=["dns.default"])))
         assert result is not None
         assert result.domains == ["dns.node"]
 
     def test_falls_back_to_hub_default(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         result = resolve_node_xdns(node, make_defaults(xdns=XdnsConfig(domains=["dns.default"])))
         assert result is not None
         assert result.domains == ["dns.default"]
 
     def test_none_when_unconfigured(self):
-        node = Node(id="n", hostname="h.example.com")
+        node = HubNode(id="n", hostname="h.example.com")
         assert resolve_node_xdns(node, make_defaults()) is None
 
 

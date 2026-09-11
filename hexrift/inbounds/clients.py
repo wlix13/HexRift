@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import NotRequired, TypedDict
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.schema.models.regions import Node
+from hexrift.components.schema.models.regions import ExitNode, HubNode
 from hexrift.components.schema.models.users import User
 from hexrift.constants import VLESS_FLOW, AccessType
 
@@ -31,8 +31,8 @@ def hysteria_users(clients: list[ClientEntry]) -> list[HysteriaUser]:
 
 
 def get_exit_clients(
-    hub_nodes: list[Node],
-    exit_node: Node,
+    hub_nodes: list[HubNode],
+    exit_node: ExitNode,
     ns: Namespace,
     flow: str = VLESS_FLOW,
 ) -> list[ClientEntry]:
@@ -64,24 +64,24 @@ def get_hub_access_clients(
         user_base = ns.user_uuid(u.username, override=u.uuid)
         clients.append(
             {
-                "id": str(user_base),
                 "email": ns.user_email(u.username),
+                "id": str(user_base),
                 "flow": flow,
             }
         )
         if include_server and AccessType.SERVER in u.access:
             clients.append(
                 {
-                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
                     "email": ns.server_email(u.username),
+                    "id": str(ns.server_uuid(u.username, user_base=user_base)),
                     "flow": flow,
                 }
             )
         for label in u.guests:
             clients.append(
                 {
-                    "id": str(ns.guest_uuid(label, u.username, user_base=user_base)),
                     "email": ns.guest_email(label, u.username),
+                    "id": str(ns.guest_uuid(label, u.username, user_base=user_base)),
                     "flow": flow,
                 }
             )

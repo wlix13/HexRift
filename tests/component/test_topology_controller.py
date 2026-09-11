@@ -7,6 +7,7 @@ import pytest
 
 from hexrift.app import HexRiftApp
 from hexrift.components.schema.models.fields import validate_masquerade_url
+from hexrift.components.schema.models.regions import ExitRegion
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.components.topology.controller import VLESS_ROUTE_RANGE, masquerade_url, pick_vless_route, region_prefix
 from hexrift.constants import RegionType
@@ -131,13 +132,13 @@ class TestAddNode:
             node_type=RegionType.EXIT,
             reality=RealityConfig(dest="www.samsung.com:443", xhttp_path="/login/"),
         )
-        assert result is not None and result.created
+        assert result is not None and result.created and isinstance(result.region, ExitRegion)
         route = result.region.vless_route
         assert route is not None and VLESS_ROUTE_RANGE[0] <= route <= VLESS_ROUTE_RANGE[1]
         assert route not in {1000, 2000, 3000, 3001}
         assert result.validation_error is None
         region = fixture_app.schema.get_region("us")
-        assert region.vless_route == route
+        assert isinstance(region, ExitRegion) and region.vless_route == route
         assert [n.id for n in region.nodes] == ["usA00"]
 
     @pytest.mark.parametrize(
@@ -264,5 +265,6 @@ class TestRemoveNode:
         readded = fixture_app.topology.add_node("usA00", reality=reality)
         assert readded is not None and not readded.created
         assert readded.validation_error is None
-        assert created is not None
-        assert fixture_app.schema.get_region("us").vless_route == created.region.vless_route
+        assert created is not None and isinstance(created.region, ExitRegion)
+        region = fixture_app.schema.get_region("us")
+        assert isinstance(region, ExitRegion) and region.vless_route == created.region.vless_route
