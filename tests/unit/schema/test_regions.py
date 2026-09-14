@@ -137,11 +137,32 @@ class TestRegionDispatch:
             ),
             ({"id": "h", "type": "hub", "nodes": [{"id": "h1", "hostname": "h1.x", "lb_role": "backup"}]}, "lb_role"),
             ({"id": "h", "type": "hub", "vless_route": 1, "nodes": []}, "vless_route"),
+            (
+                {
+                    "id": "e",
+                    "type": "exit",
+                    "nodes": [
+                        {"id": "e1", "hostname": "e1.x", "tls": {"certificate": {"cert_file": "/c", "key_file": "/k"}}}
+                    ],
+                },
+                "tls",
+            ),
+            (
+                {
+                    "id": "h",
+                    "type": "hub",
+                    "nodes": [
+                        {"id": "h1", "hostname": "h1.x", "tls": {"certificate": {"cert_file": "/c", "key_file": "/k"}}}
+                    ],
+                },
+                "tls",
+            ),
         ],
     )
     def test_other_kind_fields_rejected(self, region: dict, field: str):
-        with pytest.raises(ValidationError, match=f"{field}\\n  Extra inputs are not permitted"):
+        with pytest.raises(ValidationError) as e:
             TypeAdapter(list[Region]).validate_python([region])
+        assert [(err["type"], err["loc"][-1]) for err in e.value.errors()] == [("extra_forbidden", field)]
 
 
 class TestRegionValidation:
@@ -234,4 +255,16 @@ class TestRegionValidation:
                         },
                     ],
                 },
+            )
+
+    def test_hub_region_reality_and_tls_rejected(self):
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            HubRegion.model_validate(
+                {
+                    "id": "h",
+                    "type": "hub",
+                    "reality": {"dest": "a.com:443", "xhttp_path": "/x/"},
+                    "tls": {"certificate": {"cert_file": "/c", "key_file": "/k"}},
+                    "nodes": [],
+                }
             )

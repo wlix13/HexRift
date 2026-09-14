@@ -12,10 +12,11 @@ from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import LoggingConfig
+from hexrift.components.schema.models.resolve import resolve_region_tls
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import (
+    XHTTP_TLS_ALPN,
     DomainStrategy,
-    RegionType,
     SpecialDestination,
     XrayNetwork,
     XrayProtocol,
@@ -38,10 +39,8 @@ def reverse_dial_outbound(
     identity_uuid: str,
     flow: str,
     encryption: str,
-    reality_public_key: str,
-    server_name: str,
-    short_id: str,
-    fingerprint: str,
+    security: XraySecurity,
+    security_settings: dict,
     xhttp_host: str,
     xhttp_path: str,
     reverse_tag: str,
@@ -66,13 +65,8 @@ def reverse_dial_outbound(
         },
         "streamSettings": {
             "network": XrayNetwork.XHTTP,
-            "security": XraySecurity.REALITY,
-            "realitySettings": {
-                "publicKey": reality_public_key,
-                "fingerprint": fingerprint,
-                "serverName": server_name,
-                "shortId": short_id,
-            },
+            "security": security,
+            f"{security}Settings": security_settings,  # Xray keys them realitySettings / tlsSettings
             "xhttpSettings": {
                 "host": xhttp_host,
                 "path": xhttp_path,
@@ -157,12 +151,24 @@ def build_portal_config(
 
     reverse_tag = portal_tag(portal.id)
     outbounds: list[dict] = []
-    for region in cfg.regions:
-        if region.type != RegionType.HUB:
-            continue
+    for region in cfg.hub_regions:
+        tls = resolve_region_tls(region, cfg.defaults)
         for node in region.nodes:
             keys = hub_node_keys[node.id]
-            reality = resolve_node_reality(node, region, cfg.defaults)
+            if tls is not None:
+                security = XraySecurity.TLS
+                settings = {"serverName": node.hostname, "alpn": list(XHTTP_TLS_ALPN), "fingerprint": fingerprint}
+                xhttp_host, xhttp_path = node.hostname, tls.xhttp_path
+            else:
+                reality = resolve_node_reality(node, region, cfg.defaults)
+                security = XraySecurity.REALITY
+                settings = {
+                    "publicKey": keys.reality_public_key,
+                    "fingerprint": fingerprint,
+                    "serverName": derive_server_names(reality)[0],
+                    "shortId": short_id,
+                }
+                xhttp_host, xhttp_path = derive_xhttp_host(reality), reality.xhttp_path
             outbounds.append(
                 reverse_dial_outbound(
                     tag=f"portal-{node.id}",
@@ -171,12 +177,10 @@ def build_portal_config(
                     identity_uuid=identity,
                     flow=keys.client_flow,
                     encryption=keys.encryption,
-                    reality_public_key=keys.reality_public_key,
-                    server_name=derive_server_names(reality)[0],
-                    short_id=short_id,
-                    fingerprint=fingerprint,
-                    xhttp_host=derive_xhttp_host(reality),
-                    xhttp_path=reality.xhttp_path,
+                    security=security,
+                    security_settings=settings,
+                    xhttp_host=xhttp_host,
+                    xhttp_path=xhttp_path,
                     reverse_tag=reverse_tag,
                     sniffing=not portal.strict,
                 )

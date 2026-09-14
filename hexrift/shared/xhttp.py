@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+from hexrift.constants import UplinkHttpMethod
+
 
 XHTTP_EXTRA = {
     "scStreamUpServerSecs": "30-60",
@@ -38,4 +42,20 @@ def make_xhttp_settings(host: str, path: str, mode: str = "auto", cdn: bool = Fa
         "mode": mode,
         "extra": dict(XHTTP_EXTRA_CDN if cdn else XHTTP_EXTRA),
         "xmux": dict(XMUX),
+    }
+
+
+def make_xhttp_share_params(host: str, path: str, mode: str = "auto", cdn: bool = False) -> dict[str, str]:
+    extra = XHTTP_EXTRA
+    if cdn:  # client-only knob
+        extra = {
+            **XHTTP_EXTRA_CDN,
+            "uplinkHTTPMethod": UplinkHttpMethod.PATCH,
+        }
+    return {
+        "type": "xhttp",
+        "host": host,
+        "path": path,
+        "mode": mode,
+        "extra": json.dumps(extra, separators=(",", ":")),
     }

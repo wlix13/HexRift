@@ -16,6 +16,11 @@
             "email": "mskA00-deA00@test.hexrift",
             "id": "25b1dea7-9ee3-5daf-bce1-76cbd8aa04fb",
             "flow": "xtls-rprx-vision"
+          },
+          {
+            "email": "spbA00-deA00@test.hexrift",
+            "id": "00d51fd1-6ace-564e-802f-7dc5198576c0",
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "mlkem768x25519plus.native.600s.AxLSqeSs0HKRFrSW_J-2CRWKe390-6PWlH-LYKBM8RTPgx083JsHDRRL1EdVUcn6sRi9EpNXEKcT_p3mipI9gg"
@@ -96,6 +101,10 @@
           {
             "auth": "25b1dea7-9ee3-5daf-bce1-76cbd8aa04fb",
             "email": "mskA00-deA00@test.hexrift"
+          },
+          {
+            "auth": "00d51fd1-6ace-564e-802f-7dc5198576c0",
+            "email": "spbA00-deA00@test.hexrift"
           }
         ]
       },

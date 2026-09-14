@@ -81,8 +81,9 @@ ignore_imports = [
   # under TYPE_CHECKING purely to type `self.app`
   "hexrift.components.*.controller -> hexrift.app",
   "hexrift.components.*.component -> hexrift.app",
-  # derive's controller assembles user-facing share URLs from inbound spec builders
+  # derive's controller assembles user-facing share URLs through inbound specs
   # (single sanctioned edge from derive up into inbounds).
+  "hexrift.components.derive.controller -> hexrift.inbounds.base",
   "hexrift.components.derive.controller -> hexrift.inbounds.cdn",
   "hexrift.components.derive.controller -> hexrift.inbounds.hysteria",
   "hexrift.components.derive.controller -> hexrift.inbounds.xhttp",
@@ -146,7 +147,7 @@ tasks.format = "uv run ruff format ."
 tasks.check-format = "uv run ruff format --check ."
 tasks.lint = "uv run ruff check ."
 tasks.typecheck = "uv run --group dev --group tests ty check"
-tasks.lint-imports = "uv run --group dev lint-imports"
+tasks.lint-imports = "uv run --group dev lint-imports --no-logo"
 tasks.deptry = "uv run --group dev deptry ."
 tasks.check = [ "check-format", "lint", "typecheck", "lint-imports", "deptry" ]
 tasks.docs = "uv run --group docs zensical build --clean --strict"

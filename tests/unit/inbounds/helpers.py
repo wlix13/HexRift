@@ -1,5 +1,8 @@
 """Shared builders for inbound spec unit tests."""
 
+import json
+from urllib.parse import unquote
+
 from hexrift.components.schema.models.defaults import (
     DefaultsConfig,
     ExitConnectionsConfig,
@@ -9,7 +12,14 @@ from hexrift.components.schema.models.defaults import (
     ObservatoryConfig,
 )
 from hexrift.components.schema.models.portals import Portal, PortalRoutes
-from hexrift.components.schema.models.regions import HubNode, HubRegion, HysteriaConfig, WireguardConfig, XdnsConfig
+from hexrift.components.schema.models.regions import (
+    HubNode,
+    HubRegion,
+    HysteriaConfig,
+    TlsConfig,
+    WireguardConfig,
+    XdnsConfig,
+)
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
@@ -28,6 +38,7 @@ def make_defaults(
     wireguard: WireguardConfig | None = None,
     hysteria: HysteriaConfig | None = None,
     exit_hysteria: HysteriaConfig | None = None,
+    tls: TlsConfig | None = None,
 ) -> DefaultsConfig:
     return DefaultsConfig(
         exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS, hysteria=exit_hysteria),
@@ -35,7 +46,8 @@ def make_defaults(
             ipv6=False,
             keys=_HUB_KEYS,
             exit_connections=_EXIT_CONNS,
-            reality=_HUB_REALITY,
+            reality=None if tls is not None else _HUB_REALITY,
+            tls=tls,
             proxy_inbound=proxy_inbound,
             xdns=xdns,
             wireguard=wireguard,
@@ -86,3 +98,11 @@ def make_hub_region(**kwargs) -> HubRegion:
     }
     defaults.update(kwargs)
     return HubRegion.model_validate(defaults)
+
+
+def split_xhttp_share_url(url: str) -> tuple[str, dict, str]:
+    """(url before &extra=, decoded extra JSON, fragment)."""
+
+    base, _, tail = url.partition("&extra=")
+    extra, _, fragment = tail.partition("#")
+    return base, json.loads(unquote(extra)), fragment

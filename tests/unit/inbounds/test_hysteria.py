@@ -19,11 +19,11 @@ from hexrift.components.schema.models.resolve import resolve_node_hysteria
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import ExitProtocol, HysteriaCongestion, HysteriaKeyType, RegionType
-from hexrift.inbounds.base import InboundEnv
-from hexrift.inbounds.hysteria import HYSTERIA_SPEC, build_hysteria_share_url
+from hexrift.inbounds.base import InboundEnv, ShareClient
+from hexrift.inbounds.hysteria import HYSTERIA_SPEC
 from hexrift.links.registry import render_link
 from tests.unit.inbounds.helpers import make_defaults, make_hub_region, make_user
-from tests.unit.render.helpers import make_shared
+from tests.unit.render.helpers import make_hysteria, make_shared
 
 
 _PRIV = "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"
@@ -230,33 +230,21 @@ class TestHysteriaSpecFragment:
         }
 
 
-class TestBuildHysteriaShareUrl:
+class TestHysteriaShareUrl:
     def test_pinned_self_signed_with_obfs(self):
-        url = build_hysteria_share_url(
-            identity_uuid=UUID(int=1),
-            hostname="hub.example.com",
-            port=443,
-            sni="vk.com",
-            pin="AA:BB",
-            obfs_password="p/w",  # noqa: S106
-            fragment="msk alice",
-        )
+        ctx = make_hysteria(pin="AA:BB", obfs_password="p/w")  # noqa: S106
+        url = HYSTERIA_SPEC.share_url(ctx, _hub_env([]), ShareClient(UUID(int=1), "", "", "msk alice"))
         assert url == (
-            "hysteria2://00000000-0000-0000-0000-000000000001@hub.example.com:443/"
+            "hysteria2://00000000-0000-0000-0000-000000000001@h.test.ns:443/"
             "?sni=vk.com&insecure=1&pinSHA256=AA:BB&obfs=salamander&obfs-password=p%2Fw#msk%20alice"
         )
 
     def test_operator_certificate_verifies_normally(self):
-        url = build_hysteria_share_url(
-            identity_uuid=UUID(int=1),
-            hostname="h",
-            port=8443,
-            sni="hub.example.com",
-            pin=None,
-            obfs_password=None,
-            fragment="f",
+        ctx = make_hysteria(config=HysteriaConfig(port=8443), sni="hub.example.com")
+        url = HYSTERIA_SPEC.share_url(ctx, _hub_env([]), ShareClient(UUID(int=1), "", "", "f"))
+        assert (
+            url == "hysteria2://00000000-0000-0000-0000-000000000001@h.test.ns:8443/?sni=hub.example.com&insecure=0#f"
         )
-        assert url == "hysteria2://00000000-0000-0000-0000-000000000001@h:8443/?sni=hub.example.com&insecure=0#f"
 
 
 class TestBuildHubContextExitProtocol:

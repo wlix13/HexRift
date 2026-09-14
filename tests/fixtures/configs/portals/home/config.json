@@ -69,6 +69,67 @@
       }
     },
     {
+      "tag": "portal-spbA00",
+      "protocol": "vless",
+      "settings": {
+        "address": "spbA00.ap.test.hexrift",
+        "port": 443,
+        "id": "9c87e426-dadd-58ae-b0a0-da0952f7971d",
+        "flow": "xtls-rprx-vision-udp443",
+        "encryption": "mlkem768x25519plus.native.0rtt.yb0IVmSUba1NR5T2PVl2B6W_qDiLcb0tGpR2u_HFnEc",
+        "reverse": {
+          "tag": "home-portal",
+          "sniffing": {
+            "enabled": false
+          }
+        }
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "spbA00.ap.test.hexrift",
+          "alpn": ["h2", "http/1.1"],
+          "fingerprint": "chrome"
+        },
+        "xhttpSettings": {
+          "host": "spbA00.ap.test.hexrift",
+          "path": "/tls/",
+          "mode": "auto",
+          "extra": {
+            "scStreamUpServerSecs": "30-60",
+            "xPaddingBytes": "80-1400",
+            "noGRPCHeader": true,
+            "scMaxEachPostBytes": "500000-1000000",
+            "scMinPostsIntervalMs": "10-50",
+            "scMaxBufferedPosts": 45
+          },
+          "xmux": {
+            "maxConcurrency": "16-32",
+            "maxConnections": 0,
+            "cMaxReuseTimes": "10-100",
+            "hMaxRequestTimes": "600-900",
+            "hMaxReusableSecs": "1800-3000",
+            "hKeepAlivePeriod": 0
+          }
+        },
+        "sockopt": {
+          "tproxy": "off",
+          "domainStrategy": "UseIPv4v6",
+          "happyEyeballs": {
+            "tryDelayMs": 150,
+            "maxConcurrentTry": 2,
+            "prioritizeIPv6": false
+          },
+          "tcpFastOpen": true,
+          "tcpKeepAliveInterval": 45,
+          "tcpKeepAliveIdle": 45,
+          "tcpWindowClamp": 0,
+          "tcpcongestion": "bbr"
+        }
+      }
+    },
+    {
       "tag": "direct",
       "protocol": "freedom",
       "settings": {

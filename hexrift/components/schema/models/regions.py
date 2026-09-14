@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 from hexrift.components.schema.models.fields import (
     Bandwidth,
@@ -109,11 +109,14 @@ class NodeWireguardOverride(BaseModel):
     kernel_mode: bool | None = None
 
 
-class HysteriaCertificate(BaseModel):
+class CertificateFiles(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cert_file: NonBlank
     key_file: NonBlank
+
+
+class HysteriaCertificate(CertificateFiles):
     pin_sha256: CertPin | None = None
 
 
@@ -144,6 +147,20 @@ class HysteriaOverride(BaseModel):
     masquerade_url: MasqueradeUrl | None = None
     key_type: HysteriaKeyType | None = None
     certificate: HysteriaCertificate | None = None
+
+
+class TlsConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    certificate: CertificateFiles
+    xhttp_path: XrayPath = "/"
+
+
+class TlsOverride(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    certificate: CertificateFiles | None = None
+    xhttp_path: XrayPath | None = None
 
 
 class ExitNode(BaseModel):
@@ -206,8 +223,18 @@ class HubRegion(BaseModel):
 
     id: Identifier
     type: Literal[RegionType.HUB]
+    reality: RealityConfig | None = None
+    tls: TlsOverride | None = None
     cdn_xhttp_path: XrayPath | None = None
     nodes: Annotated[list[HubNode], BeforeValidator(_none_to_empty)]
+
+    @model_validator(mode="after")
+    def _one_direct_security(self) -> "HubRegion":
+        if self.reality is not None and self.tls is not None:
+            raise ValueError(
+                f"Hub region {self.id!r}: reality and tls are mutually exclusive, direct inbound serves one"
+            )
+        return self
 
 
 Region = Annotated[ExitRegion | HubRegion, Field(discriminator="type")]

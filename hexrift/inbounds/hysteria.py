@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar
-from urllib.parse import quote
-from uuid import UUID
+from urllib.parse import quote, urlencode
 
 from hexrift.components.derive.defaults import resolve_node_reality
 from hexrift.components.derive.hysteria import derive_hysteria_endpoint, derive_hysteria_masquerade_url
@@ -20,7 +19,7 @@ from hexrift.constants import (
     XrayProtocol,
     XraySecurity,
 )
-from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
+from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, ShareClient, SharedContext
 from hexrift.inbounds.clients import HysteriaUser, get_exit_clients, get_hub_access_clients, hysteria_users
 from hexrift.shared.hysteria import HYSTERIA_TRUNK_LISTENER_QUIC, make_hysteria_finalmask
 from hexrift.shared.xray_defaults import make_sniffing
@@ -34,6 +33,7 @@ class HysteriaContext(InboundContext):
     masquerade_url: str
     certificates: list[dict]  # tlsSettings.certificates entries
     obfs_password: str | None
+    pin: str | None  # None: peers verify by CA roots
     trunk: bool  # exit-side listener dialed by hubs
 
 
@@ -61,6 +61,7 @@ class HysteriaSpec(InboundSpec[HysteriaContext]):
             masquerade_url=derive_hysteria_masquerade_url(hysteria, ep.sni),
             certificates=ep.certificates,
             obfs_password=ep.obfs_password,
+            pin=ep.pin,
             trunk=env.role == RegionType.EXIT,
         )
 
@@ -99,27 +100,17 @@ class HysteriaSpec(InboundSpec[HysteriaContext]):
             "sniffing": make_sniffing(shared.route_only),
         }
 
+    def share_url(self, ctx: HysteriaContext, env: InboundEnv, client: ShareClient) -> str:
+        """Pinned self-signed cert is self-trusted, so URL also sets insecure=1."""
+
+        params = {"sni": ctx.sni, "insecure": "0" if ctx.pin is None else "1"}
+        if ctx.pin is not None:
+            params["pinSHA256"] = ctx.pin
+        if ctx.obfs_password is not None:
+            params |= {"obfs": "salamander", "obfs-password": ctx.obfs_password}
+        query = urlencode(params, quote_via=quote, safe=":")  # pin keeps its colons
+        fragment = quote(client.fragment, safe="")
+        return f"hysteria2://{client.uuid}@{env.node.hostname}:{ctx.config.port}/?{query}#{fragment}"
+
 
 HYSTERIA_SPEC = HysteriaSpec()
-
-
-def build_hysteria_share_url(
-    *,
-    identity_uuid: UUID,
-    hostname: str,
-    port: int,
-    sni: str,
-    pin: str | None,
-    obfs_password: str | None,
-    fragment: str,
-) -> str:
-    """Build a hysteria2:// share URL; a pinned cert is self-trusted, so the URL also sets insecure=1."""
-
-    params = [f"sni={sni}"]
-    if pin is not None:
-        params += ["insecure=1", f"pinSHA256={pin}"]
-    else:
-        params.append("insecure=0")
-    if obfs_password is not None:
-        params += ["obfs=salamander", f"obfs-password={quote(obfs_password, safe='')}"]
-    return f"hysteria2://{identity_uuid}@{hostname}:{port}/?{'&'.join(params)}#{quote(fragment, safe='')}"

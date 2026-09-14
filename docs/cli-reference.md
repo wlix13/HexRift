@@ -166,7 +166,7 @@ hexrift nodes remove nlA40
 hexrift share <username> [options]
 ```
 
-Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a user.
+Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a user. Direct URLs are Reality by default; a hub that serves `tls` gets one `security=tls` URL per node, labelled `TLS`.
 
 **Arguments:**
 
@@ -180,8 +180,8 @@ Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a 
 |--------|---------|-------------|
 | `--hub HUB_ID` | all hub nodes | Generate config for a specific hub node |
 | `--fp FINGERPRINT` | from config | Client TLS fingerprint |
-| `--cdn` | off | Generate CDN URL instead of direct Reality URL |
-| `--hy2`, `--hysteria` | off | Generate a `hysteria2://` URL instead of direct Reality URL |
+| `--cdn` | off | Generate CDN URL instead of the direct URL |
+| `--hy2`, `--hysteria` | off | Generate a `hysteria2://` URL instead of the direct URL |
 | `--wg`, `--wireguard` | off | Generate a WireGuard client `.conf` instead of a VLESS URL |
 | `--server` | off | Generate config for the user's `server` identity |
 | `--guest LABEL` | — | Generate config for a specific guest identity |
@@ -192,6 +192,11 @@ Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a 
 !!! note
     `--guest` and `--all-guests` are mutually exclusive. `--server` cannot be combined
     with `--guest` or `--all-guests`. `--wg`, `--cdn` and `--hy2` are mutually exclusive.
+
+!!! info "Direct URLs"
+    A hub yields a URL only when the user is rendered on it: `xhttp` access for hubs
+    serving Reality, `tls` access for hubs serving `tls`. `--server` identities are on every
+    Reality hub, and on TLS hubs only with `tls` access.
 
 !!! info "WireGuard configs"
     `--wg` requires the user to have `wireguard` access and the hub to define
@@ -206,7 +211,7 @@ Generate VLESS or Hysteria share URLs — or WireGuard client configs — for a 
 **Examples:**
 
 ```bash
-# Direct Reality link for alice on all hubs
+# Direct link for alice on all hubs
 hexrift share alice
 
 # CDN link on a specific hub

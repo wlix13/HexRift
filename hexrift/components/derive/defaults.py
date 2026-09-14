@@ -21,14 +21,10 @@ def resolve_node_reality(node: Node, region: Region, defaults: DefaultsConfig) -
     if node.reality is not None:
         return node.reality
     if region.type == RegionType.HUB:
-        dr = defaults.hub.reality
-        return RealityConfig(
-            dest=dr.dest,
-            server_names=dr.server_names,
-            xhttp_host=dr.xhttp_host,
-            xhttp_path=dr.xhttp_path,
-            fallback_limits=dr.fallback_limits,
-        )
+        dr = region.reality if region.reality is not None else defaults.hub.reality
+        if dr is None:
+            raise DeriveError(f"Hub region {region.id!r} serves TLS, node {node.id!r} has no reality config")
+        return dr
     raise DeriveError(f"Exit node {node.id!r} must have a reality config")
 
 

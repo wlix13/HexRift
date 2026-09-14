@@ -56,7 +56,8 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `proxy_inbound` | `bool` | no | `false` | Enable mixed proxy inbound |
 | `keys` | `KeysConfig` | yes | — | Encryption key configuration |
 | `exit_connections` | `ExitConnectionsConfig` | yes | — | How hubs connect to exits |
-| `reality` | `RealityConfig` | yes | — | Default Reality config for hub nodes |
+| `reality` | `RealityConfig` | one of | — | Default Reality config for the direct inbound; exactly one of `reality` / `tls` is set |
+| `tls` | `TlsConfig` | one of | — | Serve the direct inbound over plain TLS with an operator cert instead of Reality |
 | `xdns` | `XdnsConfig` | no | — | DNS-interception inbound (VLESS over mKCP) |
 | `wireguard` | `WireguardConfig` | no | — | WireGuard inbound configuration |
 | `hysteria` | `HysteriaConfig` | no | — | Hysteria 2 inbound for users with `hysteria` access |
@@ -131,6 +132,26 @@ Auth is the identity UUID, so a client that rewrites the UUID's third segment se
 
 Official Hysteria, sing-box and mihomo accept either key type. Xray's Hysteria dialer parrots Chrome's QUIC ClientHello by default and can only negotiate `ecdsa-p256`: HexRift disables the parrot on hub→exit dials to `ed25519` exits, but a `hysteria2://` share URL carries no such switch, so a hub listener that Xray-based client apps dial should set `key_type: ecdsa-p256`. Share URLs carry `insecure=1&pinSHA256=…` — a client that honours the pin verifies the exact cert, a client that ignores it connects unverified; switch to `certificate` if that matters.
 
+### `TlsConfig`
+
+Serves the hub's direct inbound as VLESS over XHTTP secured by plain TLS with an operator-issued certificate, in place of Reality. Meant for clients behind TLS-intercepting proxies, which re-terminate the handshake and so break Reality but pass ordinary HTTPS to a publicly trusted certificate. The SNI and the XHTTP `Host` are the node hostname, so the certificate at those paths must cover each node in the region; ALPN is `h2,http/1.1`. Xray re-reads the certificate files every hour, so an ACME renewal needs no restart. Everything else about the inbound is unchanged.
+
+A hub region serves exactly one of Reality or TLS: `defaults.hub` sets one of `reality` / `tls`, and a region's own `reality:` or `tls:` block replaces that choice for all its nodes. Hysteria is not available on TLS regions.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `certificate` | `CertificateFiles` | yes | — | PEM chain and key on the node |
+| `xhttp_path` | `str` | no | `/` | XHTTP path clients request |
+
+### `CertificateFiles`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cert_file` | `str` | yes | Path to the PEM certificate chain on the node |
+| `key_file` | `str` | yes | Path to the PEM private key on the node |
+
+`HysteriaCertificate` is the same pair plus an optional `pin_sha256`.
+
 ---
 
 ## `groups`
@@ -161,7 +182,7 @@ groups:
 |-------|------|----------|-------------|
 | `username` | `str` | yes | Unique username — used as derivation seed |
 | `group` | `str` | yes | Must reference an existing `groups[].id` |
-| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `server`, `cdn`, `proxy`, `wireguard`, `xdns`, `hysteria` |
+| `access` | `list[AccessType]` | yes | Access types: `xhttp`, `tls`, `server`, `cdn`, `proxy`, `wireguard`, `xdns`, `hysteria` |
 | `uuid` | `UUID` | no | Override auto-derived UUID |
 | `guests` | `list[str]` | no | Guest identity labels |
 
@@ -169,7 +190,8 @@ groups:
 
 | Value | Description |
 |-------|-------------|
-| `xhttp` | Direct Reality xhttp access |
+| `xhttp` | Direct xhttp access on hubs that serve Reality |
+| `tls` | Direct xhttp access on hubs that serve `tls` |
 | `server` | Server-to-server access |
 | `cdn` | CDN-fronted xhttp access |
 | `proxy` | Mixed proxy inbound access |
@@ -220,7 +242,7 @@ Portal ids must not collide with node or region ids, and the derived `{id}-porta
 
 A portal dials with its own shortId, `SHA256("{id}.portal.{namespace}")[:16]`, which every hub node accepts alongside the group and per-user ones. Its identity is therefore independent of the groups its members belong to, and rotating one portal's shortId leaves every other portal and user untouched.
 
-Members are selected by `user_email` in the hub routing rule, so each one needs an access type that carries it — `xhttp`, `cdn`, `xdns`, `wireguard`, or `hysteria` — **and** that access type has to render on a hub node (for `hysteria`, a hub with a Hysteria inbound). Declaring `cdn` without a `global.cdn` block, or `wireguard`/`xdns` without the matching config, emits no inbound carrying the member's identity, so the rule would match no traffic; both cases are rejected at validation time.
+Members are selected by `user_email` in the hub routing rule, so each one needs an access type that carries it — `xhttp`, `tls`, `cdn`, `xdns`, `wireguard`, or `hysteria` — **and** that access type has to render on a hub node (for `hysteria`, a hub with a Hysteria inbound). Declaring `cdn` without a `global.cdn` block, or `wireguard`/`xdns` without the matching config, emits no inbound carrying the member's identity, so the rule would match no traffic; both cases are rejected at validation time.
 
 A `proxy`-only or `server`-only member is rejected as well.
 
@@ -365,6 +387,8 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 |-------|------|----------|-------------|
 | `id` | `str` | yes | Unique region identifier |
 | `type` | `hub` | yes | Region type |
+| `reality` | `RealityConfig` | no | Reality config for the region's nodes, replacing `defaults.hub.reality`; also puts the region back on Reality when `defaults.hub.tls` is set |
+| `tls` | `TlsOverride` | no | Serve the region's direct inbounds over TLS: overlays `defaults.hub.tls`, and must carry `certificate` when the default is Reality. Mutually exclusive with `reality` |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
 | `nodes` | `list[HubNode]` | yes | May be a bare key, as for exit regions |
 
@@ -414,7 +438,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `hostname` | `str` | yes | Node FQDN |
 | `ipv6` | `bool` | no | Override default IPv6 setting |
 | `haproxy` | `bool` | no | Override `defaults.hub.haproxy` |
-| `reality` | `RealityConfig` | no | Replaces `defaults.hub.reality` for this node |
+| `reality` | `RealityConfig` | no | Replaces the region's or `defaults.hub.reality` for this node; not accepted in a region serving TLS |
 | `keys` | `NodeKeysOverride` | no | Override default key settings |
 | `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings |
 | `proxy_inbound` | `bool` | no | Override proxy inbound setting |
@@ -483,6 +507,15 @@ All fields optional; `null` means "use the value from the layer below" — `defa
 | `certificate` | `HysteriaCertificate` | Serve an operator cert on this node (`cert_file`, `key_file`, optional `pin_sha256`); requires `sni` |
 
 XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.
+
+### `TlsOverride`
+
+Both fields optional; `null` means "use the value from `defaults.hub.tls`". With a Reality default there is nothing to inherit, so `certificate` is required.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `certificate` | `CertificateFiles` | Certificate this node serves |
+| `xhttp_path` | `str` | XHTTP path clients request |
 
 ---
 

@@ -7,11 +7,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from typing import ClassVar
+from uuid import UUID
 
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import ObservabilityConfig
-from hexrift.components.schema.models.regions import ExitNode, HubNode, Node, Region
+from hexrift.components.schema.models.regions import ExitNode, HubNode, HubRegion, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, RegionType
 from hexrift.errors import RenderError
@@ -60,6 +61,12 @@ class InboundEnv:
         return [n for r in self.config.hub_regions for n in r.nodes]
 
     @property
+    def hub_region(self) -> HubRegion:
+        if not isinstance(self.region, HubRegion):
+            raise RenderError(f"Region {self.region.id!r} is not a hub region")
+        return self.region
+
+    @property
     def hub_node(self) -> HubNode:
         if not isinstance(self.node, HubNode):
             raise RenderError(f"Node {self.node.id!r} is not a hub node")
@@ -72,8 +79,18 @@ class InboundEnv:
         return self.node
 
 
+@dataclass(frozen=True)
+class ShareClient:
+    """One identity dialing hub inbound, as its share URL names it."""
+
+    uuid: UUID
+    short_id: str
+    fingerprint: str
+    fragment: str
+
+
 class InboundSpec[C: InboundContext](ABC):
-    """One inbound type: config resolution, client list, Xray fragment."""
+    """One inbound type: config resolution, client list, Xray fragment, share URL."""
 
     access_type: ClassVar[AccessType]
     roles: ClassVar[frozenset[RegionType]]
@@ -86,6 +103,11 @@ class InboundSpec[C: InboundContext](ABC):
     @abstractmethod
     def fragment(self, ctx: C, shared: SharedContext) -> dict:
         """Build Xray inbound JSON fragment."""
+
+    def share_url(self, ctx: C, env: InboundEnv, client: ShareClient) -> str:
+        """Build client share URL, mirror of fragment()."""
+
+        raise RenderError(f"Inbound {self.access_type!r} has no share URL")
 
     def narrow(self, slots: Mapping[AccessType, InboundContext]) -> C | None:
         slot = slots.get(self.access_type)

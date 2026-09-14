@@ -34,7 +34,7 @@ FIXTURE_TOPOLOGY = FIXTURES_DIR / "topology.yaml"
 FIXTURE_KEYS_DIR = FIXTURES_DIR / "keys"
 FIXTURE_CONFIGS_DIR = FIXTURES_DIR / "configs"
 
-ALL_NODE_IDS = ["nlA00", "deA00", "mskA00"]
+ALL_NODE_IDS = ["nlA00", "deA00", "mskA00", "spbA00"]
 
 
 def _build_for_node(node_id: str) -> tuple[bytes, str]:
@@ -64,7 +64,7 @@ def test_topology_parses_without_error(real_app: HexRiftApp):
 
 @pytest.mark.integration
 def test_topology_node_count(real_app: HexRiftApp):
-    assert len(real_app.schema.get_all_nodes()) == 3
+    assert len(real_app.schema.get_all_nodes()) == 4
 
 
 @pytest.mark.integration
@@ -79,7 +79,7 @@ def test_topology_group_count(real_app: HexRiftApp):
 
 @pytest.mark.integration
 def test_topology_region_count(real_app: HexRiftApp):
-    assert len(real_app.schema.config.regions) == 4
+    assert len(real_app.schema.config.regions) == 5
 
 
 @pytest.mark.integration
@@ -275,15 +275,24 @@ def test_hub_direct_routing_rule():
 
 @pytest.mark.integration
 def test_exit_client_is_hub_exit_uuid():
-    """nlA00's direct inbound should have deterministic hub-exit UUID for mskA00."""
+    """nlA00's direct inbound should have one deterministic hub-exit UUID per hub."""
 
     generated, _ = _build_for_node("nlA00")
     cfg = json.loads(generated)
     clients = cfg["inbounds"][0]["settings"]["clients"]
-    assert len(clients) == 1
-    assert clients[0]["email"] == "mskA00-nlA00@test.hexrift"
-    # UUID is deterministic: uuid5(ns, "mskA00-nlA00")
-    assert clients[0]["id"] == "17d3c9f0-7373-5f77-9298-e18c4055e471"
+    # UUIDs are deterministic: uuid5(ns, "{hub}-nlA00")
+    assert clients == [
+        {
+            "email": "mskA00-nlA00@test.hexrift",
+            "id": "17d3c9f0-7373-5f77-9298-e18c4055e471",
+            "flow": "xtls-rprx-vision",
+        },
+        {
+            "email": "spbA00-nlA00@test.hexrift",
+            "id": "9e39f5a5-f052-560c-917f-408e1e96cf6f",
+            "flow": "xtls-rprx-vision",
+        },
+    ]
 
 
 def _build_portal(portal_id: str = "home") -> dict:
@@ -459,7 +468,7 @@ def test_portal_config_outbounds():
     # one per hub node + direct + blocked (strict portal)
     assert "portal-mskA00" in tags
     assert "direct" in tags
-    assert tags == ["portal-mskA00", "direct", "blocked"]
+    assert tags == ["portal-mskA00", "portal-spbA00", "direct", "blocked"]
 
 
 @pytest.mark.integration

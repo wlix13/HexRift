@@ -41,6 +41,7 @@ class AccessType(StrEnum):
     """User access types (used in users[].access)."""
 
     XHTTP = "xhttp"
+    TLS = "tls"
     SERVER = "server"
     CDN = "cdn"
     PROXY = "proxy"
@@ -52,6 +53,7 @@ class AccessType(StrEnum):
 ROUTABLE_ACCESS = frozenset(
     {
         AccessType.XHTTP,
+        AccessType.TLS,
         AccessType.CDN,
         AccessType.XDNS,
         AccessType.WIREGUARD,
@@ -252,7 +254,7 @@ class Socket(StrEnum):
 
 
 REALITY_INBOUND_PORT = 443
-"""Port the Reality inbound binds, directly or behind HAProxy."""
+"""Port direct inbound (Reality or TLS) binds, directly or behind HAProxy."""
 
 PROXY_INBOUND_PORT = 80
 """Port the mixed proxy inbound binds."""
@@ -265,6 +267,9 @@ HYSTERIA_VERSION = 2
 
 HYSTERIA_ALPN = ("h3",)
 """ALPN the Hysteria listener must advertise."""
+
+XHTTP_TLS_ALPN = ("h2", "http/1.1")
+"""ALPN of TLS-secured direct inbound."""
 
 HYSTERIA_DERIVED_KEY_TYPE = HysteriaKeyType.ED25519
 """Key type of the derived Hysteria certificate when `key_type` is unset."""

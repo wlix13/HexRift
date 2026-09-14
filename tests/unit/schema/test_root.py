@@ -517,7 +517,7 @@ def test_portal_publish_reality_port_reserved():
             },
         ]
     )
-    with pytest.raises(ValidationError, match="already binds it for the reality inbound"):
+    with pytest.raises(ValidationError, match="already binds it for the direct inbound"):
         ConglomerateConfig.model_validate(d)
 
 
@@ -835,9 +835,7 @@ def test_hub_node_opting_out_unbound_by_hub_defaults():
 def test_exit_metrics_port_colliding_with_reality_rejected():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["nodes"][0]["observability"] = {"metrics": {"enabled": True, "port": 443}}
-    with pytest.raises(
-        ValidationError, match="the metrics api listener and the reality inbound both bind tcp port 443"
-    ):
+    with pytest.raises(ValidationError, match="the metrics api listener and the direct inbound both bind tcp port 443"):
         ConglomerateConfig.model_validate(d)
 
 
@@ -873,4 +871,34 @@ def test_portal_publish_hysteria_port_reserved():
     d["defaults"]["hub"]["hysteria"] = {}
     d["users"][0]["access"] = ["xhttp", "hysteria"]
     with pytest.raises(ValidationError, match="already binds it for the hysteria inbound"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_hub_region_tls_without_certificate_or_default_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][1]["tls"] = {"xhttp_path": "/t/"}
+    with pytest.raises(ValidationError, match="tls.certificate must be set"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_portal_member_with_tls_access_on_tls_hub_valid():
+    d = _config_with_portal(["tls"])
+    d["regions"][1]["tls"] = {"certificate": {"cert_file": "/c", "key_file": "/k"}}
+    cfg = ConglomerateConfig.model_validate(d)
+    assert cfg.portals[0].users == ["alice"]
+
+
+def test_hysteria_in_tls_hub_region_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][1]["tls"] = {"certificate": {"cert_file": "/c", "key_file": "/k"}}
+    d["regions"][1]["nodes"][0]["hysteria"] = {"port": 8443}
+    with pytest.raises(ValidationError, match="hysteria is not supported in TLS region"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_node_reality_in_tls_hub_region_rejected():
+    d = copy.deepcopy(_valid_config())
+    d["regions"][1]["tls"] = {"certificate": {"cert_file": "/c", "key_file": "/k"}}
+    d["regions"][1]["nodes"][0]["reality"] = {"dest": "a.com:443", "xhttp_path": "/x/"}
+    with pytest.raises(ValidationError, match="reality is not allowed in TLS region"):
         ConglomerateConfig.model_validate(d)

@@ -11,7 +11,7 @@ from rich.tree import Tree
 
 from hexrift.components.derive.controller import DeriveController
 from hexrift.components.schema.models.regions import ExitNode
-from hexrift.components.schema.models.resolve import resolve_node_hysteria
+from hexrift.components.schema.models.resolve import resolve_node_hysteria, resolve_region_tls
 from hexrift.constants import AccessType, RegionType
 from hexrift.core.component import BaseComponent
 
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 _ACCESS_STYLE = {
     AccessType.XHTTP: "cyan",
+    AccessType.TLS: "bright_blue",
     AccessType.CDN: "blue",
     AccessType.PROXY: "dim white",
     AccessType.SERVER: "yellow",
@@ -83,7 +84,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             "--cdn",
             is_flag=True,
             default=False,
-            help="Generate CDN URL instead of direct Reality URL.",
+            help="CDN share URL.",
         )
         @click.option(
             "--hy2",
@@ -91,7 +92,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             "hysteria",
             is_flag=True,
             default=False,
-            help="Generate hysteria2:// URL instead of direct Reality URL.",
+            help="Hysteria share URL.",
         )
         @click.option(
             "--guest",
@@ -112,7 +113,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             "wireguard",
             is_flag=True,
             default=False,
-            help="Generate WireGuard client config instead of a VLESS URL.",
+            help="WireGuard client config instead of a share URL.",
         )
         @click.option(
             "--server",
@@ -148,7 +149,7 @@ class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
             bare: bool,
             keys_dir: Path,
         ) -> None:
-            """Generate VLESS/Hysteria share URL (or WireGuard config) for user on hub node."""
+            """Generate share URL or client config for user on hub nodes."""
 
             if guest and all_guests:
                 raise click.UsageError("--guest and --all-guests are mutually exclusive.")
@@ -223,7 +224,12 @@ def _print_topology(app: HexRiftApp) -> None:
             extra_str = "  " + "  ".join(extras) if extras else ""
             r_branch = tree.add(f"[green]{region.id}[/green] [dim]exit[/dim]{extra_str}")
         else:
-            extra_str = "  [red]hysteria[/red]" if _listens_hysteria(region, cfg.defaults) else ""
+            extras = []
+            if _listens_hysteria(region, cfg.defaults):
+                extras.append("[red]hysteria[/red]")
+            if resolve_region_tls(region, cfg.defaults) is not None:
+                extras.append("[blue]tls[/blue]")
+            extra_str = "  " + "  ".join(extras) if extras else ""
             r_branch = tree.add(f"[yellow]{region.id}[/yellow] [dim]hub[/dim]{extra_str}")
         for node in region.nodes:
             tags = []

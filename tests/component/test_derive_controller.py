@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 import yaml
@@ -6,6 +8,7 @@ import yaml
 from hexrift.app import HexRiftApp
 from hexrift.components.derive.identity import Namespace
 from hexrift.errors import DeriveError
+from hexrift.shared.xhttp import XHTTP_EXTRA
 from tests.component.conftest import make_topology
 
 
@@ -226,7 +229,7 @@ class TestBuildShareUrls:
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
         restricted_app = HexRiftApp(yaml_path=p)
-        with pytest.raises(DeriveError, match="does not have XHTTP access"):
+        with pytest.raises(DeriveError, match="does not have xhttp or tls access"):
             restricted_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
 
     def test_cdn_not_configured_raises(self, app: HexRiftApp, tmp_path: Path):
@@ -634,3 +637,50 @@ class TestIdentityCollisions:
         app = _collision_app(tmp_path, portals=[_portal(uuid=derived)])
         with pytest.raises(DeriveError, match="claimed by both"):
             app.render.gen_portal("home", tmp_path / "out", tmp_path / "keys", "chrome")
+
+
+class TestTlsShareUrl:
+    @staticmethod
+    def _tls_topology(tmp_path: Path, access: list[str]) -> HexRiftApp:
+        topo = make_topology(portals=[])
+        topo["users"][0]["access"] = access
+        topo["regions"][1]["tls"] = {
+            "certificate": {"cert_file": "/c", "key_file": "/k"},
+            "xhttp_path": "/t/",
+        }
+        p = tmp_path / "topology.yaml"
+        p.write_text(yaml.dump(topo))
+        return HexRiftApp(yaml_path=p)
+
+    def test_xhttp_only_user_is_not_rendered_on_tls_hub(self, tmp_path: Path):
+        xhttp_app = self._tls_topology(tmp_path, ["xhttp"])
+        xhttp_app.keys.gen_keys("hubN1", tmp_path)
+        with pytest.raises(DeriveError, match="No direct hub nodes found"):
+            xhttp_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
+
+    def test_tls_hub_yields_per_node_tls_url(self, tmp_path: Path):
+        tls_app = self._tls_topology(tmp_path, ["xhttp", "tls"])
+        tls_app.keys.gen_keys("hubN1", tmp_path)
+        keys = tls_app.keys.load_node_keys("hubN1", tmp_path)
+        ((label, url),) = tls_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
+        parts = urlsplit(url)
+        assert label == "hubN1  TLS  alice"
+        assert (parts.scheme, parts.netloc, parts.fragment) == (
+            "vless",
+            f"{Namespace(NS).user_uuid('alice')}@hubN1.ap.test.ns:443",
+            "hubN1-alice",
+        )
+        query = dict(parse_qsl(parts.query))
+        assert json.loads(query.pop("extra")) == XHTTP_EXTRA
+        assert query == {
+            "encryption": keys.encryption,
+            "flow": keys.client_flow,
+            "security": "tls",
+            "sni": "hubN1.ap.test.ns",
+            "fp": "chrome",
+            "alpn": "h2,http/1.1",
+            "type": "xhttp",
+            "host": "hubN1.ap.test.ns",
+            "path": "/t/",
+            "mode": "auto",
+        }

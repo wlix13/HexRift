@@ -19,6 +19,7 @@ from hexrift.components.schema.models.resolve import (
     resolve_node_proxy_inbound,
     resolve_node_wireguard_port,
     resolve_node_xdns,
+    resolve_region_tls,
 )
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
@@ -34,6 +35,7 @@ from hexrift.constants import (
     TagSuffix,
     Transport,
 )
+from hexrift.errors import DeriveError
 
 
 def _hub_rendered_access(
@@ -44,7 +46,7 @@ def _hub_rendered_access(
 ) -> set[AccessType]:
     """Routable access types whose inbound this hub node actually renders."""
 
-    rendered = {AccessType.XHTTP}
+    rendered = {AccessType.TLS if resolve_region_tls(region, defaults) is not None else AccessType.XHTTP}
     if global_.cdn is not None and region.cdn_xhttp_path:
         rendered.add(AccessType.CDN)
     if resolve_node_xdns(node, defaults) is not None:
@@ -87,7 +89,7 @@ def _node_reserved_ports(
             raise ValueError(f"Node {node.id!r}: {owner} and {reserved[key]} both bind {transport} port {port}")
         reserved[key] = owner
 
-    reserve(REALITY_INBOUND_PORT, Transport.TCP, "the reality inbound")
+    reserve(REALITY_INBOUND_PORT, Transport.TCP, "the direct inbound")
 
     hysteria = resolve_node_hysteria(node, region, defaults)
     if not isinstance(node, HubNode):
@@ -252,7 +254,20 @@ class ConglomerateConfig(BaseModel):
                             f"lb_fallback {region.lb_fallback!r} in region {region.id!r} is not a node in that region"
                         )
             else:
+                try:
+                    region_tls = resolve_region_tls(region, self.defaults)
+                except DeriveError as e:
+                    raise ValueError(str(e)) from e
                 for node in region.nodes:
+                    if region_tls is not None:
+                        if node.reality is not None:
+                            raise ValueError(
+                                f"Hub node {node.id!r}: reality is not allowed in TLS region {region.id!r}"
+                            )
+                        if resolve_node_hysteria(node, region, self.defaults) is not None:
+                            raise ValueError(
+                                f"Hub node {node.id!r}: hysteria is not supported in TLS region {region.id!r}"
+                            )
                     hub_nodes[node.id] = (region, node)
 
         # Unique group IDs
