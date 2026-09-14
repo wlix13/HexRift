@@ -158,9 +158,9 @@ class TestSpecValidation:
         [
             (ExitNode, {"id": "bad id", "hostname": "h.t.ns"}),
             (ExitNode, {"id": "nlA20", "hostname": "host name"}),
-            (RealityConfig, {"dest": "www.samsung.com", "xhttp": {"path": "/x/"}}),
-            (RealityConfig, {"dest": "a.com:0", "xhttp": {"path": "/x/"}}),
-            (RealityConfig, {"dest": "a.com:443", "xhttp": {"path": "login/"}}),
+            (RealityConfig, {"dest": "www.samsung.com"}),
+            (RealityConfig, {"dest": "a.com:0"}),
+            (XhttpOverride, {"path": "login/"}),
         ],
     )
     def test_rejects_what_the_schema_rejects(self, model, fields):

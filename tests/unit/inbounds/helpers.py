@@ -40,9 +40,15 @@ def make_defaults(
     exit_hysteria: HysteriaConfig | None = None,
     tls: TlsConfig | None = None,
     xhttp: XhttpConfig | None = None,
+    exit_xhttp: XhttpConfig | None = None,
 ) -> DefaultsConfig:
     return DefaultsConfig(
-        exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS, hysteria=exit_hysteria),
+        exit=ExitDefaults(
+            ipv6=True,
+            keys=_EXIT_KEYS,
+            xhttp=exit_xhttp,
+            hysteria=exit_hysteria,
+        ),
         hub=HubDefaults(
             ipv6=False,
             keys=_HUB_KEYS,

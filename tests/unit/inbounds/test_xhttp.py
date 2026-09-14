@@ -7,6 +7,8 @@ from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.regions import (
     CertificateFiles,
+    ExitNode,
+    ExitRegion,
     HubNode,
     HubRegion,
     TlsConfig,
@@ -15,6 +17,7 @@ from hexrift.components.schema.models.regions import (
 from hexrift.components.schema.models.resolve import resolve_node_xhttp, resolve_region_tls
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig, XhttpOverride
+from hexrift.constants import RegionType
 from hexrift.inbounds.base import InboundEnv, ShareClient
 from hexrift.inbounds.xhttp import XHTTP_SPEC, TlsXhttpContext, get_hub_user_short_ids, get_hub_vless_clients
 from hexrift.shared.xhttp import XHTTP_EXTRA, make_xhttp_settings
@@ -162,6 +165,23 @@ class TestResolveNodeXhttp:
         region = make_hub_region(nodes=[node], xhttp=XhttpOverride(path="/r/"))
         assert resolve_node_xhttp(node, region, defaults) == XhttpConfig(path="/n/")
 
+    def test_partial_block_keeps_what_it_does_not_set(self):
+        defaults = make_defaults(xhttp=XhttpConfig(path="/d/"))
+        node = HubNode(id="n", hostname="h.t.ns", xhttp=XhttpOverride(host="cdn.a.com"))
+        region = make_hub_region(nodes=[node])
+        assert resolve_node_xhttp(node, region, defaults) == XhttpConfig(path="/d/", host="cdn.a.com")
+
+    def test_exit_layers_region_over_defaults(self):
+        defaults = make_defaults(exit_xhttp=XhttpConfig(path="/d/", host="cdn.a.com"))
+        node = ExitNode(id="e", hostname="e.t.ns", reality=RealityConfig(dest="a.com:443"))
+        region = ExitRegion(id="x", type=RegionType.EXIT, vless_route=1, nodes=[node], xhttp=XhttpOverride(path="/r/"))
+        assert resolve_node_xhttp(node, region, defaults) == XhttpConfig(path="/r/", host="cdn.a.com")
+
+    def test_default_host_skips_region_serving_other_security(self):
+        defaults = make_defaults(xhttp=XhttpConfig(path="/d/", host="www.microsoft.com"))
+        region = make_hub_region(tls=TlsOverride(certificate=_CERT))
+        assert resolve_node_xhttp(region.nodes[0], region, defaults) == XhttpConfig(path="/d/")
+
 
 class TestXhttpSpecTls:
     def test_hub_serves_operator_cert_to_tls_users_and_portals(self):
@@ -202,6 +222,18 @@ class TestXhttpShareUrl:
             "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
             "?encryption=none&flow=&security=reality&sni=vk.com&fp=chrome&pbk=p&sid=0123456789abcdef"
             "&type=xhttp&host=vk.com&path=%2Fhub%2F&mode=auto",
+            XHTTP_EXTRA,
+            "hub1-alice",
+        )
+
+    def test_tls_host_override_leaves_sni_on_the_node_hostname(self):
+        region = make_hub_region(tls=TlsOverride(certificate=_CERT), xhttp=XhttpOverride(path="/t/", host="cdn.a.com"))
+        env = _hub_env(region, make_defaults())
+        url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
+        assert split_xhttp_share_url(url) == (
+            "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
+            "?encryption=none&flow=&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
+            "&type=xhttp&host=cdn.a.com&path=%2Ft%2F&mode=auto",
             XHTTP_EXTRA,
             "hub1-alice",
         )
