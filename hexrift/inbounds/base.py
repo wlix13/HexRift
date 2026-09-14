@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from typing import ClassVar
+from uuid import UUID
 
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
@@ -78,8 +79,18 @@ class InboundEnv:
         return self.node
 
 
+@dataclass(frozen=True)
+class ShareClient:
+    """One identity dialing hub inbound, as its share URL names it."""
+
+    uuid: UUID
+    short_id: str
+    fingerprint: str
+    fragment: str
+
+
 class InboundSpec[C: InboundContext](ABC):
-    """One inbound type: config resolution, client list, Xray fragment."""
+    """One inbound type: config resolution, client list, Xray fragment, share URL."""
 
     access_type: ClassVar[AccessType]
     roles: ClassVar[frozenset[RegionType]]
@@ -92,6 +103,11 @@ class InboundSpec[C: InboundContext](ABC):
     @abstractmethod
     def fragment(self, ctx: C, shared: SharedContext) -> dict:
         """Build Xray inbound JSON fragment."""
+
+    def share_url(self, ctx: C, env: InboundEnv, client: ShareClient) -> str:
+        """Build client share URL, mirror of fragment()."""
+
+        raise RenderError(f"Inbound {self.access_type!r} has no share URL")
 
     def narrow(self, slots: Mapping[AccessType, InboundContext]) -> C | None:
         slot = slots.get(self.access_type)

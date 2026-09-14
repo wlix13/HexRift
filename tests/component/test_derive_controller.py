@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
@@ -7,6 +8,7 @@ import yaml
 from hexrift.app import HexRiftApp
 from hexrift.components.derive.identity import Namespace
 from hexrift.errors import DeriveError
+from hexrift.shared.xhttp import XHTTP_EXTRA
 from tests.component.conftest import make_topology
 
 
@@ -668,7 +670,9 @@ class TestTlsShareUrl:
             f"{Namespace(NS).user_uuid('alice')}@hubN1.ap.test.ns:443",
             "hubN1-alice",
         )
-        assert dict(parse_qsl(parts.query)) == {
+        query = dict(parse_qsl(parts.query))
+        assert json.loads(query.pop("extra")) == XHTTP_EXTRA
+        assert query == {
             "encryption": keys.encryption,
             "flow": keys.client_flow,
             "security": "tls",

@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import ClassVar
-from urllib.parse import quote
-from uuid import UUID
 
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.users import User
 from hexrift.constants import (
     VLESS_FLOW,
     AccessType,
     RegionType,
     Socket,
-    UplinkHttpMethod,
     XrayNetwork,
     XrayProtocol,
     XraySecurity,
 )
-from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
+from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, ShareClient, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_exit_clients, get_hub_access_clients
-from hexrift.shared.xhttp import XHTTP_EXTRA_CDN, make_xhttp_settings
+from hexrift.shared.share_url import vless_share_url
+from hexrift.shared.xhttp import make_xhttp_settings, make_xhttp_share_params
 from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
@@ -98,46 +94,27 @@ class CdnSpec(InboundSpec[CdnContext]):
             "sniffing": make_sniffing(shared.route_only),
         }
 
+    def share_url(self, ctx: CdnContext, env: InboundEnv, client: ShareClient) -> str:
+        keys = env.node_keys
+        extras = make_xhttp_share_params(
+            ctx.xhttp_host,
+            ctx.xhttp_path,
+            cdn=True,
+        )
+        params = {
+            "encryption": keys.encryption,
+            "flow": keys.client_flow,
+            "security": XraySecurity.TLS,
+            "sni": ctx.domain,
+            "fp": client.fingerprint,
+            "sid": client.short_id,
+            "spx": "/",
+            "alpn": "h3,h2,http/1.1",
+            "insecure": "0",
+            "allowInsecure": "0",
+            **extras,
+        }
+        return vless_share_url(client.uuid, ctx.domain, params, client.fragment)
+
 
 CDN_SPEC = CdnSpec()
-
-
-def build_cdn_share_url(
-    *,
-    identity_uuid: UUID,
-    cdn_domain: str,
-    cdn_path: str,
-    hub_keys: NodeKeys,
-    short_id: str,
-    fingerprint: str,
-    fragment: str,
-) -> str:
-    """Build CDN share URL: VLESS over XHTTP through CDN with TLS."""
-
-    extra = json.dumps(
-        {
-            **XHTTP_EXTRA_CDN,
-            "uplinkHTTPMethod": UplinkHttpMethod.PATCH,
-        },
-        separators=(",", ":"),
-    )
-    params = "&".join(
-        [
-            f"encryption={hub_keys.encryption}",
-            f"flow={hub_keys.client_flow}",
-            f"security={XraySecurity.TLS}",
-            f"sni={cdn_domain}",
-            f"fp={fingerprint}",
-            f"sid={short_id}",
-            f"spx={quote('/', safe='')}",
-            f"alpn={quote('h3,h2,http/1.1', safe='')}",
-            "insecure=0",
-            "allowInsecure=0",
-            "type=xhttp",
-            f"host={cdn_domain}",
-            f"path={quote(cdn_path, safe='')}",
-            "mode=auto",
-            f"extra={quote(extra, safe='')}",
-        ]
-    )
-    return f"vless://{identity_uuid}@{cdn_domain}:443?{params}#{quote(fragment, safe='')}"

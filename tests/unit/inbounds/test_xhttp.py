@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from typing import cast
+from uuid import UUID
 
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
@@ -8,11 +9,11 @@ from hexrift.components.schema.models.regions import CertificateFiles, HubRegion
 from hexrift.components.schema.models.resolve import resolve_region_tls
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityConfig
-from hexrift.inbounds.base import InboundEnv
+from hexrift.inbounds.base import InboundEnv, ShareClient
 from hexrift.inbounds.xhttp import XHTTP_SPEC, TlsXhttpContext, get_hub_user_short_ids, get_hub_vless_clients
-from hexrift.shared.xhttp import make_xhttp_settings
+from hexrift.shared.xhttp import XHTTP_EXTRA, make_xhttp_settings
 from hexrift.shared.xray_defaults import make_inbound_sockopt
-from tests.unit.inbounds.helpers import make_defaults, make_hub_region, make_portal, make_user
+from tests.unit.inbounds.helpers import make_defaults, make_hub_region, make_portal, make_user, split_xhttp_share_url
 from tests.unit.render.helpers import make_shared
 
 
@@ -170,3 +171,29 @@ class TestXhttpSpecTls:
             },
             "sockopt": make_inbound_sockopt(True, shared.trusted_forwarded_headers),
         }
+
+
+class TestXhttpShareUrl:
+    _CLIENT = ShareClient(UUID(int=1), "0123456789abcdef", "chrome", "hub1-alice")
+
+    def test_reality(self):
+        env = _hub_env(make_hub_region(), make_defaults())
+        url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
+        assert split_xhttp_share_url(url) == (
+            "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
+            "?encryption=none&flow=&security=reality&sni=vk.com&fp=chrome&pbk=p&sid=0123456789abcdef"
+            "&type=xhttp&host=vk.com&path=%2Fhub%2F&mode=auto",
+            XHTTP_EXTRA,
+            "hub1-alice",
+        )
+
+    def test_tls(self):
+        env = _hub_env(make_hub_region(tls=TlsOverride(certificate=_CERT, xhttp_path="/t/")), make_defaults())
+        url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
+        assert split_xhttp_share_url(url) == (
+            "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
+            "?encryption=none&flow=&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
+            "&type=xhttp&host=h.test.ns&path=%2Ft%2F&mode=auto",
+            XHTTP_EXTRA,
+            "hub1-alice",
+        )

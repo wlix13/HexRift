@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
-from urllib.parse import quote
-from uuid import UUID
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
-from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.resolve import resolve_region_tls
-from hexrift.components.schema.models.shared import RealityConfig, RealityFallbackLimits
+from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import (
     REALITY_INBOUND_PORT,
     VLESS_FLOW,
@@ -26,15 +23,16 @@ from hexrift.constants import (
     XraySecurity,
 )
 from hexrift.errors import RenderError
-from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, SharedContext
+from hexrift.inbounds.base import InboundContext, InboundEnv, InboundSpec, ShareClient, SharedContext
 from hexrift.inbounds.clients import ClientEntry, get_exit_clients, get_hub_access_clients
-from hexrift.shared.xhttp import make_xhttp_settings
+from hexrift.shared.share_url import vless_share_url
+from hexrift.shared.xhttp import make_xhttp_settings, make_xhttp_share_params
 from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 
 
 if TYPE_CHECKING:
     from hexrift.components.schema.models.portals import Portal
-    from hexrift.components.schema.models.regions import CertificateFiles, TlsConfig
+    from hexrift.components.schema.models.regions import CertificateFiles
     from hexrift.components.schema.models.users import User
 
 
@@ -235,65 +233,28 @@ class XhttpSpec(InboundSpec[XhttpContext]):
         )
         return fragment
 
+    def share_url(self, ctx: XhttpContext, env: InboundEnv, client: ShareClient) -> str:
+        keys = env.node_keys
+        params: dict[str, str] = {"encryption": keys.encryption, "flow": keys.client_flow}
+        if isinstance(ctx, TlsXhttpContext):
+            params |= {
+                "security": XraySecurity.TLS,
+                "sni": env.node.hostname,  # operator cert names node hostname
+                "fp": client.fingerprint,
+                "alpn": ",".join(XHTTP_TLS_ALPN),
+            }
+        elif isinstance(ctx, RealityXhttpContext):
+            params |= {
+                "security": XraySecurity.REALITY,
+                "sni": ctx.server_names[0],
+                "fp": client.fingerprint,
+                "pbk": keys.reality_public_key,
+                "sid": client.short_id,
+            }
+        else:
+            raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
+        params |= make_xhttp_share_params(ctx.xhttp_host, ctx.xhttp_path)
+        return vless_share_url(client.uuid, env.node.hostname, params, client.fragment)
+
 
 XHTTP_SPEC = XhttpSpec()
-
-
-def build_reality_share_url(
-    *,
-    identity_uuid: UUID,
-    hostname: str,
-    hub_keys: NodeKeys,
-    reality: RealityConfig,
-    short_id: str,
-    fingerprint: str,
-    fragment: str,
-) -> str:
-    """Build direct share URL: VLESS over XHTTP with Reality."""
-
-    server_names = derive_server_names(reality)
-    xhttp_host = derive_xhttp_host(reality)
-    params = "&".join(
-        [
-            f"encryption={hub_keys.encryption}",
-            f"flow={hub_keys.client_flow}",
-            f"security={XraySecurity.REALITY}",
-            f"sni={server_names[0]}",
-            f"fp={fingerprint}",
-            f"pbk={hub_keys.reality_public_key}",
-            f"sid={short_id}",
-            "type=xhttp",
-            f"host={xhttp_host}",
-            f"path={quote(reality.xhttp_path, safe='')}",
-            "mode=auto",
-        ]
-    )
-    return f"vless://{identity_uuid}@{hostname}:443?{params}#{quote(fragment, safe='')}"
-
-
-def build_tls_share_url(
-    *,
-    identity_uuid: UUID,
-    hostname: str,
-    hub_keys: NodeKeys,
-    tls: TlsConfig,
-    fingerprint: str,
-    fragment: str,
-) -> str:
-    """Build direct share URL: VLESS over XHTTP with TLS."""
-
-    params = "&".join(
-        [
-            f"encryption={hub_keys.encryption}",
-            f"flow={hub_keys.client_flow}",
-            f"security={XraySecurity.TLS}",
-            f"sni={hostname}",
-            f"fp={fingerprint}",
-            f"alpn={quote(','.join(XHTTP_TLS_ALPN), safe='')}",
-            "type=xhttp",
-            f"host={hostname}",
-            f"path={quote(tls.xhttp_path, safe='')}",
-            "mode=auto",
-        ]
-    )
-    return f"vless://{identity_uuid}@{hostname}:443?{params}#{quote(fragment, safe='')}"

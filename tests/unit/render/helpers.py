@@ -100,6 +100,7 @@ def make_hysteria(**overrides: Any) -> HysteriaContext:
         "masquerade_url": "https://vk.com/",
         "certificates": [{"certificate": ["FAKE_CERT"], "key": ["FAKE_KEY"]}],
         "obfs_password": None,
+        "pin": None,
         "trunk": False,
     }
     defaults.update(overrides)

@@ -1,5 +1,8 @@
 """Shared builders for inbound spec unit tests."""
 
+import json
+from urllib.parse import unquote
+
 from hexrift.components.schema.models.defaults import (
     DefaultsConfig,
     ExitConnectionsConfig,
@@ -95,3 +98,11 @@ def make_hub_region(**kwargs) -> HubRegion:
     }
     defaults.update(kwargs)
     return HubRegion.model_validate(defaults)
+
+
+def split_xhttp_share_url(url: str) -> tuple[str, dict, str]:
+    """(url before &extra=, decoded extra JSON, fragment)."""
+
+    base, _, tail = url.partition("&extra=")
+    extra, _, fragment = tail.partition("#")
+    return base, json.loads(unquote(extra)), fragment
