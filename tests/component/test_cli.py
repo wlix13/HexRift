@@ -386,7 +386,7 @@ class TestTopologyCommands:
             "www.samsung.com:443",
             "--reality-server-names",
             "www.samsung.com, samsung.com",
-            "--reality-xhttp-path",
+            "--xhttp-path",
             "/login/",
         )
         assert result.exit_code == 0
@@ -398,7 +398,7 @@ class TestTopologyCommands:
             "        reality:\n"
             "          dest: www.samsung.com:443\n"
             "          server_names: [www.samsung.com, samsung.com]\n"
-            "          xhttp_path: /login/\n"
+            "        xhttp:\n          path: /login/\n"
             "        hysteria:\n"
             "          obfs: true\n"
             "          sni: nlA20.ap.test.hexrift\n"
@@ -413,18 +413,6 @@ class TestTopologyCommands:
         assert "created" in result.output
         assert "must have reality config" in result.output
         assert "  - id: us\n    type: exit\n    vless_route: " in topo.read_text()
-
-    def test_reality_options_require_dest(self, tmp_path):
-        topo = self._copy(tmp_path)
-        result = invoke_catching("--yaml", str(topo), "nodes", "add", "nlA20", "--reality-xhttp-path", "/x/")
-        assert result.exit_code != 0
-        assert "--reality-dest" in result.output
-
-    def test_reality_dest_requires_xhttp_path(self, tmp_path):
-        topo = self._copy(tmp_path)
-        result = invoke_catching("--yaml", str(topo), "nodes", "add", "nlA20", "--reality-dest", "a.com:443")
-        assert result.exit_code != 0
-        assert "--reality-xhttp-path" in result.output
 
     def test_skipped_notice_escapes_node_id(self, tmp_path):
         topo = tmp_path / "topology.yaml"

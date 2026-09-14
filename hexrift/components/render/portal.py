@@ -3,16 +3,10 @@ from __future__ import annotations
 import ipaddress
 from typing import TYPE_CHECKING
 
-from hexrift.components.derive.defaults import (
-    derive_server_names,
-    derive_xhttp_host,
-    resolve_node_reality,
-)
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import LoggingConfig
-from hexrift.components.schema.models.resolve import resolve_region_tls
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import (
     XHTTP_TLS_ALPN,
@@ -23,7 +17,9 @@ from hexrift.constants import (
     XraySecurity,
 )
 from hexrift.errors import RenderError
-from hexrift.shared.xhttp import XHTTP_EXTRA, XMUX
+from hexrift.inbounds.base import InboundEnv
+from hexrift.inbounds.xhttp import XHTTP_SPEC, RealityXhttpContext, TlsXhttpContext
+from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import make_log, make_sniffing, make_sockopt
 
 
@@ -67,13 +63,7 @@ def reverse_dial_outbound(
             "network": XrayNetwork.XHTTP,
             "security": security,
             f"{security}Settings": security_settings,  # Xray keys them realitySettings / tlsSettings
-            "xhttpSettings": {
-                "host": xhttp_host,
-                "path": xhttp_path,
-                "mode": "auto",
-                "extra": XHTTP_EXTRA,
-                "xmux": XMUX,
-            },
+            "xhttpSettings": make_xhttp_settings(xhttp_host, xhttp_path),
             "sockopt": make_sockopt(None),
         },
     }
@@ -152,23 +142,22 @@ def build_portal_config(
     reverse_tag = portal_tag(portal.id)
     outbounds: list[dict] = []
     for region in cfg.hub_regions:
-        tls = resolve_region_tls(region, cfg.defaults)
         for node in region.nodes:
             keys = hub_node_keys[node.id]
-            if tls is not None:
+            ctx = XHTTP_SPEC.build_context(InboundEnv(cfg, region, node, keys))
+            if isinstance(ctx, TlsXhttpContext):
                 security = XraySecurity.TLS
                 settings = {"serverName": node.hostname, "alpn": list(XHTTP_TLS_ALPN), "fingerprint": fingerprint}
-                xhttp_host, xhttp_path = node.hostname, tls.xhttp_path
-            else:
-                reality = resolve_node_reality(node, region, cfg.defaults)
+            elif isinstance(ctx, RealityXhttpContext):
                 security = XraySecurity.REALITY
                 settings = {
                     "publicKey": keys.reality_public_key,
                     "fingerprint": fingerprint,
-                    "serverName": derive_server_names(reality)[0],
+                    "serverName": ctx.server_names[0],
                     "shortId": short_id,
                 }
-                xhttp_host, xhttp_path = derive_xhttp_host(reality), reality.xhttp_path
+            else:
+                raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
             outbounds.append(
                 reverse_dial_outbound(
                     tag=f"portal-{node.id}",
@@ -179,8 +168,8 @@ def build_portal_config(
                     encryption=keys.encryption,
                     security=security,
                     security_settings=settings,
-                    xhttp_host=xhttp_host,
-                    xhttp_path=xhttp_path,
+                    xhttp_host=ctx.xhttp_host,
+                    xhttp_path=ctx.xhttp_path,
                     reverse_tag=reverse_tag,
                     sniffing=not portal.strict,
                 )

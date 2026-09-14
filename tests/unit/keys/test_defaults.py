@@ -14,7 +14,7 @@ from hexrift.constants import AuthMethod, HandshakeMethod, RegionType, TlsFinger
 
 _EXIT_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.MLKEM768)
 _HUB_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.X25519)
-_HUB_REALITY = RealityConfig(dest="vk.com:443", xhttp_path="/hub/")
+_HUB_REALITY = RealityConfig(dest="vk.com:443")
 _EXIT_CONNS = ExitConnectionsConfig(method=HandshakeMethod.MLKEM768, fingerprint=TlsFingerprint.CHROME)
 
 
@@ -41,10 +41,7 @@ def _exit_region() -> ExitRegion:
                 ExitNode(
                     id="exitN1",
                     hostname="e.test.ns",
-                    reality=RealityConfig(
-                        dest="a.com:443",
-                        xhttp_path="/x/",
-                    ),
+                    reality=RealityConfig(dest="a.com:443"),
                 ),
             ],
         }

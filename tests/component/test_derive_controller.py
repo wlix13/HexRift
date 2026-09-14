@@ -356,47 +356,6 @@ class TestBuildShareUrls:
         # Both should contain the same hub node URL
         assert pairs_specific[0][1] in [u for _, u in pairs_all]
 
-    def test_dedup_region_default_reality(self, app: HexRiftApp, tmp_path: Path):
-        """Two hub nodes in same region with no node-specific reality → one URL per region."""
-
-        topo = make_topology(
-            regions=[
-                {
-                    "id": "exit1",
-                    "type": "exit",
-                    "vless_route": 1000,
-                    "nodes": [
-                        {
-                            "id": "exitN1",
-                            "hostname": "exitN1.ap.test.ns",
-                            "reality": {
-                                "dest": "a.com:443",
-                                "xhttp_path": "/x/",
-                            },
-                        },
-                    ],
-                },
-                {
-                    "id": "hub1",
-                    "type": "hub",
-                    # Two nodes, neither with node-specific reality → share region default
-                    "nodes": [
-                        {"id": "hN1", "hostname": "h1.t.ns"},
-                        {"id": "hN2", "hostname": "h2.t.ns"},
-                    ],
-                },
-            ],
-        )
-        p = tmp_path / "topology.yaml"
-        p.write_text(yaml.dump(topo))
-        # Generate keys for both hub nodes
-        multi_app = HexRiftApp(yaml_path=p)
-        multi_app.keys.gen_keys("hN1", tmp_path)
-        multi_app.keys.gen_keys("hN2", tmp_path)
-        pairs = multi_app.derive.build_share_urls("alice", None, tmp_path, "chrome")
-        # Only one URL per region for region-default reality
-        assert len(pairs) == 1
-
 
 class TestBuildHysteriaShareUrls:
     def test_url_pins_hub_derived_cert(self, app: HexRiftApp):
@@ -432,7 +391,12 @@ class TestBuildHysteriaShareUrls:
                     "type": "exit",
                     "vless_route": 1000,
                     "nodes": [
-                        {"id": "exitN1", "hostname": "e.t.ns", "reality": {"dest": "a.com:443", "xhttp_path": "/x/"}}
+                        {
+                            "id": "exitN1",
+                            "hostname": "e.t.ns",
+                            "reality": {"dest": "a.com:443"},
+                            "xhttp": {"path": "/x/"},
+                        }
                     ],
                 },
                 {
@@ -644,10 +608,8 @@ class TestTlsShareUrl:
     def _tls_topology(tmp_path: Path, access: list[str]) -> HexRiftApp:
         topo = make_topology(portals=[])
         topo["users"][0]["access"] = access
-        topo["regions"][1]["tls"] = {
-            "certificate": {"cert_file": "/c", "key_file": "/k"},
-            "xhttp_path": "/t/",
-        }
+        topo["regions"][1]["tls"] = {"certificate": {"cert_file": "/c", "key_file": "/k"}}
+        topo["regions"][1]["xhttp"] = {"path": "/t/"}
         p = tmp_path / "topology.yaml"
         p.write_text(yaml.dump(topo))
         return HexRiftApp(yaml_path=p)

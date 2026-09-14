@@ -21,8 +21,8 @@ def _exit_cfg(node_haproxy: bool | None) -> ConglomerateConfig:
         "hostname": "exitN1.ap.t.ns",
         "reality": {
             "dest": "a.com:443",
-            "xhttp_path": "/x/",
         },
+        "xhttp": {"path": "/x/"},
     }
     if node_haproxy is not None:
         node["haproxy"] = node_haproxy
@@ -58,8 +58,8 @@ def _exit_cfg(node_haproxy: bool | None) -> ConglomerateConfig:
                     },
                     "reality": {
                         "dest": "a.com:443",
-                        "xhttp_path": "/x/",
                     },
+                    "xhttp": {"path": "/x/"},
                 },
             },
             "groups": [{"id": "grp1"}],

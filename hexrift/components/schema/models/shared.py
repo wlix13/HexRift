@@ -19,11 +19,23 @@ class RealityFallbackLimits(BaseModel):
         }
 
 
+class XhttpConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: XrayPath
+    host: DnsName | None = None  # Host header, defaults to reality dest host or node hostname under TLS
+
+
+class XhttpOverride(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: XrayPath | None = None
+    host: DnsName | None = None
+
+
 class RealityConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dest: HostPort
     server_names: NonBlankList | None = Field(default=None, min_length=1)
-    xhttp_host: DnsName | None = None
-    xhttp_path: XrayPath
     fallback_limits: RealityFallbackLimits = Field(default_factory=RealityFallbackLimits)

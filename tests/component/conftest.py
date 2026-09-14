@@ -35,8 +35,8 @@ MINIMAL_TOPOLOGY: dict = {
             },
             "reality": {
                 "dest": "vk.com:443",
-                "xhttp_path": "/idx/",
             },
+            "xhttp": {"path": "/idx/"},
         },
     },
     "groups": [{"id": "grp1"}],
@@ -68,7 +68,8 @@ MINIMAL_TOPOLOGY: dict = {
                 {
                     "id": "exitN1",
                     "hostname": "exitN1.ap.test.ns",
-                    "reality": {"dest": "a.com:443", "xhttp_path": "/x/"},
+                    "reality": {"dest": "a.com:443"},
+                    "xhttp": {"path": "/x/"},
                 },
             ],
         },

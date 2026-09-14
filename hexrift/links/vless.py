@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
+from hexrift.components.schema.models.resolve import resolve_node_xhttp
 from hexrift.constants import ExitProtocol, XrayNetwork, XrayProtocol, XraySecurity
 from hexrift.links.base import LinkContext, LinkEnv, LinkSpec
 from hexrift.shared.xhttp import make_xhttp_settings
@@ -34,6 +35,7 @@ class VlessLinkSpec(LinkSpec[VlessLinkContext]):
 
     def build_context(self, env: LinkEnv, identity: str, tag_prefix: str) -> VlessLinkContext:
         reality = resolve_node_reality(env.exit_node, env.exit_region, env.config.defaults)
+        xhttp = resolve_node_xhttp(env.exit_node, env.exit_region, env.config.defaults)
         return VlessLinkContext(
             exit_id=env.exit_node.id,
             tag_prefix=tag_prefix,
@@ -44,8 +46,8 @@ class VlessLinkSpec(LinkSpec[VlessLinkContext]):
             fingerprint=env.exit_connections.fingerprint,
             server_name=derive_server_names(reality)[0],
             short_id=env.ns.exit_short_id(env.exit_node.id),
-            xhttp_host=derive_xhttp_host(reality),
-            xhttp_path=reality.xhttp_path,
+            xhttp_host=derive_xhttp_host(reality, xhttp),
+            xhttp_path=xhttp.path,
             flow=env.exit_keys.client_flow,
         )
 

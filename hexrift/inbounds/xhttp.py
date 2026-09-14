@@ -9,7 +9,7 @@ from hexrift.components.derive.defaults import derive_server_names, derive_xhttp
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.derive.topology import portal_tag
 from hexrift.components.schema.models.groups import Group
-from hexrift.components.schema.models.resolve import resolve_region_tls
+from hexrift.components.schema.models.resolve import resolve_node_xhttp, resolve_region_tls
 from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import (
     REALITY_INBOUND_PORT,
@@ -33,6 +33,7 @@ from hexrift.shared.xray_defaults import make_inbound_sockopt, make_sniffing
 if TYPE_CHECKING:
     from hexrift.components.schema.models.portals import Portal
     from hexrift.components.schema.models.regions import CertificateFiles
+    from hexrift.components.schema.models.shared import XhttpConfig
     from hexrift.components.schema.models.users import User
 
 
@@ -136,7 +137,7 @@ class RealityXhttpContext(XhttpContext):
 
 @dataclass(frozen=True)
 class TlsXhttpContext(XhttpContext):
-    certificate: CertificateFiles  # operator cert for xhttp_host, node hostname
+    certificate: CertificateFiles  # operator cert for node hostname
 
 
 class XhttpSpec(InboundSpec[XhttpContext]):
@@ -145,9 +146,10 @@ class XhttpSpec(InboundSpec[XhttpContext]):
     context_type = XhttpContext
 
     def build_context(self, env: InboundEnv) -> XhttpContext:
+        xhttp = resolve_node_xhttp(env.node, env.region, env.config.defaults)
         if env.role == RegionType.EXIT:
             clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow)
-            return self._reality_context(env, clients, [env.ns.exit_short_id(env.node.id)])
+            return self._reality_context(env, xhttp, clients, [env.ns.exit_short_id(env.node.id)])
         tls = resolve_region_tls(env.hub_region, env.config.defaults)
         if tls is not None:
             return TlsXhttpContext(
@@ -155,8 +157,8 @@ class XhttpSpec(InboundSpec[XhttpContext]):
                     env.config.users, env.ns, AccessType.TLS, env.node_keys.flow, include_server=True
                 )
                 + get_portal_clients(env.config.portals, env.ns, env.node_keys.flow),
-                xhttp_host=env.node.hostname,
-                xhttp_path=tls.xhttp_path,
+                xhttp_host=xhttp.host if xhttp.host is not None else env.node.hostname,
+                xhttp_path=xhttp.path,
                 certificate=tls.certificate,
             )
         clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)
@@ -165,15 +167,20 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             + get_hub_portal_short_ids(env.config.portals, env.ns)
             + get_hub_user_short_ids(env.config.users, env.ns)
         )
-        return self._reality_context(env, clients, short_ids)
+        return self._reality_context(env, xhttp, clients, short_ids)
 
     @staticmethod
-    def _reality_context(env: InboundEnv, clients: list[ClientEntry], short_ids: list[str]) -> RealityXhttpContext:
+    def _reality_context(
+        env: InboundEnv,
+        xhttp: XhttpConfig,
+        clients: list[ClientEntry],
+        short_ids: list[str],
+    ) -> RealityXhttpContext:
         reality = resolve_node_reality(env.node, env.region, env.config.defaults)
         return RealityXhttpContext(
             clients=clients,
-            xhttp_host=derive_xhttp_host(reality),
-            xhttp_path=reality.xhttp_path,
+            xhttp_host=derive_xhttp_host(reality, xhttp),
+            xhttp_path=xhttp.path,
             short_ids=short_ids,
             dest=reality.dest,
             server_names=derive_server_names(reality),

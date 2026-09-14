@@ -28,7 +28,7 @@ from tests.unit.render.helpers import make_hysteria, make_shared
 
 _PRIV = "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"
 _KEYS = NodeKeys(reality_private_key=_PRIV, reality_public_key=_PRIV, decryption="none", encryption="none")
-_EXIT_REALITY = RealityConfig(dest="a.com:443", xhttp_path="/x/")
+_EXIT_REALITY = RealityConfig(dest="a.com:443")
 
 
 def _hub_env(users: list, hysteria: HysteriaConfig | None = None, node: HubNode | None = None) -> InboundEnv:
@@ -254,7 +254,14 @@ class TestBuildHubContextExitProtocol:
             "type": "exit",
             "vless_route": 1000,
             "warp": {"vless_route": 1001},
-            "nodes": [{"id": "exitN1", "hostname": "e.t.ns", "reality": {"dest": "a.com:443", "xhttp_path": "/x/"}}],
+            "nodes": [
+                {
+                    "id": "exitN1",
+                    "hostname": "e.t.ns",
+                    "reality": {"dest": "a.com:443"},
+                    "xhttp": {"path": "/x/"},
+                }
+            ],
         }
         if protocol is not None:
             exit_region["protocol"] = protocol
@@ -268,7 +275,8 @@ class TestBuildHubContextExitProtocol:
                         "ipv6": True,
                         "keys": {"auth": "x25519", "mode": "native", "session_time": "600s"},
                         "exit_connections": {"method": "mlkem768x25519plus", "fingerprint": "chrome"},
-                        "reality": {"dest": "vk.com:443", "xhttp_path": "/hub/"},
+                        "reality": {"dest": "vk.com:443"},
+                        "xhttp": {"path": "/hub/"},
                     },
                 },
                 "groups": [{"id": "g"}],

@@ -36,8 +36,8 @@ def _valid_config() -> dict:
                 },
                 "reality": {
                     "dest": "vk.com:443",
-                    "xhttp_path": "/idx/",
                 },
+                "xhttp": {"path": "/idx/"},
             },
         },
         "groups": [{"id": "grp1"}],
@@ -60,8 +60,8 @@ def _valid_config() -> dict:
                         "hostname": "exitN1.ap.test.ns",
                         "reality": {
                             "dest": "a.com:443",
-                            "xhttp_path": "/x/",
                         },
+                        "xhttp": {"path": "/x/"},
                     },
                 ],
             },
@@ -120,8 +120,8 @@ def test_exit_region_duplicate_vless_route():
                 "hostname": "e2.test.ns",
                 "reality": {
                     "dest": "b.com:443",
-                    "xhttp_path": "/y/",
                 },
+                "xhttp": {"path": "/y/"},
             },
         ],
     }
@@ -134,6 +134,13 @@ def test_exit_node_missing_reality():
     d = copy.deepcopy(_valid_config())
     del d["regions"][0]["nodes"][0]["reality"]
     with pytest.raises(ValidationError, match="must have reality config"):
+        ConglomerateConfig.model_validate(d)
+
+
+def test_node_without_xhttp_path_on_any_layer_rejected():
+    d = copy.deepcopy(_valid_config())
+    del d["regions"][0]["nodes"][0]["xhttp"]
+    with pytest.raises(ValidationError, match="Node 'exitN1': xhttp.path is not set"):
         ConglomerateConfig.model_validate(d)
 
 
@@ -876,7 +883,7 @@ def test_portal_publish_hysteria_port_reserved():
 
 def test_hub_region_tls_without_certificate_or_default_rejected():
     d = copy.deepcopy(_valid_config())
-    d["regions"][1]["tls"] = {"xhttp_path": "/t/"}
+    d["regions"][1]["tls"] = {}
     with pytest.raises(ValidationError, match="tls.certificate must be set"):
         ConglomerateConfig.model_validate(d)
 
@@ -899,6 +906,6 @@ def test_hysteria_in_tls_hub_region_rejected():
 def test_node_reality_in_tls_hub_region_rejected():
     d = copy.deepcopy(_valid_config())
     d["regions"][1]["tls"] = {"certificate": {"cert_file": "/c", "key_file": "/k"}}
-    d["regions"][1]["nodes"][0]["reality"] = {"dest": "a.com:443", "xhttp_path": "/x/"}
+    d["regions"][1]["nodes"][0]["reality"] = {"dest": "a.com:443"}
     with pytest.raises(ValidationError, match="reality is not allowed in TLS region"):
         ConglomerateConfig.model_validate(d)

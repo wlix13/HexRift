@@ -19,6 +19,7 @@ from hexrift.components.schema.models.resolve import (
     resolve_node_proxy_inbound,
     resolve_node_wireguard_port,
     resolve_node_xdns,
+    resolve_node_xhttp,
     resolve_region_tls,
 )
 from hexrift.components.schema.models.routing import RoutingConfig
@@ -269,6 +270,11 @@ class ConglomerateConfig(BaseModel):
                                 f"Hub node {node.id!r}: hysteria is not supported in TLS region {region.id!r}"
                             )
                     hub_nodes[node.id] = (region, node)
+            for node in region.nodes:
+                try:
+                    resolve_node_xhttp(node, region, self.defaults)
+                except DeriveError as e:
+                    raise ValueError(str(e)) from e
 
         # Unique group IDs
         if len(group_ids) != len(self.groups):

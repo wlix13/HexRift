@@ -88,8 +88,8 @@ class TestHubKeyReuse:
                     },
                     "reality": {
                         "dest": "vk.com:443",
-                        "xhttp_path": "/idx/",
                     },
+                    "xhttp": {"path": "/idx/"},
                 },
             },
             "groups": [{"id": "grp1"}],
@@ -112,8 +112,8 @@ class TestHubKeyReuse:
                             "hostname": "e.test.ns",
                             "reality": {
                                 "dest": "a.com:443",
-                                "xhttp_path": "/x/",
                             },
+                            "xhttp": {"path": "/x/"},
                         }
                     ],
                 },
@@ -156,8 +156,8 @@ class TestHubKeyReuse:
                             "hostname": "exitN1.ap.test.ns",
                             "reality": {
                                 "dest": "a.com:443",
-                                "xhttp_path": "/x/",
                             },
+                            "xhttp": {"path": "/x/"},
                         },
                     ],
                 },

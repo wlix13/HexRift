@@ -18,7 +18,7 @@ from hexrift.components.schema.models.fields import (
 )
 from hexrift.components.schema.models.observability import ObservabilityOverride
 from hexrift.components.schema.models.routing import ExitRoute
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 from hexrift.constants import (
     HYSTERIA_INBOUND_PORT,
     AuthMethod,
@@ -153,14 +153,12 @@ class TlsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     certificate: CertificateFiles
-    xhttp_path: XrayPath = "/"
 
 
 class TlsOverride(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     certificate: CertificateFiles | None = None
-    xhttp_path: XrayPath | None = None
 
 
 class ExitNode(BaseModel):
@@ -172,6 +170,7 @@ class ExitNode(BaseModel):
     haproxy: bool | None = None
     lb_role: LbRole | None = None
     reality: RealityConfig | None = None  # root validator requires it, optional so `nodes add` writes node first
+    xhttp: XhttpOverride | None = None
     keys: NodeKeysOverride | None = None
     hysteria: HysteriaOverride | None = None
     observability: ObservabilityOverride | None = None
@@ -185,6 +184,7 @@ class HubNode(BaseModel):
     ipv6: bool | None = None
     haproxy: bool | None = None
     reality: RealityConfig | None = None
+    xhttp: XhttpOverride | None = None
     keys: NodeKeysOverride | None = None
     exit_connections: NodeExitConnectionsOverride | None = None
     proxy_inbound: bool | None = None
@@ -209,6 +209,7 @@ class ExitRegion(BaseModel):
     vless_route: int | None = Field(default=None, ge=0, le=65535)
     protocol: ExitProtocol | None = None
     hysteria: HysteriaOverride | None = None
+    xhttp: XhttpOverride | None = None
     cdn_xhttp_path: XrayPath | None = None
     lb_strategy: LbStrategy | None = None
     lb_fallback: str | None = None
@@ -225,6 +226,7 @@ class HubRegion(BaseModel):
     type: Literal[RegionType.HUB]
     reality: RealityConfig | None = None
     tls: TlsOverride | None = None
+    xhttp: XhttpOverride | None = None
     cdn_xhttp_path: XrayPath | None = None
     nodes: Annotated[list[HubNode], BeforeValidator(_none_to_empty)]
 

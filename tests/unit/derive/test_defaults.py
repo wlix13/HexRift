@@ -34,14 +34,14 @@ from hexrift.components.schema.models.regions import (
     HubRegion,
     TlsConfig,
 )
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig, XhttpOverride
 from hexrift.constants import AuthMethod, HandshakeMethod, LogLevel, RegionType, TlsFingerprint
 from hexrift.errors import DeriveError
 
 
 _EXIT_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.MLKEM768)
 _HUB_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.X25519)
-_HUB_REALITY = RealityConfig(dest="vk.com:443", xhttp_path="/hub/")
+_HUB_REALITY = RealityConfig(dest="vk.com:443")
 _EXIT_CONNS = ExitConnectionsConfig(method=HandshakeMethod.MLKEM768, fingerprint=TlsFingerprint.CHROME)
 
 
@@ -67,7 +67,8 @@ def _exit_region(**kwargs) -> ExitRegion:
             ExitNode(
                 id="exitN1",
                 hostname="e.test.ns",
-                reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"),
+                reality=RealityConfig(dest="a.com:443"),
+                xhttp=XhttpOverride(path="/x/"),
             ),
         ],
     }
@@ -100,7 +101,7 @@ def _global(observability: ObservabilityConfig | None = None) -> GlobalConfig:
 
 class TestResolveNodeReality:
     def test_node_override_returned_as_is(self):
-        node_reality = RealityConfig(dest="b.com:443", xhttp_path="/b/")
+        node_reality = RealityConfig(dest="b.com:443")
         node = ExitNode(id="n", hostname="h.example.com", reality=node_reality)
         result = resolve_node_reality(node, _exit_region(), _defaults())
         assert result.dest == "b.com:443"
@@ -341,42 +342,35 @@ class TestResolveNodeObservability:
 
 class TestDeriveServerNames:
     def test_explicit_server_names_returned(self):
-        r = RealityConfig(dest="a.com:443", server_names=["cdn.a.com"], xhttp_path="/p/")
+        r = RealityConfig(dest="a.com:443", server_names=["cdn.a.com"])
         assert derive_server_names(r) == ["cdn.a.com"]
 
     def test_extracted_from_dest_host_port(self):
-        r = RealityConfig(dest="vk.com:443", xhttp_path="/p/")
+        r = RealityConfig(dest="vk.com:443")
         assert derive_server_names(r) == ["vk.com"]
 
     def test_dest_without_port_rejected(self):
         # reality dest must be host:port; a port-less dest is now rejected at the model level.
         with pytest.raises(ValidationError, match="should match pattern"):
-            RealityConfig(dest="vk.com", xhttp_path="/p/")
+            RealityConfig(dest="vk.com")
 
     def test_ipv6_bracketed_dest(self):
-        r = RealityConfig(dest="[::1]:443", xhttp_path="/p/")
+        r = RealityConfig(dest="[::1]:443")
         assert derive_server_names(r) == ["::1"]
 
 
 class TestDeriveXhttpHost:
     def test_explicit_xhttp_host_returned(self):
-        r = RealityConfig(dest="a.com:443", xhttp_host="cdn.a.com", xhttp_path="/p/")
-        assert derive_xhttp_host(r) == "cdn.a.com"
+        xhttp = XhttpConfig(path="/", host="cdn.a.com")
+        assert derive_xhttp_host(RealityConfig(dest="a.com:443"), xhttp) == "cdn.a.com"
 
     def test_extracted_from_dest(self):
-        r = RealityConfig(dest="vk.com:443", xhttp_path="/p/")
-        assert derive_xhttp_host(r) == "vk.com"
+        assert derive_xhttp_host(RealityConfig(dest="vk.com:443"), XhttpConfig(path="/")) == "vk.com"
 
     def test_malformed_ipv6_raises(self):
-        r = RealityConfig.model_construct(
-            dest="[::1",
-            xhttp_path="/p/",
-            xhttp_host=None,
-            server_names=None,
-            fallback_limits=None,
-        )
+        r = RealityConfig.model_construct(dest="[::1", server_names=None, fallback_limits=None)
         with pytest.raises(DeriveError, match="missing"):
-            derive_xhttp_host(r)
+            derive_xhttp_host(r, XhttpConfig(path="/"))
 
 
 def _tls_defaults() -> DefaultsConfig:
@@ -394,9 +388,9 @@ def _tls_defaults() -> DefaultsConfig:
 
 class TestHubRealityLevels:
     def test_region_reality_beats_default_and_node_beats_region(self):
-        region = _hub_region(reality=RealityConfig(dest="r.com:443", xhttp_path="/r/"))
+        region = _hub_region(reality=RealityConfig(dest="r.com:443"), xhttp=XhttpOverride(path="/r/"))
         assert resolve_node_reality(HubNode(id="n", hostname="h"), region, _defaults()).dest == "r.com:443"
-        node = HubNode(id="n", hostname="h", reality=RealityConfig(dest="b.com:443", xhttp_path="/b/"))
+        node = HubNode(id="n", hostname="h", reality=RealityConfig(dest="b.com:443"), xhttp=XhttpOverride(path="/b/"))
         assert resolve_node_reality(node, region, _defaults()).dest == "b.com:443"
 
     def test_tls_region_has_no_reality(self):

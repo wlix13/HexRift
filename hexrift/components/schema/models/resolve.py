@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from hexrift.components.schema.models.observability import MetricsConfig
-from hexrift.components.schema.models.regions import HysteriaConfig, TlsConfig, WireguardConfig
+from hexrift.components.schema.models.regions import HubRegion, HysteriaConfig, TlsConfig, WireguardConfig
+from hexrift.components.schema.models.shared import XhttpConfig, XhttpOverride
 from hexrift.constants import ExitProtocol, RegionType
 from hexrift.errors import DeriveError
 
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
     from hexrift.components.schema.models.regions import (
         ExitRegion,
         HubNode,
-        HubRegion,
         HysteriaOverride,
         Node,
         NodeWireguardOverride,
@@ -94,6 +94,23 @@ def resolve_region_tls(region: HubRegion, defaults: DefaultsConfig) -> TlsConfig
             )
         base = TlsConfig(certificate=region.tls.certificate)
     return overlay(base, region.tls)
+
+
+def resolve_node_xhttp(node: Node, region: Region, defaults: DefaultsConfig) -> XhttpConfig:
+    """XHTTP settings of node's direct inbound: node > region > defaults.<role>."""
+
+    base = defaults.exit.xhttp if region.type == RegionType.EXIT else defaults.hub.xhttp
+    if (
+        base is not None
+        and isinstance(region, HubRegion)
+        and (resolve_region_tls(region, defaults) is None) != (defaults.hub.tls is None)
+    ):
+        # Default host names defaults.hub's security, so region serving other kind derives its own
+        base = base.model_copy(update={"host": None})
+    xhttp = overlay(overlay(overlay(XhttpOverride(), base), region.xhttp), node.xhttp)
+    if xhttp.path is None:
+        raise DeriveError(f"Node {node.id!r}: xhttp.path is not set on node, region or defaults.{region.type}")
+    return XhttpConfig(path=xhttp.path, host=xhttp.host)
 
 
 def resolve_link_protocol(region: ExitRegion) -> ExitProtocol:

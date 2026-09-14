@@ -5,10 +5,16 @@ from uuid import UUID
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.defaults import DefaultsConfig
-from hexrift.components.schema.models.regions import CertificateFiles, HubRegion, TlsConfig, TlsOverride
-from hexrift.components.schema.models.resolve import resolve_region_tls
+from hexrift.components.schema.models.regions import (
+    CertificateFiles,
+    HubNode,
+    HubRegion,
+    TlsConfig,
+    TlsOverride,
+)
+from hexrift.components.schema.models.resolve import resolve_node_xhttp, resolve_region_tls
 from hexrift.components.schema.models.root import ConglomerateConfig
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig, XhttpOverride
 from hexrift.inbounds.base import InboundEnv, ShareClient
 from hexrift.inbounds.xhttp import XHTTP_SPEC, TlsXhttpContext, get_hub_user_short_ids, get_hub_vless_clients
 from hexrift.shared.xhttp import XHTTP_EXTRA, make_xhttp_settings
@@ -129,24 +135,37 @@ def _hub_env(
 
 class TestResolveRegionTls:
     def test_default_tls_applies_unless_region_picks_reality(self):
-        defaults = make_defaults(tls=TlsConfig(certificate=_CERT, xhttp_path="/t/"))
-        assert resolve_region_tls(make_hub_region(), defaults) == TlsConfig(certificate=_CERT, xhttp_path="/t/")
-        reality = make_hub_region(reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
+        defaults = make_defaults(tls=TlsConfig(certificate=_CERT))
+        assert resolve_region_tls(make_hub_region(), defaults) == TlsConfig(certificate=_CERT)
+        reality = make_hub_region(reality=RealityConfig(dest="a.com:443"))
         assert resolve_region_tls(reality, defaults) is None
 
-    def test_region_override_overlays_default(self):
-        defaults = make_defaults(tls=TlsConfig(certificate=_CERT, xhttp_path="/t/"))
-        region = make_hub_region(tls=TlsOverride(xhttp_path="/n/"))
-        assert resolve_region_tls(region, defaults) == TlsConfig(certificate=_CERT, xhttp_path="/n/")
+    def test_region_certificate_replaces_default(self):
+        other = CertificateFiles(cert_file="/c2.pem", key_file="/k2.pem")
+        defaults = make_defaults(tls=TlsConfig(certificate=_CERT))
+        region = make_hub_region(tls=TlsOverride(certificate=other))
+        assert resolve_region_tls(region, defaults) == TlsConfig(certificate=other)
 
-    def test_region_tls_under_reality_default_starts_from_its_certificate(self):
+    def test_region_tls_under_reality_default_needs_only_certificate(self):
         region = make_hub_region(tls=TlsOverride(certificate=_CERT))
-        assert resolve_region_tls(region, make_defaults()) == TlsConfig(certificate=_CERT, xhttp_path="/")
+        assert resolve_region_tls(region, make_defaults()) == TlsConfig(certificate=_CERT)
+
+
+class TestResolveNodeXhttp:
+    def test_hub_layers_node_over_region_over_defaults(self):
+        defaults = make_defaults(xhttp=XhttpConfig(path="/d/"))
+        region = make_hub_region()
+        assert resolve_node_xhttp(region.nodes[0], region, defaults) == XhttpConfig(path="/d/")
+        region = make_hub_region(xhttp=XhttpOverride(path="/r/"))
+        assert resolve_node_xhttp(region.nodes[0], region, defaults) == XhttpConfig(path="/r/")
+        node = HubNode(id="n", hostname="h.t.ns", xhttp=XhttpOverride(path="/n/"))
+        region = make_hub_region(nodes=[node], xhttp=XhttpOverride(path="/r/"))
+        assert resolve_node_xhttp(node, region, defaults) == XhttpConfig(path="/n/")
 
 
 class TestXhttpSpecTls:
     def test_hub_serves_operator_cert_to_tls_users_and_portals(self):
-        region = make_hub_region(tls=TlsOverride(certificate=_CERT, xhttp_path="/t/"))
+        region = make_hub_region(tls=TlsOverride(certificate=_CERT), xhttp=XhttpOverride(path="/t/"))
         users = [make_user("alice", access=["tls", "server"], guests=["laptop"]), make_user("bob", access=["xhttp"])]
         portals = [make_portal("home", users=["bob"], domains=["home.example.com"])]
         ctx = XHTTP_SPEC.build_context(_hub_env(region, make_defaults(), users=users, portals=portals))
@@ -188,7 +207,8 @@ class TestXhttpShareUrl:
         )
 
     def test_tls(self):
-        env = _hub_env(make_hub_region(tls=TlsOverride(certificate=_CERT, xhttp_path="/t/")), make_defaults())
+        region = make_hub_region(tls=TlsOverride(certificate=_CERT), xhttp=XhttpOverride(path="/t/"))
+        env = _hub_env(region, make_defaults())
         url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
         assert split_xhttp_share_url(url) == (
             "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"

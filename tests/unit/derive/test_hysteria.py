@@ -19,7 +19,7 @@ from hexrift.constants import HysteriaKeyType
 
 
 _PRIV = "mZ0iHOiFoN3JfGgq_7D7GwvEcMwqJEbT7T5VyqK7Rnk"
-_REALITY = RealityConfig(dest="vk.com:443", xhttp_path="/x/")
+_REALITY = RealityConfig(dest="vk.com:443")
 _ED25519_PIN = "43:E7:FF:B3:6A:89:C9:6A:34:81:62:0D:46:57:C6:FD:75:1D:F6:80:96:B6:84:3E:E7:04:40:8A:89:B4:7F:45"
 
 
