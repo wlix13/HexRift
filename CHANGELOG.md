@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.3](https://github.com/wlix13/HexRift/compare/v0.12.2...v0.12.3) (2026-09-14)
+
+
+### Features
+
+* **tls:** serve hub direct inbound over TLS with operator cert ([3c431af](https://github.com/wlix13/HexRift/commit/3c431af97467be9daf7cc0d3794c68aee8921493))
+
+
+### Bug Fixes
+
+* **inbounds:** order client entries as email, id, flow ([92f79ec](https://github.com/wlix13/HexRift/commit/92f79ecf3dd3b4089140ea7702abc115f215ad6e))
+
+
+### Documentation
+
+* **tls:** document TLS hubs ([f13a1bf](https://github.com/wlix13/HexRift/commit/f13a1bfdb900a46e0edc1168baa0d13ffac8eae7))
+
 ## [0.12.2](https://github.com/wlix13/HexRift/compare/v0.12.1...v0.12.2) (2026-09-08)
 
 
