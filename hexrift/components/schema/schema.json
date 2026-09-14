@@ -4,6 +4,7 @@
       "description": "User access types (used in users[].access).",
       "enum": [
         "xhttp",
+        "tls",
         "server",
         "cdn",
         "proxy",
@@ -51,6 +52,27 @@
         "hub_domain"
       ],
       "title": "CdnConfig",
+      "type": "object"
+    },
+    "CertificateFiles": {
+      "additionalProperties": false,
+      "properties": {
+        "cert_file": {
+          "minLength": 1,
+          "title": "Cert File",
+          "type": "string"
+        },
+        "key_file": {
+          "minLength": 1,
+          "title": "Key File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cert_file",
+        "key_file"
+      ],
+      "title": "CertificateFiles",
       "type": "object"
     },
     "DefaultsConfig": {
@@ -149,6 +171,108 @@
       "title": "ExitDefaults",
       "type": "object"
     },
+    "ExitNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "hostname": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "title": "Hostname",
+          "type": "string"
+        },
+        "ipv6": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ipv6"
+        },
+        "haproxy": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Haproxy"
+        },
+        "lb_role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LbRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeKeysOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "hostname"
+      ],
+      "title": "ExitNode",
+      "type": "object"
+    },
     "ExitProtocol": {
       "description": "Protocol hubs use to dial an exit region.",
       "enum": [
@@ -157,6 +281,140 @@
       ],
       "title": "ExitProtocol",
       "type": "string"
+    },
+    "ExitRegion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "exit",
+          "title": "Type",
+          "type": "string"
+        },
+        "vless_route": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vless Route"
+        },
+        "protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExitProtocol"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cdn_xhttp_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cdn Xhttp Path"
+        },
+        "lb_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LbStrategy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lb_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lb Fallback"
+        },
+        "lb_least_load": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeastLoadSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "routing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionRouting"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "warp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WarpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ExitNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "nodes"
+      ],
+      "title": "ExitRegion",
+      "type": "object"
     },
     "ExitRoute": {
       "additionalProperties": false,
@@ -306,7 +564,26 @@
           "$ref": "#/$defs/ExitConnectionsConfig"
         },
         "reality": {
-          "$ref": "#/$defs/RealityConfig"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tls": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TlsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "xdns": {
           "anyOf": [
@@ -359,10 +636,209 @@
       "required": [
         "ipv6",
         "keys",
-        "exit_connections",
-        "reality"
+        "exit_connections"
       ],
       "title": "HubDefaults",
+      "type": "object"
+    },
+    "HubNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "hostname": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "title": "Hostname",
+          "type": "string"
+        },
+        "ipv6": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ipv6"
+        },
+        "haproxy": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Haproxy"
+        },
+        "reality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeKeysOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "exit_connections": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeExitConnectionsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "proxy_inbound": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proxy Inbound"
+        },
+        "xdns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XdnsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wireguard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeWireguardOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hysteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HysteriaOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservabilityOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "hostname"
+      ],
+      "title": "HubNode",
+      "type": "object"
+    },
+    "HubRegion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "hub",
+          "title": "Type",
+          "type": "string"
+        },
+        "reality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tls": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TlsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cdn_xhttp_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cdn Xhttp Path"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/HubNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "nodes"
+      ],
+      "title": "HubRegion",
       "type": "object"
     },
     "HubRoute": {
@@ -1020,153 +1496,6 @@
       "title": "MetricsOverride",
       "type": "object"
     },
-    "Node": {
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+$",
-          "title": "Id",
-          "type": "string"
-        },
-        "hostname": {
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
-          "title": "Hostname",
-          "type": "string"
-        },
-        "ipv6": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Ipv6"
-        },
-        "haproxy": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Haproxy"
-        },
-        "lb_role": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LbRole"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "reality": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RealityConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "keys": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NodeKeysOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "exit_connections": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NodeExitConnectionsOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "proxy_inbound": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Proxy Inbound"
-        },
-        "xdns": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/XdnsConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "wireguard": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NodeWireguardOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "hysteria": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HysteriaOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "observability": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ObservabilityOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "id",
-        "hostname"
-      ],
-      "title": "Node",
-      "type": "object"
-    },
     "NodeExitConnectionsOverride": {
       "additionalProperties": false,
       "properties": {
@@ -1678,138 +2007,6 @@
       "title": "RealityFallbackLimits",
       "type": "object"
     },
-    "Region": {
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+$",
-          "title": "Id",
-          "type": "string"
-        },
-        "type": {
-          "$ref": "#/$defs/RegionType"
-        },
-        "vless_route": {
-          "anyOf": [
-            {
-              "maximum": 65535,
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Vless Route"
-        },
-        "protocol": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ExitProtocol"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "hysteria": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HysteriaOverride"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "cdn_xhttp_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Cdn Xhttp Path"
-        },
-        "lb_strategy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LbStrategy"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "lb_fallback": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Lb Fallback"
-        },
-        "lb_least_load": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LeastLoadSettings"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "routing": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RegionRouting"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "warp": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/WarpConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "nodes": {
-          "items": {
-            "$ref": "#/$defs/Node"
-          },
-          "title": "Nodes",
-          "type": "array"
-        }
-      },
-      "required": [
-        "id",
-        "type",
-        "nodes"
-      ],
-      "title": "Region",
-      "type": "object"
-    },
     "RegionRouting": {
       "additionalProperties": false,
       "properties": {
@@ -1846,14 +2043,6 @@
       },
       "title": "RegionRouting",
       "type": "object"
-    },
-    "RegionType": {
-      "enum": [
-        "exit",
-        "hub"
-      ],
-      "title": "RegionType",
-      "type": "string"
     },
     "RoutingConfig": {
       "additionalProperties": false,
@@ -1893,6 +2082,24 @@
       "title": "RoutingConfig",
       "type": "object"
     },
+    "TlsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate": {
+          "$ref": "#/$defs/CertificateFiles"
+        },
+        "xhttp_path": {
+          "default": "/",
+          "title": "Xhttp Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "certificate"
+      ],
+      "title": "TlsConfig",
+      "type": "object"
+    },
     "TlsFingerprint": {
       "description": "uTLS client fingerprints.",
       "enum": [
@@ -1909,6 +2116,36 @@
       ],
       "title": "TlsFingerprint",
       "type": "string"
+    },
+    "TlsOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "certificate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertificateFiles"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xhttp_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Xhttp Path"
+        }
+      },
+      "title": "TlsOverride",
+      "type": "object"
     },
     "User": {
       "additionalProperties": false,
@@ -2080,7 +2317,21 @@
     },
     "regions": {
       "items": {
-        "$ref": "#/$defs/Region"
+        "discriminator": {
+          "mapping": {
+            "exit": "#/$defs/ExitRegion",
+            "hub": "#/$defs/HubRegion"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ExitRegion"
+          },
+          {
+            "$ref": "#/$defs/HubRegion"
+          }
+        ]
       },
       "title": "Regions",
       "type": "array"
