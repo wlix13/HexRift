@@ -10,7 +10,7 @@ from hexrift.components.schema.models.observability import (
     ObservabilityConfig,
     ObservabilityOverride,
 )
-from hexrift.components.schema.models.regions import Node, Region
+from hexrift.components.schema.models.regions import HubNode, Node, Region
 from hexrift.components.schema.models.resolve import resolve_node_metrics
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.constants import RegionType
@@ -84,7 +84,7 @@ def resolve_node_observability(
     return ObservabilityConfig(metrics=metrics, logging=logging)
 
 
-def resolve_exit_connections(node: Node, defaults: DefaultsConfig) -> ExitConnectionsConfig:
+def resolve_exit_connections(node: HubNode, defaults: DefaultsConfig) -> ExitConnectionsConfig:
     base = defaults.hub.exit_connections
     if node.exit_connections is None:
         return base

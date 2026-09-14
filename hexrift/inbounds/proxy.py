@@ -22,7 +22,7 @@ class ProxySpec(InboundSpec[ProxyContext]):
     context_type = ProxyContext
 
     def build_context(self, env: InboundEnv) -> ProxyContext | None:
-        if not resolve_node_proxy_inbound(env.node, env.config.defaults):
+        if not resolve_node_proxy_inbound(env.hub_node, env.config.defaults):
             return None
         ns = env.ns
         accounts: list[dict] = []

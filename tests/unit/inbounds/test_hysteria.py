@@ -7,7 +7,14 @@ import pytest
 from hexrift.components.derive.hysteria import derive_hysteria_certificate, derive_hysteria_obfs_password
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
-from hexrift.components.schema.models.regions import HysteriaCertificate, HysteriaConfig, HysteriaOverride, Node, Region
+from hexrift.components.schema.models.regions import (
+    ExitNode,
+    ExitRegion,
+    HubNode,
+    HysteriaCertificate,
+    HysteriaConfig,
+    HysteriaOverride,
+)
 from hexrift.components.schema.models.resolve import resolve_node_hysteria
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.shared import RealityConfig
@@ -24,7 +31,7 @@ _KEYS = NodeKeys(reality_private_key=_PRIV, reality_public_key=_PRIV, decryption
 _EXIT_REALITY = RealityConfig(dest="a.com:443", xhttp_path="/x/")
 
 
-def _hub_env(users: list, hysteria: HysteriaConfig | None = None, node: Node | None = None) -> InboundEnv:
+def _hub_env(users: list, hysteria: HysteriaConfig | None = None, node: HubNode | None = None) -> InboundEnv:
     cfg = cast(
         ConglomerateConfig,
         SimpleNamespace(
@@ -35,13 +42,13 @@ def _hub_env(users: list, hysteria: HysteriaConfig | None = None, node: Node | N
     return InboundEnv(config=cfg, region=region, node=region.nodes[0], node_keys=_KEYS)
 
 
-def _exit_env(hub_nodes: list[Node], protocol: ExitProtocol | None = ExitProtocol.HYSTERIA) -> InboundEnv:
-    region = Region(
+def _exit_env(hub_nodes: list[HubNode], protocol: ExitProtocol | None = ExitProtocol.HYSTERIA) -> InboundEnv:
+    region = ExitRegion(
         id="exit1",
         type=RegionType.EXIT,
         vless_route=1000,
         protocol=protocol,
-        nodes=[Node(id="exitN1", hostname="e.test.ns", reality=_EXIT_REALITY)],
+        nodes=[ExitNode(id="exitN1", hostname="e.test.ns", reality=_EXIT_REALITY)],
     )
     hub_region = make_hub_region(nodes=hub_nodes)
     cfg = cast(
@@ -49,7 +56,7 @@ def _exit_env(hub_nodes: list[Node], protocol: ExitProtocol | None = ExitProtoco
         SimpleNamespace(
             defaults=make_defaults(),
             users=[],
-            regions=[region, hub_region],
+            hub_regions=[hub_region],
             global_=SimpleNamespace(namespace="t.ns"),
         ),
     )
@@ -62,19 +69,21 @@ class TestResolveNodeHysteria:
         assert resolve_node_hysteria(region.nodes[0], region, make_defaults()) is None
 
     def test_hub_node_override_enables_over_built_in_defaults(self):
-        node = Node(id="n", hostname="h.test.ns", hysteria=HysteriaOverride(port=8443))
+        node = HubNode(id="n", hostname="h.test.ns", hysteria=HysteriaOverride(port=8443))
         region = make_hub_region(nodes=[node])
         result = resolve_node_hysteria(node, region, make_defaults())
         assert result == HysteriaConfig(port=8443)
 
     def test_hub_node_override_disabled(self):
-        node = Node(id="n", hostname="h.test.ns", hysteria=HysteriaOverride(enabled=False))
+        node = HubNode(id="n", hostname="h.test.ns", hysteria=HysteriaOverride(enabled=False))
         region = make_hub_region(nodes=[node])
         assert resolve_node_hysteria(node, region, make_defaults(hysteria=HysteriaConfig())) is None
 
     def test_exit_layers_defaults_region_node(self):
-        node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(sni="e.example.com"))
-        region = Region(
+        node = ExitNode(
+            id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(sni="e.example.com")
+        )
+        region = ExitRegion(
             id="exit1",
             type=RegionType.EXIT,
             vless_route=1,
@@ -88,8 +97,8 @@ class TestResolveNodeHysteria:
         )
 
     def test_key_type_overlays_like_every_other_field(self):
-        node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(port=8443))
-        region = Region(
+        node = ExitNode(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(port=8443))
+        region = ExitRegion(
             id="exit1",
             type=RegionType.EXIT,
             vless_route=1,
@@ -104,13 +113,13 @@ class TestResolveNodeHysteria:
         assert hy is not None and hy.key_type is HysteriaKeyType.ED25519
 
     def test_exit_none_unless_region_protocol_is_hysteria(self):
-        node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY)
-        region = Region(id="exit1", type=RegionType.EXIT, vless_route=1, nodes=[node])
+        node = ExitNode(id="e", hostname="e.test.ns", reality=_EXIT_REALITY)
+        region = ExitRegion(id="exit1", type=RegionType.EXIT, vless_route=1, nodes=[node])
         assert resolve_node_hysteria(node, region, make_defaults(exit_hysteria=HysteriaConfig())) is None
 
     def test_exit_listens_when_hysteria_defined_under_vless(self):
-        node = Node(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(obfs=True))
-        region = Region(id="exit1", type=RegionType.EXIT, vless_route=1, nodes=[node])
+        node = ExitNode(id="e", hostname="e.test.ns", reality=_EXIT_REALITY, hysteria=HysteriaOverride(obfs=True))
+        region = ExitRegion(id="exit1", type=RegionType.EXIT, vless_route=1, nodes=[node])
         hy = resolve_node_hysteria(node, region, make_defaults())
         assert hy is not None and hy.obfs is True
 
@@ -137,7 +146,7 @@ class TestHysteriaSpecBuildContext:
         assert ctx.obfs_password is None
 
     def test_exit_users_are_hub_exit_identities(self):
-        hubs = [Node(id="hubN1", hostname="h1.test.ns"), Node(id="hubN2", hostname="h2.test.ns")]
+        hubs = [HubNode(id="hubN1", hostname="h1.test.ns"), HubNode(id="hubN2", hostname="h2.test.ns")]
         ctx = HYSTERIA_SPEC.build_context(_exit_env(hubs))
         assert ctx is not None
         ns = Namespace("t.ns")
@@ -147,7 +156,9 @@ class TestHysteriaSpecBuildContext:
         ]
 
     def test_exit_none_when_region_dials_over_vless(self):
-        assert HYSTERIA_SPEC.build_context(_exit_env([Node(id="hubN1", hostname="h1.test.ns")], protocol=None)) is None
+        assert (
+            HYSTERIA_SPEC.build_context(_exit_env([HubNode(id="hubN1", hostname="h1.test.ns")], protocol=None)) is None
+        )
 
     def test_exit_none_without_hub_nodes(self):
         assert HYSTERIA_SPEC.build_context(_exit_env([])) is None
@@ -197,7 +208,7 @@ class TestHysteriaSpecFragment:
         assert frag["sniffing"]["routeOnly"] is True
 
     def test_exit_trunk_listener_tuning(self):
-        ctx = HYSTERIA_SPEC.build_context(_exit_env([Node(id="hubN1", hostname="h1.test.ns")]))
+        ctx = HYSTERIA_SPEC.build_context(_exit_env([HubNode(id="hubN1", hostname="h1.test.ns")]))
         assert ctx is not None and ctx.trunk
         frag = HYSTERIA_SPEC.fragment(ctx, make_shared(ipv6=True, route_only=False))
         assert frag["streamSettings"]["finalmask"]["quicParams"] == {
@@ -287,7 +298,7 @@ class TestBuildHubContextExitProtocol:
         from hexrift.links.hysteria import HysteriaLinkContext
 
         cfg = self._config("hysteria")
-        hub_region, hub_node = cfg.regions[1], cfg.regions[1].nodes[0]
+        hub_region, hub_node = cfg.hub_regions[0], cfg.hub_regions[0].nodes[0]
         ctx = build_hub_context(cfg, hub_region, hub_node, _KEYS, {"exitN1": _KEYS})
         (ob,), (warp,) = ctx.outbounds, ctx.warp_outbounds
         assert isinstance(ob, HysteriaLinkContext) and isinstance(warp, HysteriaLinkContext)
@@ -315,7 +326,7 @@ class TestBuildHubContextExitProtocol:
         from hexrift.links.hysteria import HysteriaLinkContext
 
         cfg = self._config("hysteria", hysteria={"key_type": "ecdsa-p256"})
-        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        ctx = build_hub_context(cfg, cfg.hub_regions[0], cfg.hub_regions[0].nodes[0], _KEYS, {"exitN1": _KEYS})
         (ob,) = ctx.outbounds
         assert isinstance(ob, HysteriaLinkContext)
         assert ob.chrome_parrot is True
@@ -338,7 +349,7 @@ class TestBuildHubContextExitProtocol:
         if key_type is not None:
             hysteria["key_type"] = key_type
         cfg = self._config("hysteria", hysteria=hysteria)
-        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        ctx = build_hub_context(cfg, cfg.hub_regions[0], cfg.hub_regions[0].nodes[0], _KEYS, {"exitN1": _KEYS})
         (ob,) = ctx.outbounds
         assert isinstance(ob, HysteriaLinkContext)
         assert ob.chrome_parrot is chrome_parrot
@@ -356,7 +367,7 @@ class TestBuildHubContextExitProtocol:
 
         cert = {"cert_file": "/c.pem", "key_file": "/k.pem", "pin_sha256": "ab" * 32}
         cfg = self._config("hysteria", hysteria={"sni": "exit.example.com", "certificate": cert})
-        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        ctx = build_hub_context(cfg, cfg.hub_regions[0], cfg.hub_regions[0].nodes[0], _KEYS, {"exitN1": _KEYS})
         (ob,) = ctx.outbounds
         tls = render_link(ob, ipv6=True)["streamSettings"]["tlsSettings"]
         assert (tls["serverName"], tls["pinnedPeerCertSha256"]) == ("exit.example.com", ":".join(["AB"] * 32))
@@ -366,5 +377,5 @@ class TestBuildHubContextExitProtocol:
         from hexrift.links.vless import VlessLinkContext
 
         cfg = self._config(None)
-        ctx = build_hub_context(cfg, cfg.regions[1], cfg.regions[1].nodes[0], _KEYS, {"exitN1": _KEYS})
+        ctx = build_hub_context(cfg, cfg.hub_regions[0], cfg.hub_regions[0].nodes[0], _KEYS, {"exitN1": _KEYS})
         assert all(isinstance(ob, VlessLinkContext) for ob in ctx.outbounds + ctx.warp_outbounds)

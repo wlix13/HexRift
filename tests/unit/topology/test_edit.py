@@ -1,6 +1,6 @@
 import pytest
 
-from hexrift.components.schema.models.regions import HysteriaOverride, Node, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, HysteriaOverride
 from hexrift.components.schema.models.shared import RealityConfig
 from hexrift.components.topology.edit import Topology, node_lines, spec
 from hexrift.constants import RegionType
@@ -81,17 +81,17 @@ routing:
   hub_default: nl
 """
 
-NL = Region(id="nl", type=RegionType.EXIT, nodes=[])
-NL_HUB = Region(id="nl", type=RegionType.HUB, nodes=[])
-DE = Region(id="de", type=RegionType.EXIT, nodes=[])
-NEW_NODE = Node(id="nlA20", hostname="nlA20.ap.t.ns")
+NL = ExitRegion(id="nl", type=RegionType.EXIT, nodes=[])
+NL_HUB = HubRegion(id="nl", type=RegionType.HUB, nodes=[])
+DE = ExitRegion(id="de", type=RegionType.EXIT, nodes=[])
+NEW_NODE = ExitNode(id="nlA20", hostname="nlA20.ap.t.ns")
 NEW_NODE_BLOCK = """\
       - id: nlA20
         hostname: nlA20.ap.t.ns
 """
 
-FR_REGION = Region(id="fr", type=RegionType.EXIT, vless_route=4242, nodes=[])
-FR_NODE = Node(id="frA00", hostname="frA00.ap.t.ns", reality=RealityConfig(dest="b.com:443", xhttp_path="/y/"))
+FR_REGION = ExitRegion(id="fr", type=RegionType.EXIT, vless_route=4242, nodes=[])
+FR_NODE = ExitNode(id="frA00", hostname="frA00.ap.t.ns", reality=RealityConfig(dest="b.com:443", xhttp_path="/y/"))
 FR_NODE_BLOCK = """\
       - id: frA00
         hostname: frA00.ap.t.ns
@@ -104,7 +104,7 @@ FR_BLOCK = "  - id: fr\n    type: exit\n    vless_route: 4242\n    nodes:\n" + F
 
 class TestNodeLines:
     def test_full_spec_renders_every_field(self):
-        spec = Node(
+        spec = ExitNode(
             id="nlA20",
             hostname="nlA20.ap.t.ns",
             ipv6=False,
@@ -131,7 +131,7 @@ class TestNodeLines:
 
     def test_quotes_values_yaml_would_misread(self):
         reality = RealityConfig(dest="a.com:443", xhttp_path="/a:", server_names=['a"b: c', "a, b", "c]"])
-        assert node_lines(Node(id="no", hostname="h.t.ns", reality=reality)) == [
+        assert node_lines(ExitNode(id="no", hostname="h.t.ns", reality=reality)) == [
             '      - id: "no"',
             "        hostname: h.t.ns",
             "        reality:",
@@ -145,8 +145,8 @@ class TestSpecValidation:
     @pytest.mark.parametrize(
         ("model", "fields"),
         [
-            (Node, {"id": "bad id", "hostname": "h.t.ns"}),
-            (Node, {"id": "nlA20", "hostname": "host name"}),
+            (ExitNode, {"id": "bad id", "hostname": "h.t.ns"}),
+            (ExitNode, {"id": "nlA20", "hostname": "host name"}),
             (RealityConfig, {"dest": "www.samsung.com", "xhttp_path": "/x/"}),
             (RealityConfig, {"dest": "a.com:0", "xhttp_path": "/x/"}),
             (RealityConfig, {"dest": "a.com:443", "xhttp_path": "login/"}),
@@ -206,24 +206,24 @@ class TestUnsplicableRegions:
         with pytest.raises(TopologyError, match="block sequence"):
             topo.remove_node("a")
         with pytest.raises(TopologyError, match="block sequence"):
-            topo.add_node(NL_HUB, Node(id="b", hostname="h.y"))
+            topo.add_node(NL_HUB, HubNode(id="b", hostname="h.y"))
         assert topo.remove_node("mskA00").text == self.FLOW_NL + MSK_REGION.replace(MSK_A00_BLOCK, "")
 
     def test_flow_region_mapping_refuses_only_its_own_edits(self):
         topo = Topology("regions:\n  - {id: nl, type: hub, nodes: }\n" + MSK_REGION)
         with pytest.raises(TopologyError, match="block mapping"):
-            topo.add_node(NL_HUB, Node(id="a", hostname="h.x"))
+            topo.add_node(NL_HUB, HubNode(id="a", hostname="h.x"))
         assert topo.remove_node("mskA00").emptied
 
     @pytest.mark.parametrize("text", ["regions:\n  - id: nl\n    type: hub\n    nodes: []\n", "regions: []\n"])
     def test_empty_flow_list_becomes_block_on_add(self, text):
-        result = Topology(text).add_node(NL_HUB, Node(id="a", hostname="h.x"))
+        result = Topology(text).add_node(NL_HUB, HubNode(id="a", hostname="h.x"))
         assert result.text == "regions:\n  - id: nl\n    type: hub\n    nodes:\n      - id: a\n        hostname: h.x\n"
 
     def test_flow_hub_routes_refuse_only_remove(self):
         text = "regions:\n" + MSK_REGION + "routing:\n  hub_routes: [{destination: msk, domains: [x.com]}]\n"
         topo = Topology(text)
-        added = topo.add_node(Region(id="msk", type=RegionType.HUB, nodes=[]), Node(id="mskA10", hostname="h.y"))
+        added = topo.add_node(HubRegion(id="msk", type=RegionType.HUB, nodes=[]), HubNode(id="mskA10", hostname="h.y"))
         assert added.text == text.replace(MSK_A00_BLOCK, MSK_A00_BLOCK + "      - id: mskA10\n        hostname: h.y\n")
         with pytest.raises(TopologyError, match="'routing.hub_routes' must be"):
             topo.remove_node("mskA00")
@@ -241,26 +241,26 @@ class TestAddNode:
 
     @pytest.mark.parametrize("node_id", ["nlA05", "nlA5"])
     def test_inserts_in_natural_id_order(self, node_id):
-        node = Node(id=node_id, hostname=f"{node_id}.ap.t.ns")
+        node = ExitNode(id=node_id, hostname=f"{node_id}.ap.t.ns")
         result = Topology(BASE).add_node(NL, node)
         block = f"      - id: {node_id}\n        hostname: {node_id}.ap.t.ns\n"
         assert result.text == BASE.replace(NL_TAIL, block + NL_TAIL)
 
     def test_inserts_after_last_earlier_node_in_file_order(self):
         swapped = BASE.replace(NL_A00_BLOCK + NL_TAIL, NL_TAIL + NL_A00_BLOCK)
-        node = Node(id="nlA05", hostname="nlA05.ap.t.ns")
+        node = ExitNode(id="nlA05", hostname="nlA05.ap.t.ns")
         result = Topology(swapped).add_node(NL, node)
         block = "      - id: nlA05\n        hostname: nlA05.ap.t.ns\n"
         assert result.text == swapped.replace(NL_A00_BLOCK + "\n", NL_A00_BLOCK + block + "\n")
 
     def test_inserts_first_above_comment_owned_by_next_node(self):
         text = BASE.replace("    nodes:\n" + NL_A00_BLOCK, "    nodes:\n      # primary\n")
-        node = Node(id="nlA00", hostname="nlA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
+        node = ExitNode(id="nlA00", hostname="nlA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
         result = Topology(text).add_node(NL, node)
         assert result.text == text.replace("      # primary\n", NL_A00_BLOCK + "      # primary\n")
 
     def test_appends_after_last_node_not_after_trailing_region_keys(self):
-        node = Node(id="deA10", hostname="deA10.ap.t.ns")
+        node = ExitNode(id="deA10", hostname="deA10.ap.t.ns")
         result = Topology(BASE).add_node(DE, node)
         expected_region = DE_REGION.replace(
             "          xhttp_path: /x/\n    routing:",
@@ -287,8 +287,8 @@ class TestAddNode:
         assert result.text == BASE.replace(NL_TAIL + "\n", NL_TAIL + NEW_NODE_BLOCK + "\n")
 
     def test_hub_region_omits_vless_route(self):
-        node = Node(id="novA00", hostname="novA00.hub.t.ns")
-        result = Topology(BASE).add_node(Region(id="nov", type=RegionType.HUB, nodes=[]), node)
+        node = HubNode(id="novA00", hostname="novA00.hub.t.ns")
+        result = Topology(BASE).add_node(HubRegion(id="nov", type=RegionType.HUB, nodes=[]), node)
         assert result.text == BASE + "\n" + (
             "  - id: nov\n    type: hub\n    nodes:\n      - id: novA00\n        hostname: novA00.hub.t.ns\n"
         )
@@ -302,7 +302,7 @@ class TestAddNode:
                 "          xhttp_path: /x/\n      - id: deA05\n        hostname: deA05.ap.t.ns\n    routing:",
             )
         )
-        node = Node(id="deA10", hostname="deA10.ap.t.ns")
+        node = ExitNode(id="deA10", hostname="deA10.ap.t.ns")
         result = Topology(strategic).add_node(DE, node)
         assert result.set_lb_fallback == "deA05"
         expected = strategic.replace(
@@ -316,7 +316,7 @@ class TestAddNode:
     @pytest.mark.parametrize("keys", ["    lb_strategy:\n", "    lb_strategy: leastPing\n    lb_fallback:\n"])
     def test_null_balancer_keys_leave_lb_fallback_alone(self, keys):
         text = BASE.replace("    vless_route: 2000\n", "    vless_route: 2000\n" + keys)
-        result = Topology(text).add_node(DE, Node(id="deA10", hostname="deA10.ap.t.ns"))
+        result = Topology(text).add_node(DE, ExitNode(id="deA10", hostname="deA10.ap.t.ns"))
         assert result.set_lb_fallback is None
         assert result.text == text.replace(
             "          xhttp_path: /x/\n    routing:",
@@ -325,7 +325,7 @@ class TestAddNode:
 
     def test_rejects_duplicate_node(self):
         with pytest.raises(TopologyError, match="already in the topology"):
-            Topology(BASE).add_node(NL, Node(id="nlA10", hostname="other.t.ns"))
+            Topology(BASE).add_node(NL, ExitNode(id="nlA10", hostname="other.t.ns"))
 
     def test_rejects_region_type_mismatch(self):
         with pytest.raises(TopologyError, match="has type 'exit'"):
@@ -335,7 +335,7 @@ class TestAddNode:
     def test_rejects_differently_indented_items(self, node_id):
         text = "regions:\n- id: nl\n  type: exit\n  nodes:\n  - id: nlA10\n    hostname: h.t.ns\n"
         with pytest.raises(TopologyError, match="indented"):
-            Topology(text).add_node(NL, Node(id=node_id, hostname="h.t.ns"))
+            Topology(text).add_node(NL, ExitNode(id=node_id, hostname="h.t.ns"))
 
 
 class TestRemoveNode:
@@ -391,7 +391,7 @@ class TestRemoveNode:
         dashed = BASE.replace(NL_TAIL, tail)
         assert Topology(dashed).remove_node("nlA10").text == BASE.replace(NL_TAIL, "")
         block = "      - id: nlA05\n        hostname: nlA05.ap.t.ns\n"
-        added = Topology(dashed).add_node(NL, Node(id="nlA05", hostname="nlA05.ap.t.ns"))
+        added = Topology(dashed).add_node(NL, ExitNode(id="nlA05", hostname="nlA05.ap.t.ns"))
         assert added.text == dashed.replace(tail, block + tail)
 
     def test_reports_each_dropped_destination_once(self):
@@ -428,10 +428,12 @@ class TestRoundtrip:
         assert emptied.dropped_lb_fallback is True
         assert emptied.text == strategic.replace("    lb_fallback: deA00\n", "").replace(DE_A00_BLOCK, "")
         de = DE
-        first = Node(id="deA00", hostname="deA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
+        first = ExitNode(
+            id="deA00", hostname="deA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/")
+        )
         refilled = Topology(emptied.text).add_node(de, first)
         assert refilled.set_lb_fallback is None
-        result = Topology(refilled.text).add_node(de, Node(id="deA10", hostname="deA10.ap.t.ns"))
+        result = Topology(refilled.text).add_node(de, ExitNode(id="deA10", hostname="deA10.ap.t.ns"))
         assert result.set_lb_fallback == "deA00"
         assert result.text == strategic.replace(
             DE_A00_BLOCK, DE_A00_BLOCK + "      - id: deA10\n        hostname: deA10.ap.t.ns\n"

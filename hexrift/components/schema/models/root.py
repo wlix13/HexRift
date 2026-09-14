@@ -4,7 +4,15 @@ from hexrift.components.schema.models.defaults import DefaultsConfig
 from hexrift.components.schema.models.global_ import GlobalConfig
 from hexrift.components.schema.models.groups import Group
 from hexrift.components.schema.models.portals import Portal
-from hexrift.components.schema.models.regions import HysteriaConfig, HysteriaOverride, Node, Region
+from hexrift.components.schema.models.regions import (
+    ExitRegion,
+    HubNode,
+    HubRegion,
+    HysteriaConfig,
+    HysteriaOverride,
+    Node,
+    Region,
+)
 from hexrift.components.schema.models.resolve import (
     resolve_node_hysteria,
     resolve_node_metrics,
@@ -29,8 +37,8 @@ from hexrift.constants import (
 
 
 def _hub_rendered_access(
-    region: Region,
-    node: Node,
+    region: HubRegion,
+    node: HubNode,
     defaults: DefaultsConfig,
     global_: GlobalConfig,
 ) -> set[AccessType]:
@@ -82,7 +90,7 @@ def _node_reserved_ports(
     reserve(REALITY_INBOUND_PORT, Transport.TCP, "the reality inbound")
 
     hysteria = resolve_node_hysteria(node, region, defaults)
-    if region.type == RegionType.EXIT:
+    if not isinstance(node, HubNode):
         if hysteria is not None:
             reserve(hysteria.port, Transport.UDP, "the hysteria inbound")
     else:
@@ -110,7 +118,7 @@ def _node_reserved_ports(
 def _validate_portal_publish(
     portal: Portal,
     node_ids: set[str],
-    hub_nodes: dict[str, tuple[Region, Node]],
+    hub_nodes: dict[str, tuple[HubRegion, HubNode]],
     reserved_ports: dict[str, dict[tuple[int, Transport], str]],
     published_ports: dict[tuple[str, int], str],
 ) -> None:
@@ -161,13 +169,21 @@ class ConglomerateConfig(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
+    @property
+    def exit_regions(self) -> list[ExitRegion]:
+        return [r for r in self.regions if r.type == RegionType.EXIT]
+
+    @property
+    def hub_regions(self) -> list[HubRegion]:
+        return [r for r in self.regions if r.type == RegionType.HUB]
+
     @model_validator(mode="after")
     def _validate_references(self) -> "ConglomerateConfig":
         group_ids = {g.id for g in self.groups}
         region_ids = {r.id for r in self.regions}
         empty_region_ids = {r.id for r in self.regions if not r.nodes}
         node_ids: set[str] = set()
-        hub_nodes: dict[str, tuple[Region, Node]] = {}
+        hub_nodes: dict[str, tuple[HubRegion, HubNode]] = {}
 
         # Unique region IDs
         if len(region_ids) != len(self.regions):
@@ -184,8 +200,6 @@ class ConglomerateConfig(BaseModel):
                 if node.id in node_ids:
                     raise ValueError(f"Duplicate node id: {node.id!r}")
                 node_ids.add(node.id)
-                if region.type == RegionType.HUB:
-                    hub_nodes[node.id] = (region, node)
                 # CDN inbound requires HAProxy TLS termination
                 if self.global_.cdn and region.cdn_xhttp_path:
                     eff_haproxy = (
@@ -200,14 +214,14 @@ class ConglomerateConfig(BaseModel):
                             f"Node {node.id!r} disables haproxy but region {region.id!r} enables CDN"
                             " (cdn_xhttp_path); CDN requires HAProxy TLS termination"
                         )
-                if region.type == RegionType.EXIT:
-                    if node.reality is None:
-                        raise ValueError(f"Exit node {node.id!r} in region {region.id!r} must have reality config")
-                    _reject_hub_only_enabled(f"Exit node {node.id!r}", node.hysteria)
                 node_hysteria = resolve_node_hysteria(node, region, self.defaults)
                 if node_hysteria is not None:
                     _validate_hysteria(f"Node {node.id!r}", node_hysteria)
             if region.type == RegionType.EXIT:
+                for node in region.nodes:
+                    if node.reality is None:
+                        raise ValueError(f"Exit node {node.id!r} in region {region.id!r} must have reality config")
+                    _reject_hub_only_enabled(f"Exit node {node.id!r}", node.hysteria)
                 if region.vless_route is None:
                     raise ValueError(f"Exit region {region.id!r} must have vless_route")
                 if region.vless_route in seen_vless_routes:
@@ -231,17 +245,15 @@ class ConglomerateConfig(BaseModel):
                                 " must be a special destination"
                             )
                 _reject_hub_only_enabled(f"Exit region {region.id!r}", region.hysteria)
+                if region.lb_fallback is not None:
+                    region_node_ids = {n.id for n in region.nodes}
+                    if region.lb_fallback not in region_node_ids:
+                        raise ValueError(
+                            f"lb_fallback {region.lb_fallback!r} in region {region.id!r} is not a node in that region"
+                        )
             else:
-                if region.protocol is not None or region.hysteria is not None:
-                    raise ValueError(f"Non-exit region {region.id!r} must not define protocol or hysteria")
-                if region.routing and region.routing.routes:
-                    raise ValueError(f"Non-exit region {region.id!r} must not define routing.routes")
-            if region.lb_fallback is not None:
-                region_node_ids = {n.id for n in region.nodes}
-                if region.lb_fallback not in region_node_ids:
-                    raise ValueError(
-                        f"lb_fallback {region.lb_fallback!r} in region {region.id!r} is not a node in that region"
-                    )
+                for node in region.nodes:
+                    hub_nodes[node.id] = (region, node)
 
         # Unique group IDs
         if len(group_ids) != len(self.groups):
@@ -269,7 +281,8 @@ class ConglomerateConfig(BaseModel):
         for region in self.regions:
             derived_tags.add(f"{TagPrefix.LB}{region.id}")
             derived_tags.add(f"{TagPrefix.LB_WARP}{region.id}")
-        exit_region_ids = [r.id for r in self.regions if r.type == RegionType.EXIT]
+        exit_region_ids = [r.id for r in self.exit_regions]
+        hub_region_ids = {r.id for r in self.hub_regions}
         user_access = {u.username: set(u.access) for u in self.users}
         seen_portal_ids: set[str] = set()
         reserved_ports = {
@@ -314,8 +327,12 @@ class ConglomerateConfig(BaseModel):
                     )
             _validate_portal_publish(portal, node_ids, hub_nodes, reserved_ports, published_ports)
 
-        # hub_default references valid region or special destination
+        # hub_default references valid exit region or special destination
         hub_default = self.routing.hub_default
+        if hub_default in hub_region_ids:
+            raise ValueError(
+                f"hub_default {hub_default!r} is a hub region; hubs dial exit regions or special destinations"
+            )
         if hub_default not in (region_ids | SPECIAL_DESTINATIONS):
             raise ValueError(f"hub_default {hub_default!r} is not a known region or special destination")
         if hub_default in empty_region_ids:
@@ -329,6 +346,11 @@ class ConglomerateConfig(BaseModel):
         # hub_routes destinations
         valid_destinations = SPECIAL_DESTINATIONS | region_ids | node_ids
         for route in self.routing.hub_routes:
+            if route.destination in hub_region_ids or route.destination in hub_nodes:
+                raise ValueError(
+                    f"hub_route destination {route.destination!r} is a hub region or node;"
+                    " only exit regions, exit nodes and special destinations are dialable"
+                )
             if route.destination not in valid_destinations:
                 raise ValueError(f"hub_route destination {route.destination!r} is unknown")
             if route.destination in empty_region_ids:

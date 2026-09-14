@@ -153,7 +153,9 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
                 return
             region, node = result.region, result.node
             if result.created:
-                route = f", vless_route {region.vless_route}" if region.vless_route is not None else ""
+                route = ""
+                if region.type == RegionType.EXIT and region.vless_route is not None:
+                    route = f", vless_route {region.vless_route}"
                 app.console.print(
                     f"  [green]created[/green]  region {region.id} ({region.type}{route})"
                     f" with {node_id}  [dim]{node.hostname}[/dim]"

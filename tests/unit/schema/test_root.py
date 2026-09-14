@@ -48,7 +48,7 @@ def _valid_config() -> dict:
                 "access": ["xhttp"],
             },
         ],
-        "routing": {"hub_default": "hub1"},
+        "routing": {"hub_default": "exit1"},
         "regions": [
             {
                 "id": "exit1",
@@ -152,20 +152,6 @@ def test_exit_routing_invalid_destination():
         ConglomerateConfig.model_validate(d)
 
 
-def test_non_exit_region_routing_routes_forbidden():
-    d = copy.deepcopy(_valid_config())
-    d["regions"][1]["routing"] = {
-        "routes": [
-            {
-                "destination": "direct",
-                "domains": ["a.com"],
-            },
-        ]
-    }
-    with pytest.raises(ValidationError, match="must not define routing.routes"):
-        ConglomerateConfig.model_validate(d)
-
-
 def test_lb_fallback_not_in_region():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["lb_fallback"] = "hubN1"  # hubN1 is in hub1 region, not exit1
@@ -177,7 +163,7 @@ def test_lb_fallback_valid():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["lb_fallback"] = "exitN1"
     cfg = ConglomerateConfig.model_validate(d)
-    assert cfg.regions[0].lb_fallback == "exitN1"
+    assert cfg.exit_regions[0].lb_fallback == "exitN1"
 
 
 def test_duplicate_group_ids():
@@ -217,6 +203,7 @@ def test_hub_default_not_valid_region():
 def test_bare_nodes_key_is_region_without_nodes():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["nodes"] = None
+    d["routing"]["hub_default"] = "direct"
     cfg = ConglomerateConfig.model_validate(d)
     assert cfg.regions[0].nodes == []
 
@@ -232,6 +219,7 @@ def test_hub_default_region_without_nodes_rejected():
 def test_hub_route_to_region_without_nodes_rejected():
     d = copy.deepcopy(_valid_config())
     d["regions"][0]["nodes"] = None
+    d["routing"]["hub_default"] = "direct"
     d["routing"]["hub_routes"] = [{"destination": "exit1", "domains": ["x.com"]}]
     with pytest.raises(ValidationError, match="hub_route destination 'exit1' is a region with no nodes"):
         ConglomerateConfig.model_validate(d)
@@ -812,13 +800,6 @@ def test_hysteria_udp_port_coexists_with_reality_tcp_port():
     assert cfg.defaults.hub.hysteria is not None
 
 
-def test_protocol_on_hub_region_rejected():
-    d = copy.deepcopy(_valid_config())
-    d["regions"][1]["protocol"] = "hysteria"
-    with pytest.raises(ValidationError, match="must not define protocol or hysteria"):
-        ConglomerateConfig.model_validate(d)
-
-
 def test_exit_hysteria_renders_under_vless_when_defined():
     from hexrift.components.schema.models.resolve import resolve_node_hysteria
 
@@ -840,7 +821,7 @@ def test_exit_defaults_unbind_nodes_that_render_no_listener():
     d = copy.deepcopy(_valid_config())
     d["defaults"]["exit"]["hysteria"] = {"congestion": "brutal"}
     cfg = ConglomerateConfig.model_validate(d)
-    assert cfg.regions[0].protocol is None
+    assert cfg.exit_regions[0].protocol is None
 
 
 def test_hub_node_opting_out_unbound_by_hub_defaults():

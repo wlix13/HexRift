@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
@@ -146,7 +146,7 @@ class HysteriaOverride(BaseModel):
     certificate: HysteriaCertificate | None = None
 
 
-class Node(BaseModel):
+class ExitNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: Identifier
@@ -154,6 +154,19 @@ class Node(BaseModel):
     ipv6: bool | None = None
     haproxy: bool | None = None
     lb_role: LbRole | None = None
+    reality: RealityConfig | None = None  # root validator requires it, optional so `nodes add` writes node first
+    keys: NodeKeysOverride | None = None
+    hysteria: HysteriaOverride | None = None
+    observability: ObservabilityOverride | None = None
+
+
+class HubNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: Identifier
+    hostname: DnsName
+    ipv6: bool | None = None
+    haproxy: bool | None = None
     reality: RealityConfig | None = None
     keys: NodeKeysOverride | None = None
     exit_connections: NodeExitConnectionsOverride | None = None
@@ -164,11 +177,18 @@ class Node(BaseModel):
     observability: ObservabilityOverride | None = None
 
 
-class Region(BaseModel):
+Node = ExitNode | HubNode
+
+
+def _none_to_empty(nodes: object) -> object:
+    return [] if nodes is None else nodes
+
+
+class ExitRegion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: Identifier
-    type: RegionType
+    type: Literal[RegionType.EXIT]
     vless_route: int | None = Field(default=None, ge=0, le=65535)
     protocol: ExitProtocol | None = None
     hysteria: HysteriaOverride | None = None
@@ -178,4 +198,19 @@ class Region(BaseModel):
     lb_least_load: LeastLoadSettings | None = None
     routing: RegionRouting | None = None
     warp: WarpConfig | None = None
-    nodes: Annotated[list[Node], BeforeValidator(lambda v: [] if v is None else v)]
+    nodes: Annotated[list[ExitNode], BeforeValidator(_none_to_empty)]
+
+
+class HubRegion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: Identifier
+    type: Literal[RegionType.HUB]
+    cdn_xhttp_path: XrayPath | None = None
+    nodes: Annotated[list[HubNode], BeforeValidator(_none_to_empty)]
+
+
+Region = Annotated[ExitRegion | HubRegion, Field(discriminator="type")]
+"""Discriminated on `type`."""
+
+NodePair = tuple[ExitRegion, ExitNode] | tuple[HubRegion, HubNode]

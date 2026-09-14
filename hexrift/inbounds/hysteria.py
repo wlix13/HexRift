@@ -47,7 +47,7 @@ class HysteriaSpec(InboundSpec[HysteriaContext]):
         if hysteria is None:
             return None
         if env.role == RegionType.EXIT:
-            clients = get_exit_clients(env.hub_nodes, env.node, env.ns)
+            clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns)
         else:
             clients = get_hub_access_clients(env.config.users, env.ns, AccessType.HYSTERIA, "", include_server=True)
         if not clients:

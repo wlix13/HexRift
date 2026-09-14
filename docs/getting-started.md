@@ -23,7 +23,7 @@ Create `conglomerate.yaml` next to the repo. Below is the smallest valid topolog
 global:
   namespace: mynet
   aphelion_domain: exit.example.com
-  bridge_domain: hub.example.com
+
 
 defaults:
   exit:
@@ -55,7 +55,7 @@ users:
     access: [xhttp, cdn]
 
 routing:
-  hub_default: hub-eu
+  hub_default: exit-nl
 
 regions:
   - id: exit-nl

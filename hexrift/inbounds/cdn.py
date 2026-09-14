@@ -60,7 +60,7 @@ class CdnSpec(InboundSpec[CdnContext]):
             xhttp_host = f"{env.node.id}.{cdn.exit_domain}"
             clients = get_exit_clients(
                 env.hub_nodes,
-                env.node,
+                env.exit_node,
                 env.ns,
                 flow=env.node_keys.flow,
             )

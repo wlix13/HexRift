@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from hexrift.components.schema.models.global_ import GlobalConfig
     from hexrift.components.schema.models.observability import MetricsOverride
     from hexrift.components.schema.models.regions import (
+        ExitRegion,
+        HubNode,
         HysteriaOverride,
         Node,
         NodeWireguardOverride,
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
     )
 
 
-def resolve_node_proxy_inbound(node: Node, defaults: DefaultsConfig) -> bool:
+def resolve_node_proxy_inbound(node: HubNode, defaults: DefaultsConfig) -> bool:
     """Whether a hub node exposes the mixed proxy inbound."""
 
     if node.proxy_inbound is not None:
@@ -33,13 +35,13 @@ def resolve_node_proxy_inbound(node: Node, defaults: DefaultsConfig) -> bool:
     return defaults.hub.proxy_inbound
 
 
-def resolve_node_xdns(node: Node, defaults: DefaultsConfig) -> XdnsConfig | None:
+def resolve_node_xdns(node: HubNode, defaults: DefaultsConfig) -> XdnsConfig | None:
     """Xdns config for a hub node, or None when it has none."""
 
     return node.xdns if node.xdns is not None else defaults.hub.xdns
 
 
-def resolve_node_wireguard_port(node: Node, defaults: DefaultsConfig) -> int | None:
+def resolve_node_wireguard_port(node: HubNode, defaults: DefaultsConfig) -> int | None:
     """Wireguard port a hub node listens on, or None when wireguard is off for it."""
 
     override: NodeWireguardOverride | None = node.wireguard
@@ -51,7 +53,7 @@ def resolve_node_wireguard_port(node: Node, defaults: DefaultsConfig) -> int | N
     return override.port or (base.port if base is not None else 443)
 
 
-def resolve_node_wireguard(node: Node, defaults: DefaultsConfig) -> WireguardConfig | None:
+def resolve_node_wireguard(node: HubNode, defaults: DefaultsConfig) -> WireguardConfig | None:
     """Wireguard config for a hub node after the node > defaults.hub overlay."""
 
     override: NodeWireguardOverride | None = node.wireguard
@@ -76,7 +78,7 @@ def resolve_node_wireguard(node: Node, defaults: DefaultsConfig) -> WireguardCon
     )
 
 
-def resolve_link_protocol(region: Region) -> ExitProtocol:
+def resolve_link_protocol(region: ExitRegion) -> ExitProtocol:
     """Protocol hubs use to dial an exit region."""
 
     return region.protocol if region.protocol is not None else ExitProtocol.VLESS

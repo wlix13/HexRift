@@ -58,7 +58,7 @@ MINIMAL_TOPOLOGY: dict = {
             },
         },
     ],
-    "routing": {"hub_default": "hub1"},
+    "routing": {"hub_default": "exit1"},
     "regions": [
         {
             "id": "exit1",

@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from hexrift.components.schema.models.fields import parse_host_port
-from hexrift.components.schema.models.regions import HysteriaOverride, Node, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, HysteriaOverride, Region
 from hexrift.components.topology.edit import AddEdit, RegionItem, RemoveEdit, Topology, spec
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
@@ -72,17 +72,20 @@ class TopologyController(BaseController["HexRiftApp"]):
         elif node_type is None:
             raise TopologyError(f"Region {region_id!r} does not exist, pass --type to create it")
 
-        vless_route = None
-        if existing is None and node_type == RegionType.EXIT:
-            vless_route = pick_vless_route(topo.used_vless_routes)
-        region = spec(Region, id=region_id, type=node_type, vless_route=vless_route, nodes=[])
+        region: Region
+        if node_type == RegionType.EXIT:
+            vless_route = pick_vless_route(topo.used_vless_routes) if existing is None else None
+            region = spec(ExitRegion, id=region_id, type=node_type, vless_route=vless_route, nodes=[])
+        else:
+            region = spec(HubRegion, id=region_id, type=node_type, nodes=[])
         topo.check_add(region)
         hostname = hostname or self._default_hostname(topo, node_id, node_type, region_id)
         listener = None
         if hysteria or (node_type == RegionType.EXIT and existing is not None and existing.hysteria):
             masquerade = masquerade_url(reality.dest) if reality is not None else None
             listener = spec(HysteriaOverride, obfs=True, sni=hostname, masquerade_url=masquerade)
-        node = spec(Node, id=node_id, hostname=hostname, ipv6=ipv6, reality=reality, hysteria=listener)
+        node_model = ExitNode if node_type == RegionType.EXIT else HubNode
+        node = spec(node_model, id=node_id, hostname=hostname, ipv6=ipv6, reality=reality, hysteria=listener)
         edited = topo.add_node(region, node)
         self._write(edited.text)
         return replace(edited, validation_error=self._revalidate())

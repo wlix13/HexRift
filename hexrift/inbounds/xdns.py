@@ -39,7 +39,7 @@ class XdnsSpec(InboundSpec[XdnsContext]):
     context_type = XdnsContext
 
     def build_context(self, env: InboundEnv) -> XdnsContext | None:
-        xdns = resolve_node_xdns(env.node, env.config.defaults)
+        xdns = resolve_node_xdns(env.hub_node, env.config.defaults)
         if xdns is None:
             return None
         clients = get_hub_xdns_clients(env.config.users, env.ns)

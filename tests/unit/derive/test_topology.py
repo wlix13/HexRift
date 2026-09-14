@@ -8,7 +8,7 @@ from hexrift.components.derive.topology import (
     rendered_exit_regions,
     resolve_node_publishes,
 )
-from hexrift.components.schema.models.regions import LeastLoadSettings, Node, Region, WarpConfig
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, LeastLoadSettings, WarpConfig
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import LbRole, RegionType
 
@@ -53,7 +53,7 @@ def _minimal_cfg_dict(**overrides) -> dict:
                 "access": ["xhttp"],
             },
         ],
-        "routing": {"hub_default": "hub1"},
+        "routing": {"hub_default": "exit1"},
         "regions": [
             {
                 "id": "exit1",
@@ -93,8 +93,8 @@ def _make_cfg(**routing_overrides) -> ConglomerateConfig:
     return ConglomerateConfig.model_validate(d)
 
 
-def _hub_node(cfg: ConglomerateConfig, node_id: str = "hubN1") -> Node:
-    return next(n for r in cfg.regions for n in r.nodes if n.id == node_id)
+def _hub_node(cfg: ConglomerateConfig, node_id: str = "hubN1") -> HubNode:
+    return next(n for r in cfg.hub_regions for n in r.nodes if n.id == node_id)
 
 
 def _rules(cfg: ConglomerateConfig, node_id: str = "hubN1") -> list[dict]:
@@ -104,14 +104,14 @@ def _rules(cfg: ConglomerateConfig, node_id: str = "hubN1") -> list[dict]:
 def _make_region(
     region_id: str = "exit1",
     rtype: RegionType = RegionType.EXIT,
-    nodes: list[Node] | None = None,
+    nodes: list[ExitNode] | None = None,
     lb_strategy: str | None = None,
     lb_fallback: str | None = None,
     warp: WarpConfig | None = None,
-) -> Region:
+) -> ExitRegion:
     if nodes is None:
-        nodes = [Node(id="n1", hostname="n1.test"), Node(id="n2", hostname="n2.test")]
-    return Region.model_construct(
+        nodes = [ExitNode(id="n1", hostname="n1.test"), ExitNode(id="n2", hostname="n2.test")]
+    return ExitRegion.model_construct(
         id=region_id,
         type=rtype,
         vless_route=1000,
@@ -489,7 +489,7 @@ class TestBuildBalancers:
 
     def test_single_node_region_renders_without_balancer(self):
         r = _make_region(
-            lb_strategy="random", warp=WarpConfig(vless_route=65535), nodes=[Node(id="n1", hostname="n1.test")]
+            lb_strategy="random", warp=WarpConfig(vless_route=65535), nodes=[ExitNode(id="n1", hostname="n1.test")]
         )
         assert build_balancers([r]) == []
         assert build_burst_observatory_selectors([r]) == []
@@ -508,7 +508,7 @@ class TestBuildBalancers:
         assert "lb-warp-exit1" in tags
 
     def test_fallback_tag_backup_role(self):
-        n_primary = Node.model_construct(
+        n_primary = ExitNode.model_construct(
             id="n1",
             hostname="n1.test",
             lb_role=None,
@@ -518,7 +518,7 @@ class TestBuildBalancers:
             proxy_inbound=None,
             ipv6=None,
         )
-        n_backup = Node.model_construct(
+        n_backup = ExitNode.model_construct(
             id="n2",
             hostname="n2.test",
             lb_role=LbRole.BACKUP,
