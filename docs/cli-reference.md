@@ -135,7 +135,7 @@ Add `NODE_ID` to its region, creating the region when missing (exits get an unus
 | `--hysteria` | on when the region has `protocol: hysteria` or a `hysteria:` block | Write a `hysteria` block (`obfs: true`, `sni` = hostname, `masquerade_url` from the Reality dest) |
 | `--reality-dest HOST:PORT` | — | Reality `dest`, also the Hysteria masquerade target |
 | `--reality-server-names LIST` | — | Comma-separated Reality `server_names`, requires `--reality-dest` |
-| `--reality-xhttp-path PATH` | — | Reality `xhttp_path`, required together with `--reality-dest` |
+| `--xhttp-path PATH` | — | XHTTP path of the node's direct inbound, written as its `xhttp.path`; omitted, the node inherits the path of its region or `defaults.<type>.xhttp`, and validation flags a node left with none |
 
 ### remove
 
@@ -146,7 +146,7 @@ Remove `NODE_ID` from its region, dropping `hub_routes` and `lb_fallback` entrie
 ```bash
 # New exit node in the existing `nl` region
 hexrift nodes add nlA40 --reality-dest www.samsung.com:443 \
-  --reality-server-names www.samsung.com,samsung.com --reality-xhttp-path /login/
+  --reality-server-names www.samsung.com,samsung.com --xhttp-path /login/
 
 # New hub node, hostname follows the other `msk` hubs
 hexrift nodes add mskA30 --no-ipv6

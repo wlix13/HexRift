@@ -46,6 +46,7 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 |-------|------|----------|-------------|
 | `ipv6` | `bool` | yes | Enable IPv6 on exit nodes by default |
 | `keys` | `KeysConfig` | yes | Encryption key configuration |
+| `xhttp` | `XhttpConfig` | no | Base XHTTP settings of the direct inbound exit nodes serve (see [`XhttpConfig`](#xhttpconfig)) |
 | `hysteria` | `HysteriaConfig` | no | Base Hysteria listener settings for exit regions with `protocol: hysteria` |
 
 ### `defaults.hub`
@@ -58,6 +59,7 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 | `exit_connections` | `ExitConnectionsConfig` | yes | — | How hubs connect to exits |
 | `reality` | `RealityConfig` | one of | — | Default Reality config for the direct inbound; exactly one of `reality` / `tls` is set |
 | `tls` | `TlsConfig` | one of | — | Serve the direct inbound over plain TLS with an operator cert instead of Reality |
+| `xhttp` | `XhttpConfig` | no | — | Base XHTTP settings of the direct inbound, Reality or TLS alike (see [`XhttpConfig`](#xhttpconfig)) |
 | `xdns` | `XdnsConfig` | no | — | DNS-interception inbound (VLESS over mKCP) |
 | `wireguard` | `WireguardConfig` | no | — | WireGuard inbound configuration |
 | `hysteria` | `HysteriaConfig` | no | — | Hysteria 2 inbound for users with `hysteria` access |
@@ -134,14 +136,13 @@ Official Hysteria, sing-box and mihomo accept either key type. Xray's Hysteria d
 
 ### `TlsConfig`
 
-Serves the hub's direct inbound as VLESS over XHTTP secured by plain TLS with an operator-issued certificate, in place of Reality. Meant for clients behind TLS-intercepting proxies, which re-terminate the handshake and so break Reality but pass ordinary HTTPS to a publicly trusted certificate. The SNI and the XHTTP `Host` are the node hostname, so the certificate at those paths must cover each node in the region; ALPN is `h2,http/1.1`. Xray re-reads the certificate files every hour, so an ACME renewal needs no restart. Everything else about the inbound is unchanged.
+Serves the hub's direct inbound as VLESS over XHTTP secured by plain TLS with an operator-issued certificate, in place of Reality. Meant for clients behind TLS-intercepting proxies, which re-terminate the handshake and so break Reality but pass ordinary HTTPS to a publicly trusted certificate. The SNI is the node hostname, so the certificate at those paths must cover each node in the region, and the XHTTP `Host` is the node hostname too unless `xhttp.host` overrides it; ALPN is `h2,http/1.1`. Xray re-reads the certificate files every hour, so an ACME renewal needs no restart. Everything else about the inbound is unchanged.
 
 A hub region serves exactly one of Reality or TLS: `defaults.hub` sets one of `reality` / `tls`, and a region's own `reality:` or `tls:` block replaces that choice for all its nodes. Hysteria is not available on TLS regions.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `certificate` | `CertificateFiles` | yes | — | PEM chain and key on the node |
-| `xhttp_path` | `str` | no | `/` | XHTTP path clients request |
 
 ### `CertificateFiles`
 
@@ -373,6 +374,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `vless_route` | `int` | yes | Numeric route tag; must be unique across all regions |
 | `protocol` | `vless \| hysteria` | no | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
 | `hysteria` | `HysteriaOverride` | no | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
+| `xhttp` | `XhttpOverride` | no | Overlays `defaults.exit.xhttp` for the region's nodes |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
 | `lb_strategy` | `str` | no | Load balancer strategy (e.g. `leastLoad`), rendered only while the region has more than one node |
 | `lb_fallback` | `str` | no | Fallback node ID (must be in this region) |
@@ -389,6 +391,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `type` | `hub` | yes | Region type |
 | `reality` | `RealityConfig` | no | Reality config for the region's nodes, replacing `defaults.hub.reality`; also puts the region back on Reality when `defaults.hub.tls` is set |
 | `tls` | `TlsOverride` | no | Serve the region's direct inbounds over TLS: overlays `defaults.hub.tls`, and must carry `certificate` when the default is Reality. Mutually exclusive with `reality` |
+| `xhttp` | `XhttpOverride` | no | Overlays `defaults.hub.xhttp` for the region's nodes |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
 | `nodes` | `list[HubNode]` | yes | May be a bare key, as for exit regions |
 
@@ -426,6 +429,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `haproxy` | `bool` | no | Override `defaults.exit.haproxy` |
 | `lb_role` | `backup` | no | Mark as load-balancer backup node |
 | `reality` | `RealityConfig` | yes | Reality config hubs dial |
+| `xhttp` | `XhttpOverride` | no | Overlays the region's or `defaults.exit.xhttp` for this node |
 | `keys` | `NodeKeysOverride` | no | Override default key settings |
 | `hysteria` | `HysteriaOverride` | no | Node-level overlay on the region's Hysteria settings; makes the node serve a Hysteria listener regardless of `protocol` |
 | `observability` | `ObservabilityOverride` | no | Override metrics and logging settings |
@@ -439,6 +443,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `ipv6` | `bool` | no | Override default IPv6 setting |
 | `haproxy` | `bool` | no | Override `defaults.hub.haproxy` |
 | `reality` | `RealityConfig` | no | Replaces the region's or `defaults.hub.reality` for this node; not accepted in a region serving TLS |
+| `xhttp` | `XhttpOverride` | no | Overlays the region's or `defaults.hub.xhttp` for this node |
 | `keys` | `NodeKeysOverride` | no | Override default key settings |
 | `exit_connections` | `NodeExitConnectionsOverride` | no | Override exit connection settings |
 | `proxy_inbound` | `bool` | no | Override proxy inbound setting |
@@ -453,9 +458,16 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 |-------|------|----------|---------|-------------|
 | `dest` | `str` | yes | — | Fallback destination (e.g. `www.cloudflare.com:443`) |
 | `server_names` | `list[str]` | no | — | SNI list; auto-derived from `dest` if omitted |
-| `xhttp_host` | `str` | no | — | xhttp Host header override |
-| `xhttp_path` | `str` | yes | — | xhttp request path (e.g. `/stream`) |
 | `fallback_limits` | `RealityFallbackLimits` | no | see below | Fallback traffic limits |
+
+### `XhttpConfig`
+
+XHTTP transport settings of the direct inbound, independent of whether Reality or TLS secures it. Resolved field by field: `nodes[].xhttp` overlays `regions[].xhttp`, which overlays `defaults.hub.xhttp` or `defaults.exit.xhttp`, so a block setting one field keeps the other from the layer below. Region and node blocks validate as `XhttpOverride`, where both fields are optional. Every node needs a `path` from one of the layers, validation rejects a node left without one. A `host` from `defaults.hub.xhttp` reaches only regions secured the same way as `defaults.hub`: a region switching between Reality and TLS derives its own host unless its own or its nodes' `xhttp` block sets one.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `path` | `str` | yes | — | Request path clients use (e.g. `/stream`) |
+| `host` | `str` | no | host part of `reality.dest`, node hostname under TLS | `Host` header clients send and the inbound checks |
 
 ### `RealityFallbackLimits`
 
@@ -510,12 +522,20 @@ XDNS has no per-node override beyond supplying a full `XdnsConfig` on the node.
 
 ### `TlsOverride`
 
-Both fields optional; `null` means "use the value from `defaults.hub.tls`". With a Reality default there is nothing to inherit, so `certificate` is required.
+Optional; `null` means "use the value from `defaults.hub.tls`". With a Reality default there is nothing to inherit, so `certificate` is required.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `certificate` | `CertificateFiles` | Certificate this node serves |
-| `xhttp_path` | `str` | XHTTP path clients request |
+
+### `XhttpOverride`
+
+All fields optional; `null` means "use the value from the layer below" — `regions[].xhttp`, then `defaults.hub.xhttp` or `defaults.exit.xhttp`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `path` | `str` | Override the request path |
+| `host` | `str` | Override the `Host` header |
 
 ---
 
@@ -544,7 +564,8 @@ defaults:
       method: mlkem768x25519plus
     reality:
       dest: www.google.com:443
-      xhttp_path: /stream
+    xhttp:
+      path: /stream
     xdns:
       domains: [dns.google]
     wireguard:
@@ -570,7 +591,8 @@ regions:
         hostname: nl-a00.exit.example.com
         reality:
           dest: www.cloudflare.com:443
-          xhttp_path: /stream
+        xhttp:
+          path: /stream
 
   - id: hub-eu
     type: hub
