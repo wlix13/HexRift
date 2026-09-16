@@ -231,9 +231,9 @@ Existing goldens stay byte-identical as long as the VLESS spec is untouched — 
 ## Developer commands
 
 ```bash
-uv run ruff check . --fix        # lint + auto-fix
-uv run ruff format .             # format
-uv run ty check                  # type-check
+uv run poe check                # full quality gate
+uv run poe lint:fix             # lint + auto-fix
+uv run poe format:fix           # format
 uv run prek run --all-files      # run all pre-commit hooks
 ```
 

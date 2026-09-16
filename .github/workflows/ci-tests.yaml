@@ -23,10 +23,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    strategy:
+    strategy: &python-matrix
       fail-fast: false
       matrix:
-        python-version: ["3.13", "3.14"]
+        python-version: ["3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,12 +40,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        if: matrix.python-version != '3.13'
-        run: uv run --group tests pytest
-
-      - name: Run tests with coverage
-        if: matrix.python-version == '3.13'
-        run: uv run --group tests pytest --cov=hexrift --cov-report=xml
+        run: uv run poe tests:coverage
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.13'
@@ -59,10 +54,7 @@ jobs:
     needs: tests
     runs-on: windows-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13", "3.14"]
+    strategy: *python-matrix
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,7 +68,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        run: uv run --group tests pytest
+        run: uv run poe tests
 
   build:
     name: 📦 Package build check
