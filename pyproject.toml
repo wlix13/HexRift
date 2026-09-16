@@ -28,7 +28,7 @@ dependencies = [
 scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
-dev = [ "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
+dev = [ { include-group = "tests" }, "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
 docs = [ "zensical" ]
 tests = [
   "hypothesis",
