@@ -43,5 +43,5 @@ on merge/rebase those commits drive the release changelog.
 
 - [ ] Code follows project style guidelines
 - [ ] Self-review completed
-- [ ] Linter and type checker pass (`uv run ruff check .` and `uv run ty check`)
+- [ ] Linter and type checker pass (`uv run poe check`)
 - [ ] Documentation updated (if applicable)

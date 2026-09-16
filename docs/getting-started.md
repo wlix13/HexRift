@@ -237,9 +237,10 @@ See [`HysteriaConfig`](topology-schema.md#hysteriaconfig) for every knob.
 ```bash
 uv sync
 uv run prek install              # install pre-commit hooks via prek
-uv run ruff check .              # lint
-uv run ruff format .             # format
-uv run ty check                  # type-check
+uv run poe check                 # full quality gate
+uv run poe lint:fix              # lint + auto-fix
+uv run poe format:fix            # format
+uv run poe tests                 # tests
 uv run prek run --all-files      # run all hooks
 ```
 

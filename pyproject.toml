@@ -28,7 +28,15 @@ dependencies = [
 scripts.hexrift = "hexrift.__main__:main"
 
 [dependency-groups]
-dev = [ { include-group = "tests" }, "deptry", "import-linter", "poethepoet", "prek", "ruff", "ty" ]
+dev = [
+  { include-group = "tests" },
+  "deptry",
+  "import-linter",
+  "poethepoet",
+  "prek",
+  "ruff",
+  "ty",
+]
 docs = [ "zensical" ]
 tests = [
   "hypothesis",
@@ -144,14 +152,16 @@ forbidden_modules = [
 ]
 
 [tool.poe]
-tasks.format = "uv run ruff format ."
-tasks.check-format = "uv run ruff format --check ."
-tasks.lint = "uv run ruff check ."
-tasks.typecheck = "uv run --group dev --group tests ty check"
-tasks.lint-imports = "uv run --group dev lint-imports --no-logo"
-tasks.deptry = "uv run --group dev deptry ."
-tasks.check = [ "check-format", "lint", "typecheck", "lint-imports", "deptry" ]
-tasks.docs = "uv run --group docs zensical build --clean --strict"
-tasks."docs:dev" = "uv run --group docs zensical serve"
-tasks.tests = "uv run --group tests pytest"
-tasks.coverage = "uv run --group tests pytest --cov=hexrift --cov-report=term --cov-report=html"
+executor.type = "uv"
+tasks.format = "ruff format --check ."
+tasks."format:fix" = "ruff format ."
+tasks.lint = "ruff check ."
+tasks."lint:fix" = "ruff check --fix ."
+tasks.typecheck = "ty check"
+tasks.lint-imports = "lint-imports --no-logo"
+tasks.deptry = "deptry ."
+tasks.check = [ "format", "lint", "typecheck", "lint-imports", "deptry" ]
+tasks.docs = { cmd = "zensical build --clean --strict", executor = { group = "docs" } }
+tasks."docs:dev" = { cmd = "zensical serve", executor = { group = "docs" } }
+tasks.tests = "pytest"
+tasks."tests:coverage" = "pytest --cov=hexrift --cov-report=term --cov-report=html --cov-report=xml"
