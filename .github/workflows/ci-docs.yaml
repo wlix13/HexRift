@@ -34,4 +34,4 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Build documentation
-        run: uv run --group docs zensical build --clean --strict
+        run: uv run poe docs
