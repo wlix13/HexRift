@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0](https://github.com/wlix13/HexRift/compare/v0.12.3...v0.13.0) (2026-09-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **schema:** `reality.xhttp_path`, `reality.xhttp_host` and `tls.xhttp_path` are removed. XHTTP settings now live in an `xhttp: {path, host}` block on `defaults.exit`, `defaults.hub`, regions and nodes, overlaid field by field as node > region > defaults. `nodes add --reality-xhttp-path` is renamed to `--xhttp-path` and no longer required with `--reality-dest`.
+
+### Features
+
+* **schema:** add xhttp block beside reality and tls ([9f808f5](https://github.com/wlix13/HexRift/commit/9f808f56fdf1bb6ea792057ef370697fcfd4cea4))
+
+
+### Documentation
+
+* **schema:** document the xhttp block and its overlay ([d5ba79b](https://github.com/wlix13/HexRift/commit/d5ba79bde26f20c369a85fd0b901837f5c777a39))
+
 ## [0.12.3](https://github.com/wlix13/HexRift/compare/v0.12.2...v0.12.3) (2026-09-14)
 
 
