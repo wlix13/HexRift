@@ -12,7 +12,7 @@ from hexrift.components.schema.models.observability import (
 )
 from hexrift.components.schema.models.regions import HubNode, Node, Region
 from hexrift.components.schema.models.resolve import resolve_node_metrics
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig
 from hexrift.constants import RegionType
 from hexrift.errors import DeriveError
 
@@ -107,7 +107,7 @@ def derive_server_names(reality: RealityConfig) -> list[str]:
     return [_extract_host(reality.dest)]
 
 
-def derive_xhttp_host(reality: RealityConfig) -> str:
-    if reality.xhttp_host is not None:
-        return reality.xhttp_host
+def derive_xhttp_host(reality: RealityConfig, xhttp: XhttpConfig) -> str:
+    if xhttp.host is not None:
+        return xhttp.host
     return _extract_host(reality.dest)

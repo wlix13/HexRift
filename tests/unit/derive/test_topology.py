@@ -41,8 +41,8 @@ def _minimal_cfg_dict(**overrides) -> dict:
                 },
                 "reality": {
                     "dest": "a.com:443",
-                    "xhttp_path": "/x/",
                 },
+                "xhttp": {"path": "/x/"},
             },
         },
         "groups": [{"id": "grp1"}],
@@ -65,8 +65,8 @@ def _minimal_cfg_dict(**overrides) -> dict:
                         "hostname": "e.t.ns",
                         "reality": {
                             "dest": "a.com:443",
-                            "xhttp_path": "/x/",
                         },
+                        "xhttp": {"path": "/x/"},
                     },
                 ],
             },

@@ -128,7 +128,8 @@ class TestHubDefaults:
         [
             {},
             {
-                "reality": {"dest": "a.com:443", "xhttp_path": "/x/"},
+                "reality": {"dest": "a.com:443"},
+                "xhttp": {"path": "/x/"},
                 "tls": {"certificate": {"cert_file": "/c", "key_file": "/k"}},
             },
         ],

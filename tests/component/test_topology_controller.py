@@ -8,7 +8,7 @@ import pytest
 from hexrift.app import HexRiftApp
 from hexrift.components.schema.models.fields import validate_masquerade_url
 from hexrift.components.schema.models.regions import ExitRegion
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 from hexrift.components.topology.controller import VLESS_ROUTE_RANGE, masquerade_url, pick_vless_route, region_prefix
 from hexrift.constants import RegionType
 from hexrift.errors import TopologyError
@@ -21,7 +21,8 @@ DE_A00_BLOCK = """\
         hostname: deA00.ap.test.hexrift
         reality:
           dest: www.microsoft.com:443
-          xhttp_path: /update/
+        xhttp:
+          path: /update/
 """
 
 DE_EMPTY_BLOCK = """\
@@ -44,7 +45,8 @@ NL_A20_BLOCK = """\
         reality:
           dest: www.samsung.com:443
           server_names: [www.samsung.com, samsung.com]
-          xhttp_path: /login/
+        xhttp:
+          path: /login/
         hysteria:
           obfs: true
           sni: nlA20.ap.test.hexrift
@@ -101,8 +103,8 @@ class TestAddNode:
             reality=RealityConfig(
                 dest="www.samsung.com:443",
                 server_names=["www.samsung.com", "samsung.com"],
-                xhttp_path="/login/",
             ),
+            xhttp=XhttpOverride(path="/login/"),
         )
         assert result is not None and not result.created
         assert result.region.id == "nl"
@@ -130,7 +132,8 @@ class TestAddNode:
         result = fixture_app.topology.add_node(
             "usA00",
             node_type=RegionType.EXIT,
-            reality=RealityConfig(dest="www.samsung.com:443", xhttp_path="/login/"),
+            reality=RealityConfig(dest="www.samsung.com:443"),
+            xhttp=XhttpOverride(path="/login/"),
         )
         assert result is not None and result.created and isinstance(result.region, ExitRegion)
         route = result.region.vless_route
@@ -196,7 +199,11 @@ class TestAddNode:
 
     def test_edits_keep_working_while_file_is_invalid(self, fixture_app: HexRiftApp):
         fixture_app.topology.add_node("nlA20")
-        result = fixture_app.topology.add_node("nlA30", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
+        result = fixture_app.topology.add_node(
+            "nlA30",
+            reality=RealityConfig(dest="a.com:443"),
+            xhttp=XhttpOverride(path="/x/"),
+        )
         assert result is not None and not result.created
         assert result.validation_error is not None
 
@@ -259,10 +266,10 @@ class TestRemoveNode:
         assert topo.read_text() == before
 
     def test_readding_node_reuses_kept_region(self, fixture_app: HexRiftApp):
-        reality = RealityConfig(dest="a.com:443", xhttp_path="/x/")
-        created = fixture_app.topology.add_node("usA00", node_type=RegionType.EXIT, reality=reality)
+        reality, xhttp = RealityConfig(dest="a.com:443"), XhttpOverride(path="/x/")
+        created = fixture_app.topology.add_node("usA00", node_type=RegionType.EXIT, reality=reality, xhttp=xhttp)
         fixture_app.topology.remove_node("usA00")
-        readded = fixture_app.topology.add_node("usA00", reality=reality)
+        readded = fixture_app.topology.add_node("usA00", reality=reality, xhttp=xhttp)
         assert readded is not None and not readded.created
         assert readded.validation_error is None
         assert created is not None and isinstance(created.region, ExitRegion)

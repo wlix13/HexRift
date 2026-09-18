@@ -27,7 +27,7 @@ from hexrift.errors import DeriveError
 from hexrift.inbounds.base import InboundEnv, ShareClient
 from hexrift.inbounds.cdn import CDN_SPEC
 from hexrift.inbounds.hysteria import HYSTERIA_SPEC
-from hexrift.inbounds.xhttp import XHTTP_SPEC
+from hexrift.inbounds.xhttp import XHTTP_SPEC, TlsXhttpContext
 from hexrift.shared.crypto import x25519_urlsafe_to_std
 
 
@@ -237,27 +237,26 @@ class DeriveController(BaseController["HexRiftApp"]):
     ) -> list[tuple[str, str]]:
         cfg = self.app.schema.config
         results: list[tuple[str, str]] = []
-        seen_default_regions: set[str] = set()
+        emitted: dict[str, list[tuple]] = {}  # region id -> material of emitted URLs
         for hub_region, hub_node in hub_node_pairs:
             if resolve_region_tls(hub_region, cfg.defaults) is not None:
                 if AccessType.TLS not in user.access:
                     continue
+            elif not server and AccessType.XHTTP not in user.access:
+                continue
+            env = self._share_env(hub_region, hub_node, keys_dir)
+            ctx = XHTTP_SPEC.build_context(env)
+            if isinstance(ctx, TlsXhttpContext):
                 # Cert names host, so TLS URLs are per node
                 owner, kind = hub_node.id, "TLS"
             else:
-                if not server and AccessType.XHTTP not in user.access:
+                # Nodes rendering same inbound with same keys share one URL, first one named by region
+                region_emitted = emitted.setdefault(hub_region.id, [])
+                if (ctx, env.node_keys) in region_emitted:
                     continue
-                # Deduplicate: nodes sharing region-default reality → one URL per region
-                if hub_node.reality is None:
-                    if hub_region.id in seen_default_regions:
-                        continue
-                    seen_default_regions.add(hub_region.id)
-                    owner = hub_region.id
-                else:
-                    owner = hub_node.id
+                owner = hub_node.id if region_emitted else hub_region.id
+                region_emitted.append((ctx, env.node_keys))
                 kind = "Reality"
-            env = self._share_env(hub_region, hub_node, keys_dir)
-            ctx = XHTTP_SPEC.build_context(env)
             client = ShareClient(identity.uuid, short_id, fingerprint, f"{owner}-{identity.label}")
             results.append((f"{owner}  {kind}  {identity.label}", XHTTP_SPEC.share_url(ctx, env, client)))
         return results

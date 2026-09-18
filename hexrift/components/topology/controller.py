@@ -16,7 +16,7 @@ from hexrift.errors import Error, TopologyError
 
 if TYPE_CHECKING:
     from hexrift.app import HexRiftApp  # noqa: F401
-    from hexrift.components.schema.models.shared import RealityConfig
+    from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 
 VLESS_ROUTE_RANGE = (2000, 60000)
 """Inclusive range new exit regions draw their `vless_route` from."""
@@ -58,6 +58,7 @@ class TopologyController(BaseController["HexRiftApp"]):
         hostname: str | None = None,
         ipv6: bool | None = None,
         reality: RealityConfig | None = None,
+        xhttp: XhttpOverride | None = None,
         hysteria: bool = False,
     ) -> AddEdit | None:
         """Add node to its region in topology file, creating region when needed. `None` when already present."""
@@ -85,7 +86,15 @@ class TopologyController(BaseController["HexRiftApp"]):
             masquerade = masquerade_url(reality.dest) if reality is not None else None
             listener = spec(HysteriaOverride, obfs=True, sni=hostname, masquerade_url=masquerade)
         node_model = ExitNode if node_type == RegionType.EXIT else HubNode
-        node = spec(node_model, id=node_id, hostname=hostname, ipv6=ipv6, reality=reality, hysteria=listener)
+        node = spec(
+            node_model,
+            id=node_id,
+            hostname=hostname,
+            ipv6=ipv6,
+            reality=reality,
+            xhttp=xhttp,
+            hysteria=listener,
+        )
         edited = topo.add_node(region, node)
         self._write(edited.text)
         return replace(edited, validation_error=self._revalidate())

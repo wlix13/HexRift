@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from hexrift.components.schema.models.fields import Duration
 from hexrift.components.schema.models.observability import ObservabilityOverride
 from hexrift.components.schema.models.regions import HysteriaConfig, TlsConfig, WireguardConfig, XdnsConfig
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig
 from hexrift.constants import AuthMethod, HandshakeMethod, TlsFingerprint
 
 
@@ -39,6 +39,7 @@ class ExitDefaults(BaseModel):
     ipv6: bool
     haproxy: bool = True
     keys: KeysConfig
+    xhttp: XhttpConfig | None = None
     hysteria: HysteriaConfig | None = None
     observability: ObservabilityOverride | None = None
 
@@ -53,6 +54,7 @@ class HubDefaults(BaseModel):
     exit_connections: ExitConnectionsConfig
     reality: RealityConfig | None = None
     tls: TlsConfig | None = None
+    xhttp: XhttpConfig | None = None
     xdns: XdnsConfig | None = None
     wireguard: WireguardConfig | None = None
     hysteria: HysteriaConfig | None = None

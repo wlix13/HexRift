@@ -34,7 +34,7 @@ hexrift --yaml conglomerate.yaml <command>
 | `show` | Visualize the network topology (regions, nodes, users, guests, portals) |
 | `derive [users\|groups\|portals\|nodes\|all]` | Show derived identifiers (UUIDs, shortIds, emails) |
 | `nodes list [--names\|--domains\|--json] [--type exit\|hub]` | List nodes with hostnames; machine-friendly output for automation |
-| `nodes add NODE_ID [--type exit\|hub] [--region ID] [--hostname HOST] [--no-ipv6] [--hysteria] [--reality-dest HOST:PORT] [--reality-server-names LIST] [--reality-xhttp-path PATH]` | Add a node to its region in the topology YAML, creating the region when missing |
+| `nodes add NODE_ID [--type exit\|hub] [--region ID] [--hostname HOST] [--no-ipv6] [--hysteria] [--reality-dest HOST:PORT] [--reality-server-names LIST] [--xhttp-path PATH]` | Add a node to its region in the topology YAML, creating the region when missing |
 | `nodes remove NODE_ID` | Remove a node from the topology YAML, keeping its region |
 | `gen-keys [NODE_ID\|--all] [--force] [--keys-dir PATH]` | Generate x25519 + ML-KEM 768 keypairs for nodes |
 | `build [NODE_ID\|--all] --xray\|--haproxy [--keys-dir PATH] [--out-dir PATH]` | Build Xray config.json and/or HAProxy .cfg |
@@ -61,7 +61,7 @@ hexrift nodes list --names --type exit
 hexrift nodes list --json
 
 # Add a node to the topology file (creates the region if needed)
-hexrift nodes add nlA20 --reality-dest www.samsung.com:443 --reality-xhttp-path /login/
+hexrift nodes add nlA20 --reality-dest www.samsung.com:443 --xhttp-path /login/
 
 # Generate keys for all nodes
 hexrift gen-keys --all

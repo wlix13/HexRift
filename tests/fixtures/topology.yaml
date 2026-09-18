@@ -24,7 +24,8 @@ defaults:
       fingerprint: chrome
     reality:
       dest: www.microsoft.com:443
-      xhttp_path: /update/
+    xhttp:
+      path: /update/
     xdns:
       domains: ["dns.google"]
     wireguard:
@@ -85,7 +86,8 @@ regions:
         hostname: nlA00.ap.test.hexrift
         reality:
           dest: www.microsoft.com:443
-          xhttp_path: /update/
+        xhttp:
+          path: /update/
         observability:
           metrics:
             enabled: true
@@ -107,7 +109,8 @@ regions:
         hostname: deA00.ap.test.hexrift
         reality:
           dest: www.microsoft.com:443
-          xhttp_path: /update/
+        xhttp:
+          path: /update/
   - id: msk
     type: hub
     cdn_xhttp_path: /cdn/
@@ -128,7 +131,8 @@ regions:
       certificate:
         cert_file: /usr/local/etc/xray/certs/fullchain.pem
         key_file: /usr/local/etc/xray/certs/privkey.pem
-      xhttp_path: /tls/
+    xhttp:
+      path: /tls/
     nodes:
       - id: spbA00
         hostname: spbA00.ap.test.hexrift

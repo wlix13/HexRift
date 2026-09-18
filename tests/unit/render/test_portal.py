@@ -28,6 +28,7 @@ def _portal(**overrides: Any) -> Portal:
 
 def _config(
     tls: dict[str, Any] | None = None,
+    xhttp: dict[str, Any] | None = None,
     access: list[str] | None = None,
     **portal_overrides: Any,
 ) -> ConglomerateConfig:
@@ -62,8 +63,8 @@ def _config(
                     },
                     "reality": {
                         "dest": "a.com:443",
-                        "xhttp_path": "/x/",
                     },
+                    "xhttp": {"path": "/x/"},
                 },
             },
             "groups": [{"id": "grp1"}],
@@ -83,6 +84,7 @@ def _config(
                     "id": "hub1",
                     "type": "hub",
                     **({"tls": tls} if tls else {}),
+                    **({"xhttp": xhttp} if xhttp else {}),
                     "nodes": [{"id": "hubN1", "hostname": "h.t.ns"}],
                 },
             ],
@@ -248,7 +250,7 @@ class TestBuildPortalConfig:
 
 class TestTlsHubDial:
     def test_tls_hub_is_dialed_over_tls_at_its_hostname(self):
-        cfg = _config(tls={"certificate": {"cert_file": "/c", "key_file": "/k"}, "xhttp_path": "/t/"}, access=["tls"])
+        cfg = _config(tls={"certificate": {"cert_file": "/c", "key_file": "/k"}}, xhttp={"path": "/t/"}, access=["tls"])
         out = build_portal_config(cfg, "home", {"hubN1": KEYS}, "chrome")["outbounds"][0]
         assert out["tag"] == "portal-hubN1"
         assert out["streamSettings"] == {

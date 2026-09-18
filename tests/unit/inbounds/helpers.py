@@ -20,14 +20,14 @@ from hexrift.components.schema.models.regions import (
     WireguardConfig,
     XdnsConfig,
 )
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpConfig
 from hexrift.components.schema.models.users import User
 from hexrift.constants import AccessType, AuthMethod, HandshakeMethod, RegionType, TlsFingerprint
 
 
 _EXIT_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.MLKEM768)
 _HUB_KEYS = KeysConfig(mode="native", session_time="600s", auth=AuthMethod.X25519)
-_HUB_REALITY = RealityConfig(dest="vk.com:443", xhttp_path="/hub/")
+_HUB_REALITY = RealityConfig(dest="vk.com:443")
 _EXIT_CONNS = ExitConnectionsConfig(method=HandshakeMethod.MLKEM768, fingerprint=TlsFingerprint.CHROME)
 
 
@@ -39,15 +39,23 @@ def make_defaults(
     hysteria: HysteriaConfig | None = None,
     exit_hysteria: HysteriaConfig | None = None,
     tls: TlsConfig | None = None,
+    xhttp: XhttpConfig | None = None,
+    exit_xhttp: XhttpConfig | None = None,
 ) -> DefaultsConfig:
     return DefaultsConfig(
-        exit=ExitDefaults(ipv6=True, keys=_EXIT_KEYS, hysteria=exit_hysteria),
+        exit=ExitDefaults(
+            ipv6=True,
+            keys=_EXIT_KEYS,
+            xhttp=exit_xhttp,
+            hysteria=exit_hysteria,
+        ),
         hub=HubDefaults(
             ipv6=False,
             keys=_HUB_KEYS,
             exit_connections=_EXIT_CONNS,
             reality=None if tls is not None else _HUB_REALITY,
             tls=tls,
+            xhttp=xhttp if xhttp is not None else XhttpConfig(path="/hub/"),
             proxy_inbound=proxy_inbound,
             xdns=xdns,
             wireguard=wireguard,

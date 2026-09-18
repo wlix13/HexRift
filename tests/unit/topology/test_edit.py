@@ -1,7 +1,7 @@
 import pytest
 
 from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, HysteriaOverride
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 from hexrift.components.topology.edit import Topology, node_lines, spec
 from hexrift.constants import RegionType
 from hexrift.errors import TopologyError
@@ -12,7 +12,8 @@ NL_A00_BLOCK = """\
         hostname: nlA00.ap.t.ns
         reality:
           dest: a.com:443
-          xhttp_path: /x/
+        xhttp:
+          path: /x/
 """
 
 NL_TAIL = """\
@@ -21,7 +22,8 @@ NL_TAIL = """\
         ipv6: false
         reality:
           dest: a.com:443
-          xhttp_path: /x/
+        xhttp:
+          path: /x/
 """
 
 DE_A00_BLOCK = """\
@@ -29,7 +31,8 @@ DE_A00_BLOCK = """\
         hostname: deA00.ap.t.ns
         reality:
           dest: a.com:443
-          xhttp_path: /x/
+        xhttp:
+          path: /x/
 """
 
 DE_REGION = (
@@ -91,13 +94,19 @@ NEW_NODE_BLOCK = """\
 """
 
 FR_REGION = ExitRegion(id="fr", type=RegionType.EXIT, vless_route=4242, nodes=[])
-FR_NODE = ExitNode(id="frA00", hostname="frA00.ap.t.ns", reality=RealityConfig(dest="b.com:443", xhttp_path="/y/"))
+FR_NODE = ExitNode(
+    id="frA00",
+    hostname="frA00.ap.t.ns",
+    reality=RealityConfig(dest="b.com:443"),
+    xhttp=XhttpOverride(path="/y/"),
+)
 FR_NODE_BLOCK = """\
       - id: frA00
         hostname: frA00.ap.t.ns
         reality:
           dest: b.com:443
-          xhttp_path: /y/
+        xhttp:
+          path: /y/
 """
 FR_BLOCK = "  - id: fr\n    type: exit\n    vless_route: 4242\n    nodes:\n" + FR_NODE_BLOCK
 
@@ -111,8 +120,8 @@ class TestNodeLines:
             reality=RealityConfig(
                 dest="www.samsung.com:443",
                 server_names=["www.samsung.com", "samsung.com"],
-                xhttp_path="/login/",
             ),
+            xhttp=XhttpOverride(path="/login/"),
             hysteria=HysteriaOverride(obfs=True, sni="nlA20.ap.t.ns", masquerade_url="https://www.samsung.com"),
         )
         assert node_lines(spec) == [
@@ -122,7 +131,8 @@ class TestNodeLines:
             "        reality:",
             "          dest: www.samsung.com:443",
             "          server_names: [www.samsung.com, samsung.com]",
-            "          xhttp_path: /login/",
+            "        xhttp:",
+            "          path: /login/",
             "        hysteria:",
             "          obfs: true",
             "          sni: nlA20.ap.t.ns",
@@ -130,14 +140,15 @@ class TestNodeLines:
         ]
 
     def test_quotes_values_yaml_would_misread(self):
-        reality = RealityConfig(dest="a.com:443", xhttp_path="/a:", server_names=['a"b: c', "a, b", "c]"])
-        assert node_lines(ExitNode(id="no", hostname="h.t.ns", reality=reality)) == [
+        reality = RealityConfig(dest="a.com:443", server_names=['a"b: c', "a, b", "c]"])
+        assert node_lines(ExitNode(id="no", hostname="h.t.ns", reality=reality, xhttp=XhttpOverride(path="/a:"))) == [
             '      - id: "no"',
             "        hostname: h.t.ns",
             "        reality:",
             "          dest: a.com:443",
             '          server_names: ["a\\"b: c", "a, b", "c]"]',
-            '          xhttp_path: "/a:"',
+            "        xhttp:",
+            '          path: "/a:"',
         ]
 
 
@@ -147,9 +158,9 @@ class TestSpecValidation:
         [
             (ExitNode, {"id": "bad id", "hostname": "h.t.ns"}),
             (ExitNode, {"id": "nlA20", "hostname": "host name"}),
-            (RealityConfig, {"dest": "www.samsung.com", "xhttp_path": "/x/"}),
-            (RealityConfig, {"dest": "a.com:0", "xhttp_path": "/x/"}),
-            (RealityConfig, {"dest": "a.com:443", "xhttp_path": "login/"}),
+            (RealityConfig, {"dest": "www.samsung.com"}),
+            (RealityConfig, {"dest": "a.com:0"}),
+            (XhttpOverride, {"path": "login/"}),
         ],
     )
     def test_rejects_what_the_schema_rejects(self, model, fields):
@@ -255,7 +266,12 @@ class TestAddNode:
 
     def test_inserts_first_above_comment_owned_by_next_node(self):
         text = BASE.replace("    nodes:\n" + NL_A00_BLOCK, "    nodes:\n      # primary\n")
-        node = ExitNode(id="nlA00", hostname="nlA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/"))
+        node = ExitNode(
+            id="nlA00",
+            hostname="nlA00.ap.t.ns",
+            reality=RealityConfig(dest="a.com:443"),
+            xhttp=XhttpOverride(path="/x/"),
+        )
         result = Topology(text).add_node(NL, node)
         assert result.text == text.replace("      # primary\n", NL_A00_BLOCK + "      # primary\n")
 
@@ -263,8 +279,8 @@ class TestAddNode:
         node = ExitNode(id="deA10", hostname="deA10.ap.t.ns")
         result = Topology(BASE).add_node(DE, node)
         expected_region = DE_REGION.replace(
-            "          xhttp_path: /x/\n    routing:",
-            "          xhttp_path: /x/\n      - id: deA10\n        hostname: deA10.ap.t.ns\n    routing:",
+            "        xhttp:\n          path: /x/\n    routing:",
+            "        xhttp:\n          path: /x/\n      - id: deA10\n        hostname: deA10.ap.t.ns\n    routing:",
         )
         assert result.text == BASE.replace(DE_REGION, expected_region)
 
@@ -298,8 +314,8 @@ class TestAddNode:
             BASE.replace("    vless_route: 2000\n", "    vless_route: 2000\n    lb_strategy: leastPing\n")
             .replace("      - id: deA00\n", "      - id: deA00\n        lb_role: backup\n")
             .replace(
-                "          xhttp_path: /x/\n    routing:",
-                "          xhttp_path: /x/\n      - id: deA05\n        hostname: deA05.ap.t.ns\n    routing:",
+                "        xhttp:\n          path: /x/\n    routing:",
+                "        xhttp:\n          path: /x/\n      - id: deA05\n        hostname: deA05.ap.t.ns\n    routing:",
             )
         )
         node = ExitNode(id="deA10", hostname="deA10.ap.t.ns")
@@ -319,8 +335,8 @@ class TestAddNode:
         result = Topology(text).add_node(DE, ExitNode(id="deA10", hostname="deA10.ap.t.ns"))
         assert result.set_lb_fallback is None
         assert result.text == text.replace(
-            "          xhttp_path: /x/\n    routing:",
-            "          xhttp_path: /x/\n      - id: deA10\n        hostname: deA10.ap.t.ns\n    routing:",
+            "        xhttp:\n          path: /x/\n    routing:",
+            "        xhttp:\n          path: /x/\n      - id: deA10\n        hostname: deA10.ap.t.ns\n    routing:",
         )
 
     def test_rejects_duplicate_node(self):
@@ -429,7 +445,10 @@ class TestRoundtrip:
         assert emptied.text == strategic.replace("    lb_fallback: deA00\n", "").replace(DE_A00_BLOCK, "")
         de = DE
         first = ExitNode(
-            id="deA00", hostname="deA00.ap.t.ns", reality=RealityConfig(dest="a.com:443", xhttp_path="/x/")
+            id="deA00",
+            hostname="deA00.ap.t.ns",
+            reality=RealityConfig(dest="a.com:443"),
+            xhttp=XhttpOverride(path="/x/"),
         )
         refilled = Topology(emptied.text).add_node(de, first)
         assert refilled.set_lb_fallback is None

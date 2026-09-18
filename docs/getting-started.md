@@ -44,7 +44,8 @@ defaults:
       fingerprint: edge
     reality:
       dest: www.google.com:443
-      xhttp_path: /stream
+    xhttp:
+      path: /stream
 
 groups:
   - id: staff
@@ -66,7 +67,8 @@ regions:
         hostname: nl-a00.exit.example.com
         reality:
           dest: www.cloudflare.com:443
-          xhttp_path: /stream
+        xhttp:
+          path: /stream
 
   - id: hub-eu
     type: hub

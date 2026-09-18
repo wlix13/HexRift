@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import rich_click as click
 from rich.markup import escape
 
-from hexrift.components.schema.models.shared import RealityConfig
+from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 from hexrift.components.topology.controller import TopologyController
 from hexrift.components.topology.edit import spec
 from hexrift.constants import RegionType
@@ -106,8 +106,8 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
             help="Reality dest, e.g. www.samsung.com:443, also the Hysteria masquerade target.",
         )
         @click.option(
-            "--reality-xhttp-path",
-            help="Reality xhttp_path, e.g. /login/.",
+            "--xhttp-path",
+            help="XHTTP path of node's direct inbound, e.g. /login/, inherited when omitted.",
         )
         @click.option(
             "--reality-server-names",
@@ -123,21 +123,18 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
             no_ipv6: bool,
             hysteria: bool,
             reality_dest: str | None,
-            reality_xhttp_path: str | None,
+            xhttp_path: str | None,
             reality_server_names: str | None,
         ) -> None:
             """Add NODE_ID to its region, creating region when missing."""
 
-            if reality_dest is None and (reality_server_names or reality_xhttp_path):
-                raise click.UsageError("--reality-server-names and --reality-xhttp-path require --reality-dest.")
+            if reality_dest is None and reality_server_names:
+                raise click.UsageError("--reality-server-names requires --reality-dest.")
             reality = None
             if reality_dest is not None:
-                if reality_xhttp_path is None:
-                    raise click.UsageError("--reality-dest requires --reality-xhttp-path.")
                 names = [s.strip() for s in (reality_server_names or "").split(",") if s.strip()]
-                reality = spec(
-                    RealityConfig, dest=reality_dest, xhttp_path=reality_xhttp_path, server_names=names or None
-                )
+                reality = spec(RealityConfig, dest=reality_dest, server_names=names or None)
+            xhttp = spec(XhttpOverride, path=xhttp_path) if xhttp_path is not None else None
 
             result = app.topology.add_node(
                 node_id,
@@ -146,6 +143,7 @@ class TopologyComponent(BaseComponent["HexRiftApp", TopologyController]):
                 hostname=hostname,
                 ipv6=False if no_ipv6 else None,
                 reality=reality,
+                xhttp=xhttp,
                 hysteria=hysteria,
             )
             if result is None:
