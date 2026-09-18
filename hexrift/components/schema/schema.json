@@ -141,6 +141,17 @@
         "keys": {
           "$ref": "#/$defs/KeysConfig"
         },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "hysteria": {
           "anyOf": [
             {
@@ -225,6 +236,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpOverride"
             },
             {
               "type": "null"
@@ -325,6 +347,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/HysteriaOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpOverride"
             },
             {
               "type": "null"
@@ -585,6 +618,17 @@
           ],
           "default": null
         },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "xdns": {
           "anyOf": [
             {
@@ -684,6 +728,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/RealityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpOverride"
             },
             {
               "type": "null"
@@ -806,6 +861,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/TlsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "xhttp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/XhttpOverride"
             },
             {
               "type": "null"
@@ -1956,31 +2022,12 @@
           "default": null,
           "title": "Server Names"
         },
-        "xhttp_host": {
-          "anyOf": [
-            {
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9_.-]+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Xhttp Host"
-        },
-        "xhttp_path": {
-          "title": "Xhttp Path",
-          "type": "string"
-        },
         "fallback_limits": {
           "$ref": "#/$defs/RealityFallbackLimits"
         }
       },
       "required": [
-        "dest",
-        "xhttp_path"
+        "dest"
       ],
       "title": "RealityConfig",
       "type": "object"
@@ -2087,11 +2134,6 @@
       "properties": {
         "certificate": {
           "$ref": "#/$defs/CertificateFiles"
-        },
-        "xhttp_path": {
-          "default": "/",
-          "title": "Xhttp Path",
-          "type": "string"
         }
       },
       "required": [
@@ -2130,18 +2172,6 @@
             }
           ],
           "default": null
-        },
-        "xhttp_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Xhttp Path"
         }
       },
       "title": "TlsOverride",
@@ -2279,6 +2309,67 @@
         "domains"
       ],
       "title": "XdnsConfig",
+      "type": "object"
+    },
+    "XhttpConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "host": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Host"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "XhttpConfig",
+      "type": "object"
+    },
+    "XhttpOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "host": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Host"
+        }
+      },
+      "title": "XhttpOverride",
       "type": "object"
     }
   },
