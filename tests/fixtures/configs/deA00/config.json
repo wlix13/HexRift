@@ -76,7 +76,6 @@
             "maxConcurrentTry": 2,
             "prioritizeIPv6": true
           },
-          "tcpFastOpen": true,
           "tcpKeepAliveInterval": 45,
           "tcpKeepAliveIdle": 45,
           "tcpWindowClamp": 0,
@@ -195,7 +194,6 @@
             "maxConcurrentTry": 2,
             "prioritizeIPv6": true
           },
-          "tcpFastOpen": true,
           "tcpKeepAliveInterval": 45,
           "tcpKeepAliveIdle": 45,
           "tcpWindowClamp": 0,
