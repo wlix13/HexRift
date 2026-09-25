@@ -45,9 +45,9 @@ crt-store certs
 #---------------------------------------------------------------------
 frontend fe_edge_tcp
   mode tcp
-  bind *:443 tfo
+  bind *:443
 {% if ipv6 %}
-  bind [::]:443 tfo
+  bind [::]:443
 {% endif %}
 
 {% if cdn_enabled %}
