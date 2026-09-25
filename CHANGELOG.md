@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/wlix13/HexRift/compare/v0.13.0...v0.13.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **render:** drop TCP Fast Open from sockopt and HAProxy binds ([81204d4](https://github.com/wlix13/HexRift/commit/81204d46efab99b4d0008b54b5d46192054af7b9))
+
 ## [0.13.0](https://github.com/wlix13/HexRift/compare/v0.12.3...v0.13.0) (2026-09-18)
 
 
