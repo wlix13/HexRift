@@ -72,7 +72,6 @@ def make_sockopt(ipv6: bool | None) -> dict:
             "maxConcurrentTry": 2,
             "prioritizeIPv6": bool(ipv6),
         },
-        "tcpFastOpen": True,
         "tcpKeepAliveInterval": 45,
         "tcpKeepAliveIdle": 45,
         "tcpWindowClamp": 0,
