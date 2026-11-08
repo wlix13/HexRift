@@ -269,3 +269,14 @@ class TestRegionValidation:
                     "nodes": [],
                 }
             )
+
+    def test_transport_is_exit_only_rejected_on_hub(self):
+        with pytest.raises(ValidationError, match="transport"):
+            HubRegion.model_validate(
+                {
+                    "id": "h",
+                    "type": "hub",
+                    "transport": "tcp",
+                    "nodes": [],
+                }
+            )

@@ -134,8 +134,16 @@ class XrayNetwork(StrEnum):
     """Xray network/transport types."""
 
     XHTTP = "xhttp"
+    TCP = "tcp"
     MKCP = "mkcp"
     HYSTERIA = "hysteria"
+
+
+class ExitTransport(StrEnum):
+    """Stream transport an exit region's direct VLESS inbound serves and hubs dial."""
+
+    XHTTP = "xhttp"
+    TCP = "tcp"
 
 
 class Transport(StrEnum):

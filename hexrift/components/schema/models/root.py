@@ -21,6 +21,7 @@ from hexrift.components.schema.models.resolve import (
     resolve_node_xdns,
     resolve_node_xhttp,
     resolve_region_tls,
+    resolve_xhttp_required,
 )
 from hexrift.components.schema.models.routing import RoutingConfig
 from hexrift.components.schema.models.users import User
@@ -30,6 +31,7 @@ from hexrift.constants import (
     ROUTABLE_ACCESS,
     SPECIAL_DESTINATIONS,
     AccessType,
+    ExitTransport,
     HysteriaCongestion,
     RegionType,
     TagPrefix,
@@ -270,11 +272,22 @@ class ConglomerateConfig(BaseModel):
                                 f"Hub node {node.id!r}: hysteria is not supported in TLS region {region.id!r}"
                             )
                     hub_nodes[node.id] = (region, node)
-            for node in region.nodes:
-                try:
-                    resolve_node_xhttp(node, region, self.defaults)
-                except DeriveError as e:
-                    raise ValueError(str(e)) from e
+            if isinstance(region, ExitRegion) and region.transport is ExitTransport.TCP:
+                if region.xhttp is not None:
+                    raise ValueError(f"Exit region {region.id!r}: xhttp is set but transport is tcp")
+                if region.cdn_xhttp_path is not None:
+                    raise ValueError(f"Exit region {region.id!r}: cdn_xhttp_path is set but transport is tcp")
+                for node in region.nodes:
+                    if node.xhttp is not None:
+                        raise ValueError(
+                            f"Node {node.id!r} in exit region {region.id!r}: xhttp is set but transport is tcp"
+                        )
+            if resolve_xhttp_required(region):
+                for node in region.nodes:
+                    try:
+                        resolve_node_xhttp(node, region, self.defaults)
+                    except DeriveError as e:
+                        raise ValueError(str(e)) from e
 
         # Unique group IDs
         if len(group_ids) != len(self.groups):

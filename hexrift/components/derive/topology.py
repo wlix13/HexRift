@@ -10,6 +10,7 @@ from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.components.schema.models.routing import HubRoute
 from hexrift.constants import (
     SPECIAL_DESTINATIONS,
+    ExitTransport,
     LbRole,
     LbStrategy,
     PublishNetwork,
@@ -29,6 +30,12 @@ def portal_tag(portal_id: str) -> str:
 
 def publish_tag(portal_id: str, port: int) -> str:
     return f"{portal_id}{TagSuffix.PUBLISH}-{port}"
+
+
+def direct_tag(transport: ExitTransport) -> str:
+    """Inbound tag of direct VLESS listener, names transport."""
+
+    return f"direct-{transport.value}"
 
 
 @dataclass(frozen=True)

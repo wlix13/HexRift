@@ -144,6 +144,24 @@ def test_node_without_xhttp_path_on_any_layer_rejected():
         ConglomerateConfig.model_validate(d)
 
 
+@pytest.mark.parametrize(
+    ("region_extra", "message"),
+    [
+        ({"xhttp": {"path": "/x/"}}, "Exit region 'exit1': xhttp is set but transport is tcp"),
+        ({"cdn_xhttp_path": "/cdn/"}, "cdn_xhttp_path is set but transport is tcp"),
+        ({}, "Node 'exitN1' in exit region 'exit1': xhttp is set but transport is tcp"),
+    ],
+)
+def test_tcp_exit_rejects_leftover_xhttp_settings(region_extra, message):
+    config = copy.deepcopy(_valid_config())
+    region = config["regions"][0]
+    region["transport"] = "tcp"
+    region.update(region_extra)
+
+    with pytest.raises(ValidationError, match=message):
+        ConglomerateConfig.model_validate(config)
+
+
 def test_exit_routing_invalid_destination():
     d = copy.deepcopy(_valid_config())
     # Exit routes can only use special destinations (direct/blocked/warp)

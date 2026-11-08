@@ -373,6 +373,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `type` | `exit` | yes | Region type |
 | `vless_route` | `int` | yes | Numeric route tag; must be unique across all regions |
 | `protocol` | `vless \| hysteria` | no | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
+|| `transport` | `xhttp \\| tcp` | no | Stream transport of the direct VLESS inbound the region's exit nodes serve, and of the hub outbounds dialing them; default `xhttp`. `tcp` serves the same Reality-secured VLESS inbound over raw TCP with `xtls-rprx-vision`, needs no `xhttp` path, and makes regenerated hub configs emit `network: tcp` links instead of XHTTP ones. The exit inbound tag names the transport: `direct-xhttp` or `direct-tcp`. |
 | `hysteria` | `HysteriaOverride` | no | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
 | `xhttp` | `XhttpOverride` | no | Overlays `defaults.exit.xhttp` for the region's nodes |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
@@ -462,7 +463,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 
 ### `XhttpConfig`
 
-XHTTP transport settings of the direct inbound, independent of whether Reality or TLS secures it. Resolved field by field: `nodes[].xhttp` overlays `regions[].xhttp`, which overlays `defaults.hub.xhttp` or `defaults.exit.xhttp`, so a block setting one field keeps the other from the layer below. Region and node blocks validate as `XhttpOverride`, where both fields are optional. Every node needs a `path` from one of the layers, validation rejects a node left without one. A `host` from `defaults.hub.xhttp` reaches only regions secured the same way as `defaults.hub`: a region switching between Reality and TLS derives its own host unless its own or its nodes' `xhttp` block sets one.
+XHTTP transport settings of the direct inbound, independent of whether Reality or TLS secures it. Exit regions on `transport: tcp` have no HTTP layer, so they carry no `xhttp` settings and their nodes need no path. Resolved field by field: `nodes[].xhttp` overlays `regions[].xhttp`, which overlays `defaults.hub.xhttp` or `defaults.exit.xhttp`, so a block setting one field keeps the other from the layer below. Region and node blocks validate as `XhttpOverride`, where both fields are optional. Every node needs a `path` from one of the layers, validation rejects a node left without one, except in an exit region on `transport: tcp`. A `host` from `defaults.hub.xhttp` reaches only regions secured the same way as `defaults.hub`: a region switching between Reality and TLS derives its own host unless its own or its nodes' `xhttp` block sets one.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|

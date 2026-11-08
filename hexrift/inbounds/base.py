@@ -12,7 +12,7 @@ from uuid import UUID
 from hexrift.components.derive.identity import Namespace
 from hexrift.components.keys.store import NodeKeys
 from hexrift.components.schema.models.observability import ObservabilityConfig
-from hexrift.components.schema.models.regions import ExitNode, HubNode, HubRegion, Node, Region
+from hexrift.components.schema.models.regions import ExitNode, ExitRegion, HubNode, HubRegion, Node, Region
 from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import AccessType, RegionType
 from hexrift.errors import RenderError
@@ -71,6 +71,12 @@ class InboundEnv:
         if not isinstance(self.node, HubNode):
             raise RenderError(f"Node {self.node.id!r} is not a hub node")
         return self.node
+
+    @property
+    def exit_region(self) -> ExitRegion:
+        if not isinstance(self.region, ExitRegion):
+            raise RenderError(f"Region {self.region.id!r} is not an exit region")
+        return self.region
 
     @property
     def exit_node(self) -> ExitNode:
