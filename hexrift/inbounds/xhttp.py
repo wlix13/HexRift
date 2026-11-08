@@ -1,4 +1,4 @@
-"""Direct VLESS inbound over XHTTP with Reality or TLS."""
+"""Direct VLESS inbound: XHTTP, or raw TCP on exits, over Reality or TLS."""
 
 from __future__ import annotations
 
@@ -7,15 +7,20 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.derive.identity import Namespace
-from hexrift.components.derive.topology import portal_tag
+from hexrift.components.derive.topology import direct_tag, portal_tag
 from hexrift.components.schema.models.groups import Group
-from hexrift.components.schema.models.resolve import resolve_node_xhttp, resolve_region_tls
+from hexrift.components.schema.models.resolve import (
+    resolve_exit_transport,
+    resolve_node_xhttp,
+    resolve_region_tls,
+)
 from hexrift.components.schema.models.shared import RealityFallbackLimits
 from hexrift.constants import (
     REALITY_INBOUND_PORT,
     VLESS_FLOW,
     XHTTP_TLS_ALPN,
     AccessType,
+    ExitTransport,
     RegionType,
     Socket,
     XrayNetwork,
@@ -119,15 +124,15 @@ def get_hub_user_short_ids(users: list[User], ns: Namespace) -> list[str]:
     return result
 
 
-@dataclass(frozen=True)
-class XhttpContext(InboundContext):
+@dataclass(frozen=True, kw_only=True)
+class DirectInboundContext(InboundContext):
     clients: list[ClientEntry]  # exit: hub-exit UUIDs; hub: users + servers + guests + portals
+
+
+@dataclass(frozen=True, kw_only=True)
+class RealityXhttpContext(DirectInboundContext):
     xhttp_host: str
     xhttp_path: str
-
-
-@dataclass(frozen=True)
-class RealityXhttpContext(XhttpContext):
     short_ids: list[str]  # exit: single exit shortId; hub: group + per-user shortIds
     dest: str
     server_names: list[str]
@@ -135,21 +140,43 @@ class RealityXhttpContext(XhttpContext):
     fallback_limits: RealityFallbackLimits
 
 
-@dataclass(frozen=True)
-class TlsXhttpContext(XhttpContext):
+@dataclass(frozen=True, kw_only=True)
+class TcpRealityContext(DirectInboundContext):
+    """Exit inbound on raw TCP, Reality only, no HTTP layer."""
+
+    short_ids: list[str]
+    dest: str
+    server_names: list[str]
+    private_key: str
+    fallback_limits: RealityFallbackLimits
+
+
+@dataclass(frozen=True, kw_only=True)
+class TlsXhttpContext(DirectInboundContext):
+    xhttp_host: str
+    xhttp_path: str
     certificate: CertificateFiles  # operator cert for node hostname
 
 
-class XhttpSpec(InboundSpec[XhttpContext]):
+class DirectInboundSpec(InboundSpec[DirectInboundContext]):
     access_type: ClassVar[AccessType] = AccessType.XHTTP
     roles: ClassVar[frozenset[RegionType]] = frozenset({RegionType.EXIT, RegionType.HUB})
-    context_type = XhttpContext
+    context_type = DirectInboundContext
 
-    def build_context(self, env: InboundEnv) -> XhttpContext:
-        xhttp = resolve_node_xhttp(env.node, env.region, env.config.defaults)
+    def build_context(self, env: InboundEnv) -> DirectInboundContext:
         if env.role == RegionType.EXIT:
             clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow)
-            return self._reality_context(env, xhttp, clients, [env.ns.exit_short_id(env.node.id)])
+            short_ids = [env.ns.exit_short_id(env.node.id)]
+            if resolve_exit_transport(env.exit_region) is ExitTransport.TCP:
+                return self._tcp_context(env, clients, short_ids)
+            xhttp = resolve_node_xhttp(env.node, env.region, env.config.defaults)
+            return self._reality_context(
+                env,
+                xhttp,
+                clients,
+                short_ids,
+            )
+        xhttp = resolve_node_xhttp(env.node, env.region, env.config.defaults)
         tls = resolve_region_tls(env.hub_region, env.config.defaults)
         if tls is not None:
             return TlsXhttpContext(
@@ -167,7 +194,12 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             + get_hub_portal_short_ids(env.config.portals, env.ns)
             + get_hub_user_short_ids(env.config.users, env.ns)
         )
-        return self._reality_context(env, xhttp, clients, short_ids)
+        return self._reality_context(
+            env,
+            xhttp,
+            clients,
+            short_ids,
+        )
 
     @staticmethod
     def _reality_context(
@@ -188,9 +220,36 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             fallback_limits=reality.fallback_limits,
         )
 
-    def fragment(self, ctx: XhttpContext, shared: SharedContext) -> dict:
+    @staticmethod
+    def _tcp_context(env: InboundEnv, clients: list[ClientEntry], short_ids: list[str]) -> TcpRealityContext:
+        reality = resolve_node_reality(env.node, env.region, env.config.defaults)
+        return TcpRealityContext(
+            clients=clients,
+            short_ids=short_ids,
+            dest=reality.dest,
+            server_names=derive_server_names(reality),
+            private_key=env.node_keys.reality_private_key,
+            fallback_limits=reality.fallback_limits,
+        )
+
+    @staticmethod
+    def _reality_settings(ctx: RealityXhttpContext | TcpRealityContext) -> dict:
+        return {
+            "xver": 0,
+            "show": False,
+            "maxTimeDiff": 60000,
+            "dest": ctx.dest,
+            "serverNames": ctx.server_names,
+            "privateKey": ctx.private_key,
+            "shortIds": ctx.short_ids,
+            "limitFallbackUpload": ctx.fallback_limits.xray_settings,
+            "limitFallbackDownload": ctx.fallback_limits.xray_settings,
+        }
+
+    def fragment(self, ctx: DirectInboundContext, shared: SharedContext) -> dict:
+        transport = ExitTransport.TCP if isinstance(ctx, TcpRealityContext) else ExitTransport.XHTTP
         fragment: dict = {
-            "tag": "direct-xhttp",
+            "tag": direct_tag(transport),
         }
         if shared.haproxy:
             fragment["listen"] = Socket.VLESS_REALITY
@@ -198,29 +257,31 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             # Xray binds only IPv4 if `0.0.0.0`, dualstack if `::` (if no ipv6Only sockopt)
             fragment["listen"] = "::" if shared.ipv6 else "0.0.0.0"  # noqa: S104
             fragment["port"] = REALITY_INBOUND_PORT
+        security: XraySecurity
         if isinstance(ctx, TlsXhttpContext):
             security = XraySecurity.TLS
-            settings: dict = {
+            network = XrayNetwork.XHTTP
+        elif isinstance(ctx, TcpRealityContext):
+            security = XraySecurity.REALITY
+            network = XrayNetwork.TCP
+        elif isinstance(ctx, RealityXhttpContext):
+            security = XraySecurity.REALITY
+            network = XrayNetwork.XHTTP
+        else:
+            raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
+        stream: dict = {"network": network, "security": security}
+        if isinstance(ctx, TlsXhttpContext | RealityXhttpContext):
+            stream["xhttpSettings"] = make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path)
+        if isinstance(ctx, TlsXhttpContext):
+            stream["tlsSettings"] = {
                 "alpn": list(XHTTP_TLS_ALPN),
                 "certificates": [
                     {"certificateFile": ctx.certificate.cert_file, "keyFile": ctx.certificate.key_file},
                 ],
             }
-        elif isinstance(ctx, RealityXhttpContext):
-            security = XraySecurity.REALITY
-            settings = {
-                "xver": 0,
-                "show": False,
-                "maxTimeDiff": 60000,
-                "dest": ctx.dest,
-                "serverNames": ctx.server_names,
-                "privateKey": ctx.private_key,
-                "shortIds": ctx.short_ids,
-                "limitFallbackUpload": ctx.fallback_limits.xray_settings,
-                "limitFallbackDownload": ctx.fallback_limits.xray_settings,
-            }
         else:
-            raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
+            stream["realitySettings"] = self._reality_settings(ctx)
+        stream["sockopt"] = make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers)
         fragment.update(
             {
                 "protocol": XrayProtocol.VLESS,
@@ -228,19 +289,13 @@ class XhttpSpec(InboundSpec[XhttpContext]):
                     "clients": ctx.clients,
                     "decryption": shared.decryption,
                 },
-                "streamSettings": {
-                    "network": XrayNetwork.XHTTP,
-                    "security": security,
-                    "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path),
-                    f"{security}Settings": settings,  # Xray keys them realitySettings / tlsSettings
-                    "sockopt": make_inbound_sockopt(shared.ipv6, shared.trusted_forwarded_headers),
-                },
+                "streamSettings": stream,
                 "sniffing": make_sniffing(shared.route_only),
             }
         )
         return fragment
 
-    def share_url(self, ctx: XhttpContext, env: InboundEnv, client: ShareClient) -> str:
+    def share_url(self, ctx: DirectInboundContext, env: InboundEnv, client: ShareClient) -> str:
         keys = env.node_keys
         params: dict[str, str] = {"encryption": keys.encryption, "flow": keys.client_flow}
         if isinstance(ctx, TlsXhttpContext):
@@ -250,7 +305,7 @@ class XhttpSpec(InboundSpec[XhttpContext]):
                 "fp": client.fingerprint,
                 "alpn": ",".join(XHTTP_TLS_ALPN),
             }
-        elif isinstance(ctx, RealityXhttpContext):
+        elif isinstance(ctx, TcpRealityContext | RealityXhttpContext):
             params |= {
                 "security": XraySecurity.REALITY,
                 "sni": ctx.server_names[0],
@@ -260,8 +315,11 @@ class XhttpSpec(InboundSpec[XhttpContext]):
             }
         else:
             raise RenderError(f"Direct inbound context {type(ctx).__name__} carries no security")
-        params |= make_xhttp_share_params(ctx.xhttp_host, ctx.xhttp_path)
+        if isinstance(ctx, TcpRealityContext):
+            params |= {"type": XrayNetwork.TCP}
+        else:
+            params |= make_xhttp_share_params(ctx.xhttp_host, ctx.xhttp_path)
         return vless_share_url(client.uuid, env.node.hostname, params, client.fragment)
 
 
-XHTTP_SPEC = XhttpSpec()
+XHTTP_SPEC = DirectInboundSpec()

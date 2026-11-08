@@ -23,6 +23,7 @@ from hexrift.constants import (
     HYSTERIA_INBOUND_PORT,
     AuthMethod,
     ExitProtocol,
+    ExitTransport,
     HandshakeMethod,
     HysteriaCongestion,
     HysteriaKeyType,
@@ -208,6 +209,7 @@ class ExitRegion(BaseModel):
     type: Literal[RegionType.EXIT]
     vless_route: int | None = Field(default=None, ge=0, le=65535)
     protocol: ExitProtocol | None = None
+    transport: ExitTransport | None = None
     hysteria: HysteriaOverride | None = None
     xhttp: XhttpOverride | None = None
     cdn_xhttp_path: XrayPath | None = None

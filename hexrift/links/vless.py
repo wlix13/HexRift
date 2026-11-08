@@ -1,4 +1,4 @@
-"""VLESS over XHTTP + Reality hub→exit link."""
+"""VLESS hub->exit link, XHTTP or raw TCP over Reality."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
-from hexrift.components.schema.models.resolve import resolve_node_xhttp
-from hexrift.constants import ExitProtocol, XrayNetwork, XrayProtocol, XraySecurity
+from hexrift.components.schema.models.resolve import resolve_exit_transport, resolve_node_xhttp
+from hexrift.constants import ExitProtocol, ExitTransport, XrayNetwork, XrayProtocol, XraySecurity
 from hexrift.links.base import LinkContext, LinkEnv, LinkSpec
 from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import make_sockopt
@@ -24,9 +24,19 @@ class VlessLinkContext(LinkContext):
     fingerprint: str
     server_name: str  # exit node's server_name (first of server_names)
     short_id: str  # exit node's single shortId
+    transport: ExitTransport  # transport served by exit inbound
+    flow: str  # VLESS flow (empty when encryption disabled)
+
+
+@dataclass(frozen=True, kw_only=True)
+class XhttpVlessLinkContext(VlessLinkContext):
     xhttp_host: str
     xhttp_path: str
-    flow: str  # VLESS flow (empty when encryption disabled)
+
+
+@dataclass(frozen=True, kw_only=True)
+class TcpVlessLinkContext(VlessLinkContext):
+    pass
 
 
 class VlessLinkSpec(LinkSpec[VlessLinkContext]):
@@ -35,23 +45,43 @@ class VlessLinkSpec(LinkSpec[VlessLinkContext]):
 
     def build_context(self, env: LinkEnv, identity: str, tag_prefix: str) -> VlessLinkContext:
         reality = resolve_node_reality(env.exit_node, env.exit_region, env.config.defaults)
+        transport = resolve_exit_transport(env.exit_region)
+        common = {
+            "exit_id": env.exit_node.id,
+            "tag_prefix": tag_prefix,
+            "address": env.address,
+            "user_id": identity,
+            "encryption": env.exit_keys.encryption,
+            "public_key": env.exit_keys.reality_public_key,
+            "fingerprint": env.exit_connections.fingerprint,
+            "server_name": derive_server_names(reality)[0],
+            "short_id": env.ns.exit_short_id(env.exit_node.id),
+            "transport": transport,
+            "flow": env.exit_keys.client_flow,
+        }
+        if transport is ExitTransport.TCP:
+            return TcpVlessLinkContext(**common)
         xhttp = resolve_node_xhttp(env.exit_node, env.exit_region, env.config.defaults)
-        return VlessLinkContext(
-            exit_id=env.exit_node.id,
-            tag_prefix=tag_prefix,
-            address=env.address,
-            user_id=identity,
-            encryption=env.exit_keys.encryption,
-            public_key=env.exit_keys.reality_public_key,
-            fingerprint=env.exit_connections.fingerprint,
-            server_name=derive_server_names(reality)[0],
-            short_id=env.ns.exit_short_id(env.exit_node.id),
+        return XhttpVlessLinkContext(
+            **common,
             xhttp_host=derive_xhttp_host(reality, xhttp),
             xhttp_path=xhttp.path,
-            flow=env.exit_keys.client_flow,
         )
 
     def fragment(self, ctx: VlessLinkContext, ipv6: bool) -> dict:
+        stream: dict = {
+            "network": XrayNetwork.TCP if isinstance(ctx, TcpVlessLinkContext) else XrayNetwork.XHTTP,
+            "security": XraySecurity.REALITY,
+        }
+        if isinstance(ctx, XhttpVlessLinkContext):
+            stream["xhttpSettings"] = make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path)
+        stream["realitySettings"] = {
+            "publicKey": ctx.public_key,
+            "fingerprint": ctx.fingerprint,
+            "serverName": ctx.server_name,
+            "shortId": ctx.short_id,
+        }
+        stream["sockopt"] = make_sockopt(ipv6)
         return {
             "tag": ctx.tag,
             "protocol": XrayProtocol.VLESS,
@@ -70,18 +100,7 @@ class VlessLinkSpec(LinkSpec[VlessLinkContext]):
                     }
                 ],
             },
-            "streamSettings": {
-                "network": XrayNetwork.XHTTP,
-                "security": XraySecurity.REALITY,
-                "xhttpSettings": make_xhttp_settings(ctx.xhttp_host, ctx.xhttp_path),
-                "realitySettings": {
-                    "publicKey": ctx.public_key,
-                    "fingerprint": ctx.fingerprint,
-                    "serverName": ctx.server_name,
-                    "shortId": ctx.short_id,
-                },
-                "sockopt": make_sockopt(ipv6),
-            },
+            "streamSettings": stream,
         }
 
 

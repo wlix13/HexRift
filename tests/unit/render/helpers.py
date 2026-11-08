@@ -12,7 +12,7 @@ from hexrift.inbounds.hysteria import HysteriaContext
 from hexrift.inbounds.proxy import ProxyContext
 from hexrift.inbounds.wireguard import WireguardContext
 from hexrift.inbounds.xdns import XdnsContext
-from hexrift.inbounds.xhttp import RealityXhttpContext, XhttpContext
+from hexrift.inbounds.xhttp import DirectInboundContext, RealityXhttpContext
 from hexrift.links.hysteria import HysteriaLinkContext
 
 
@@ -33,7 +33,7 @@ def make_shared(**overrides: Any) -> SharedContext:
     return SharedContext(**defaults)
 
 
-def make_xhttp(**overrides: Any) -> XhttpContext:
+def make_xhttp(**overrides: Any) -> DirectInboundContext:
     defaults: dict[str, Any] = {
         "clients": [],
         "short_ids": ["abcdef0123456789"],
@@ -132,7 +132,7 @@ def make_proxy(**overrides: Any) -> ProxyContext:
 
 
 def default_slots(
-    xhttp: XhttpContext | None = None,
+    xhttp: DirectInboundContext | None = None,
     cdn: CdnContext | None = None,
     proxy: ProxyContext | None = None,
     xdns: XdnsContext | None = None,

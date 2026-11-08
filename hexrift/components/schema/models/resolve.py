@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from hexrift.components.schema.models.observability import MetricsConfig
-from hexrift.components.schema.models.regions import HubRegion, HysteriaConfig, TlsConfig, WireguardConfig
+from hexrift.components.schema.models.regions import ExitRegion, HubRegion, HysteriaConfig, TlsConfig, WireguardConfig
 from hexrift.components.schema.models.shared import XhttpConfig, XhttpOverride
-from hexrift.constants import ExitProtocol, RegionType
+from hexrift.constants import ExitProtocol, ExitTransport, RegionType
 from hexrift.errors import DeriveError
 
 
@@ -111,6 +111,18 @@ def resolve_node_xhttp(node: Node, region: Region, defaults: DefaultsConfig) -> 
     if xhttp.path is None:
         raise DeriveError(f"Node {node.id!r}: xhttp.path is not set on node, region or defaults.{region.type}")
     return XhttpConfig(path=xhttp.path, host=xhttp.host)
+
+
+def resolve_exit_transport(region: ExitRegion) -> ExitTransport:
+    """Transport of exit direct VLESS inbound and hub link dialing it."""
+
+    return region.transport if region.transport is not None else ExitTransport.XHTTP
+
+
+def resolve_xhttp_required(region: Region) -> bool:
+    """True when region nodes need an xhttp path; raw TCP exits need none."""
+
+    return not (isinstance(region, ExitRegion) and resolve_exit_transport(region) is ExitTransport.TCP)
 
 
 def resolve_link_protocol(region: ExitRegion) -> ExitProtocol:
