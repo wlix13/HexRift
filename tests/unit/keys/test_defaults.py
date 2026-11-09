@@ -91,3 +91,13 @@ class TestResolveNodeKeys:
         result = resolve_node_keys(node, _exit_region(), _defaults())
         assert result.session_time == "300s"
         assert result.mode == "native"  # from base
+
+
+def test_defaults_exit_disabled_reaches_node_without_override():
+    base = _defaults()
+    disabled = base.model_copy(
+        update={"exit": base.exit.model_copy(update={"keys": base.exit.keys.model_copy(update={"enabled": False})})}
+    )
+    node = ExitNode(id="n", hostname="h.example.com")
+
+    assert resolve_node_keys(node, _exit_region(), disabled).enabled is False

@@ -47,12 +47,18 @@ class TestCdnShareUrl:
             xhttp_host="cdn.example.com", xhttp_path="/c/", cert_alias="cdn", domain="cdn.example.com", clients=[]
         )
         region = make_hub_region()
-        keys = NodeKeys(reality_private_key="p", reality_public_key="p", decryption="none", encryption="none")
+        keys = NodeKeys(
+            reality_private_key="p",
+            reality_public_key="p",
+            decryption="mlkem768x25519plus.native.600s.PRIV",
+            encryption="mlkem768x25519plus.native.0rtt.PUB",
+        )
         env = InboundEnv(cast(ConglomerateConfig, SimpleNamespace()), region, region.nodes[0], keys)
         url = CDN_SPEC.share_url(ctx, env, ShareClient(UUID(int=1), "0123456789abcdef", "chrome", "hub1(CDN)-alice"))
         assert split_xhttp_share_url(url) == (
             "vless://00000000-0000-0000-0000-000000000001@cdn.example.com:443"
-            "?encryption=none&flow=&security=tls&sni=cdn.example.com&fp=chrome&sid=0123456789abcdef&spx=%2F"
+            "?encryption=mlkem768x25519plus.native.0rtt.PUB&flow=xtls-rprx-vision-udp443"
+            "&security=tls&sni=cdn.example.com&fp=chrome&sid=0123456789abcdef&spx=%2F"
             "&alpn=h3%2Ch2%2Chttp%2F1.1&insecure=0&allowInsecure=0&type=xhttp&host=cdn.example.com&path=%2Fc%2F&mode=auto",
             {**XHTTP_EXTRA_CDN, "uplinkHTTPMethod": "PATCH"},
             "hub1%28CDN%29-alice",

@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from hexrift.components.keys.store import NodeKeys, load_node_keys, node_keys_exist, save_node_keys
+from hexrift.constants import RegionType
 from hexrift.errors import KeysError
 
 
@@ -81,3 +82,27 @@ class TestPathValidation:
     def test_invalid_node_id_rejected(self, tmp_path, node_id):
         with pytest.raises(ValueError, match="Invalid node ID"):
             node_keys_exist(node_id, tmp_path)
+
+
+class TestFlowWithoutEncryption:
+    def test_exit_keeps_the_vision_flow(self):
+        keys = NodeKeys(
+            reality_private_key="priv",
+            reality_public_key="pub",
+            decryption="none",
+            encryption="none",
+        )
+
+        assert keys.flow(RegionType.EXIT) == "xtls-rprx-vision"
+        assert keys.client_flow(RegionType.EXIT) == "xtls-rprx-vision-udp443"
+
+    def test_hub_drops_the_vision_flow(self):
+        keys = NodeKeys(
+            reality_private_key="priv",
+            reality_public_key="pub",
+            decryption="none",
+            encryption="none",
+        )
+
+        assert keys.flow(RegionType.HUB) == ""
+        assert keys.client_flow(RegionType.HUB) == ""

@@ -7,6 +7,7 @@ import yaml
 
 from hexrift.app import HexRiftApp
 from hexrift.components.derive.identity import Namespace
+from hexrift.constants import RegionType
 from hexrift.errors import DeriveError
 from hexrift.shared.xhttp import XHTTP_EXTRA
 from tests.component.conftest import make_topology
@@ -257,6 +258,22 @@ class TestBuildShareUrls:
         bob_base = ns.user_uuid("bob")
         expected_uuid = str(ns.guest_uuid("laptop", "bob", user_base=bob_base))
         assert expected_uuid in url
+
+    def test_hub_without_encryption_yields_none_and_empty_flow(self, tmp_path: Path):
+        topology = yaml.safe_load(FIXTURE_TOPOLOGY.read_text())
+        topology["defaults"]["hub"]["keys"]["enabled"] = False
+        path = tmp_path / "topology.yaml"
+        path.write_text(yaml.dump(topology))
+        gated = HexRiftApp(yaml_path=path)
+        keys_dir = tmp_path / "keys"
+        for _region, node in gated.schema.get_all_nodes():
+            gated.keys.gen_keys(node.id, keys_dir)
+
+        ((_label, url),) = gated.derive.build_share_urls("alice", "mskA00", keys_dir, "chrome")
+        query = dict(parse_qsl(urlsplit(url).query, keep_blank_values=True))
+
+        assert query["encryption"] == "none"
+        assert query["flow"] == ""
 
     def test_server_direct_url(self, app: HexRiftApp):
         pairs = app.derive.build_share_urls("alice", "mskA00", FIXTURE_KEYS_DIR, "chrome", server=True)
@@ -636,7 +653,7 @@ class TestTlsShareUrl:
         assert json.loads(query.pop("extra")) == XHTTP_EXTRA
         assert query == {
             "encryption": keys.encryption,
-            "flow": keys.client_flow,
+            "flow": keys.client_flow(RegionType.HUB),
             "security": "tls",
             "sni": "hubN1.ap.test.ns",
             "fp": "chrome",

@@ -165,7 +165,7 @@ class DirectInboundSpec(InboundSpec[DirectInboundContext]):
 
     def build_context(self, env: InboundEnv) -> DirectInboundContext:
         if env.role == RegionType.EXIT:
-            clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow)
+            clients = get_exit_clients(env.hub_nodes, env.exit_node, env.ns, flow=env.node_keys.flow(env.role))
             short_ids = [env.ns.exit_short_id(env.node.id)]
             if resolve_exit_transport(env.exit_region) is ExitTransport.TCP:
                 return self._tcp_context(env, clients, short_ids)
@@ -181,14 +181,14 @@ class DirectInboundSpec(InboundSpec[DirectInboundContext]):
         if tls is not None:
             return TlsXhttpContext(
                 clients=get_hub_access_clients(
-                    env.config.users, env.ns, AccessType.TLS, env.node_keys.flow, include_server=True
+                    env.config.users, env.ns, AccessType.TLS, env.node_keys.flow(env.role), include_server=True
                 )
-                + get_portal_clients(env.config.portals, env.ns, env.node_keys.flow),
+                + get_portal_clients(env.config.portals, env.ns, env.node_keys.flow(env.role)),
                 xhttp_host=xhttp.host if xhttp.host is not None else env.node.hostname,
                 xhttp_path=xhttp.path,
                 certificate=tls.certificate,
             )
-        clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow)
+        clients = get_hub_vless_clients(env.config.users, env.config.portals, env.ns, flow=env.node_keys.flow(env.role))
         short_ids = (
             get_hub_short_ids(env.config.groups, env.ns)
             + get_hub_portal_short_ids(env.config.portals, env.ns)
@@ -297,7 +297,7 @@ class DirectInboundSpec(InboundSpec[DirectInboundContext]):
 
     def share_url(self, ctx: DirectInboundContext, env: InboundEnv, client: ShareClient) -> str:
         keys = env.node_keys
-        params: dict[str, str] = {"encryption": keys.encryption, "flow": keys.client_flow}
+        params: dict[str, str] = {"encryption": keys.encryption, "flow": keys.client_flow(env.role)}
         if isinstance(ctx, TlsXhttpContext):
             params |= {
                 "security": XraySecurity.TLS,

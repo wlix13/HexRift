@@ -12,6 +12,7 @@ from hexrift.components.keys.store import (
     node_keys_exist,
     save_node_keys,
 )
+from hexrift.components.schema.models.resolve import resolve_node_keys_enabled
 from hexrift.constants import RegionType
 from hexrift.core.controller import BaseController
 from hexrift.shared.crypto import generate_x25519_keypair
@@ -50,15 +51,12 @@ class KeysController(BaseController["HexRiftApp"]):
                         return True
 
         priv, pub = generate_x25519_keypair()
-        if keys_cfg.enabled:
-            decryption, encryption = generate_auth_keypair(
-                keys_cfg.auth,
-                keys_cfg.mode,
-                keys_cfg.session_time,
-                keys_cfg.padding,
-            )
-        else:
-            decryption, encryption = ENCRYPTION_DISABLED, ENCRYPTION_DISABLED
+        decryption, encryption = generate_auth_keypair(
+            keys_cfg.auth,
+            keys_cfg.mode,
+            keys_cfg.session_time,
+            keys_cfg.padding,
+        )
 
         new_keys = NodeKeys(
             reality_private_key=priv,
@@ -78,3 +76,12 @@ class KeysController(BaseController["HexRiftApp"]):
         """Component facade: lets sibling components load keys via `app.keys`."""
 
         return load_node_keys(node_id, keys_dir)
+
+    def render_keys(self, node_id: str, keys_dir: Path) -> NodeKeys:
+        """Keys as node renders them, without the encryption layer where keys.enabled is false."""
+
+        region, node = self.app.schema.get_node(node_id)
+        keys = load_node_keys(node_id, keys_dir)
+        if resolve_node_keys_enabled(node, region, self.app.schema.config.defaults):
+            return keys
+        return keys.model_copy(update={"decryption": ENCRYPTION_DISABLED, "encryption": ENCRYPTION_DISABLED})

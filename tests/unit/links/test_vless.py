@@ -1,3 +1,4 @@
+from dataclasses import replace
 from types import SimpleNamespace
 from typing import cast
 
@@ -104,6 +105,20 @@ def test_tcp_region_outbound_carries_the_vision_flow():
         {
             "id": _IDENTITY,
             "encryption": _KEYS.encryption,
+            "flow": "xtls-rprx-vision-udp443",
+        }
+    ]
+
+
+def test_tcp_region_carries_the_vision_flow_without_vless_encryption():
+    env = _env(_region(ExitTransport.TCP))
+    env = replace(env, exit_keys=_KEYS.model_copy(update={"decryption": "none", "encryption": "none"}))
+    vnext = render_link(build_link(env, _IDENTITY, ""), ipv6=False)["settings"]["vnext"][0]
+
+    assert vnext["users"] == [
+        {
+            "id": _IDENTITY,
+            "encryption": "none",
             "flow": "xtls-rprx-vision-udp443",
         }
     ]

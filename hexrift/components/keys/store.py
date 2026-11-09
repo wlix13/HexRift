@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from hexrift.constants import VLESS_CLIENT_FLOW, VLESS_FLOW
+from hexrift.constants import VLESS_CLIENT_FLOW, VLESS_FLOW, RegionType
 from hexrift.errors import KeysError
 from hexrift.shared.files import write_secret_file
 
@@ -30,17 +30,18 @@ class NodeKeys(BaseModel):
 
         return self.encryption != ENCRYPTION_DISABLED
 
-    @property
-    def flow(self) -> str:
-        """Inbound VLESS flow, or empty when encryption is disabled."""
+    def flow(self, role: RegionType) -> str:
+        """Inbound VLESS flow, or empty for a hub without VLESS encryption."""
 
-        return VLESS_FLOW if self.encryption_enabled else ""
+        return VLESS_FLOW if self._keeps_vision(role) else ""
 
-    @property
-    def client_flow(self) -> str:
-        """Outbound (client) VLESS flow with udp443, or empty when encryption is disabled."""
+    def client_flow(self, role: RegionType) -> str:
+        """Outbound (client) VLESS flow with udp443, or empty for a hub without VLESS encryption."""
 
-        return VLESS_CLIENT_FLOW if self.encryption_enabled else ""
+        return VLESS_CLIENT_FLOW if self._keeps_vision(role) else ""
+
+    def _keeps_vision(self, role: RegionType) -> bool:
+        return role is RegionType.EXIT or self.encryption_enabled
 
 
 def _node_keys_path(node_id: str, keys_dir: Path) -> Path:

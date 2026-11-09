@@ -1,11 +1,14 @@
+import copy
 import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from hexrift.app import HexRiftApp
 from hexrift.components.render.portal import build_portal_config
 from hexrift.errors import KeysError, RenderError
+from tests.component.conftest import make_topology
 
 
 def _gen_all_keys(app: HexRiftApp, keys_dir):
@@ -82,6 +85,56 @@ class TestBuildHub:
         parsed = json.loads(raw)
         assert "inbounds" in parsed
         assert "outbounds" in parsed
+
+
+class TestKeysEnabledGate:
+    @staticmethod
+    def _app(tmp_path: Path, name: str, topology: dict) -> HexRiftApp:
+        path = tmp_path / name
+        path.write_text(yaml.dump(topology))
+        return HexRiftApp(yaml_path=path)
+
+    def test_tcp_exit_renders_no_encryption_from_an_mlkem_file(self, tmp_path: Path):
+        keys_dir = tmp_path / "keys"
+        enabled = make_topology()
+        enabled["regions"][0]["transport"] = "tcp"
+        del enabled["regions"][0]["nodes"][0]["xhttp"]
+        _gen_all_keys(self._app(tmp_path, "enabled.yaml", enabled), keys_dir)
+
+        disabled = copy.deepcopy(enabled)
+        disabled["regions"][0]["nodes"][0]["keys"] = {"enabled": False}
+        app = self._app(tmp_path, "disabled.yaml", disabled)
+        out_dir = tmp_path / "out"
+        app.render.build("exitN1", out_dir, keys_dir, xray=True, haproxy=False)
+        config = json.loads((out_dir / "exitN1" / "config.json").read_bytes())
+        inbound = next(i for i in config["inbounds"] if i["tag"] == "direct-tcp")
+
+        assert inbound["settings"]["decryption"] == "none"
+        assert [client["flow"] for client in inbound["settings"]["clients"]] == ["xtls-rprx-vision"]
+
+        app.render.build("hubN1", out_dir, keys_dir, xray=True, haproxy=False)
+        hub = json.loads((out_dir / "hubN1" / "config.json").read_bytes())
+        outbound = next(o for o in hub["outbounds"] if o["tag"] == "exitN1")
+        user = outbound["settings"]["vnext"][0]["users"][0]
+
+        assert user["encryption"] == "none"
+        assert user["flow"] == "xtls-rprx-vision-udp443"
+
+    def test_hub_renders_no_encryption_from_an_mlkem_file(self, tmp_path: Path):
+        keys_dir = tmp_path / "keys"
+        enabled = make_topology()
+        _gen_all_keys(self._app(tmp_path, "enabled.yaml", enabled), keys_dir)
+
+        disabled = copy.deepcopy(enabled)
+        disabled["defaults"]["hub"]["keys"]["enabled"] = False
+        app = self._app(tmp_path, "disabled.yaml", disabled)
+        out_dir = tmp_path / "out"
+        app.render.build("hubN1", out_dir, keys_dir, xray=True, haproxy=False)
+        config = json.loads((out_dir / "hubN1" / "config.json").read_bytes())
+        inbound = next(i for i in config["inbounds"] if i["tag"] == "direct-xhttp")
+
+        assert inbound["settings"]["decryption"] == "none"
+        assert {client["flow"] for client in inbound["settings"]["clients"]} == {""}
 
 
 class TestDiff:

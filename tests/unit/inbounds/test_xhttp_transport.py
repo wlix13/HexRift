@@ -1,3 +1,4 @@
+from dataclasses import replace
 from uuid import UUID
 
 from hexrift.components.keys.store import NodeKeys
@@ -108,6 +109,24 @@ def test_tcp_inbound_is_raw_tcp_with_reality():
     assert frag["streamSettings"]["network"] == "tcp"
     assert "xhttpSettings" not in frag["streamSettings"]
     assert frag["streamSettings"]["realitySettings"]["dest"] == "a.com:443"
+    assert [client["flow"] for client in frag["settings"]["clients"]] == ["xtls-rprx-vision"]
+
+
+def test_tcp_inbound_keeps_vision_without_vless_encryption():
+    env = replace(
+        _env("tcp"),
+        node_keys=_KEYS.model_copy(update={"decryption": "none", "encryption": "none"}),
+    )
+    frag = XHTTP_SPEC.fragment(
+        XHTTP_SPEC.build_context(env),
+        make_shared(
+            haproxy=False,
+            ipv6=True,
+            decryption="none",
+        ),
+    )
+
+    assert frag["settings"]["decryption"] == "none"
     assert [client["flow"] for client in frag["settings"]["clients"]] == ["xtls-rprx-vision"]
 
 
