@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.2](https://github.com/wlix13/HexRift/compare/v0.13.1...v0.13.2) (2026-11-10)
+
+
+### Features
+
+* **keys:** mask VLESS encryption at render time, keep vision on tcp exits ([f02cf73](https://github.com/wlix13/HexRift/commit/f02cf732011c9907942c04c065cd7d086388cf57))
+
+
+### Bug Fixes
+
+* **core:** accept a component sequence, not only a list ([c062e9e](https://github.com/wlix13/HexRift/commit/c062e9e3bdc05a3e36940e578db02d7ab76e98d8))
+* **links:** follow the exit region transport instead of hardcoding xhttp ([a1e1a6e](https://github.com/wlix13/HexRift/commit/a1e1a6e68d078229a1ac571ce39947e9f13e2cbd))
+
 ## [0.13.1](https://github.com/wlix13/HexRift/compare/v0.13.0...v0.13.1) (2026-09-25)
 
 
