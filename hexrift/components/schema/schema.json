@@ -343,6 +343,17 @@
           ],
           "default": null
         },
+        "transport": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExitTransport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "hysteria": {
           "anyOf": [
             {
@@ -494,6 +505,15 @@
       ],
       "title": "ExitRoute",
       "type": "object"
+    },
+    "ExitTransport": {
+      "description": "Stream transport an exit region's direct VLESS inbound serves and hubs dial.",
+      "enum": [
+        "xhttp",
+        "tcp"
+      ],
+      "title": "ExitTransport",
+      "type": "string"
     },
     "GlobalConfig": {
       "additionalProperties": false,
