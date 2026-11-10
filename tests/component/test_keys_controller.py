@@ -30,20 +30,26 @@ class TestGenKeys:
         # Reality keys are random — they should differ
         assert first.reality_private_key != second.reality_private_key
 
-    def test_disabled_keys_generates_none_strings(self, topology_yaml, tmp_path):
-        """Node with keys.enabled=False should produce decryption='none'."""
+    def test_disabled_keys_still_store_encryption(self, tmp_path):
+        """keys.enabled False leaves the encryption strings in the key file."""
 
-        data = yaml.safe_load(topology_yaml.read_text())
-        # Disable keys for exitN1
-        data["regions"][0]["nodes"][0]["keys"] = {"enabled": False, "mode": "native", "session_time": "600s"}
+        topology = make_topology()
+        exit_region = topology["regions"][0]
+        exit_region["transport"] = "tcp"
+        del exit_region["nodes"][0]["xhttp"]
+        exit_region["nodes"][0]["keys"] = {
+            "enabled": False,
+            "mode": "native",
+            "session_time": "600s",
+        }
         disabled_yaml = tmp_path / "disabled.yaml"
-        disabled_yaml.write_text(yaml.dump(data))
+        disabled_yaml.write_text(yaml.dump(topology))
 
         instance = HexRiftApp(yaml_path=disabled_yaml)
         instance.keys.gen_keys("exitN1", tmp_path / "keys")
         loaded = instance.keys.load_node_keys("exitN1", tmp_path / "keys")
-        assert loaded.decryption == "none"
-        assert loaded.encryption == "none"
+        assert loaded.decryption.startswith("mlkem768x25519plus")
+        assert loaded.encryption.startswith("mlkem768x25519plus")
 
 
 class TestLoadNodeKeys:

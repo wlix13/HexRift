@@ -45,14 +45,14 @@ class RenderController(BaseController["HexRiftApp"]):
 
         cfg = self.app.schema.config
         pair = self.app.schema.get_node(node_id)
-        node_keys = self.app.keys.load_node_keys(node_id, keys_dir)
+        node_keys = self.app.keys.render_keys(node_id, keys_dir)
 
         match pair:
             case (ExitRegion() as region, ExitNode() as node):
                 return build_exit_context(cfg, region, node, node_keys)
             case (HubRegion() as region, HubNode() as node):
                 exit_node_keys = {
-                    n.id: self.app.keys.load_node_keys(n.id, keys_dir) for r in cfg.exit_regions for n in r.nodes
+                    n.id: self.app.keys.render_keys(n.id, keys_dir) for r in cfg.exit_regions for n in r.nodes
                 }
                 return build_hub_context(cfg, region, node, node_keys, exit_node_keys)
 
@@ -112,7 +112,7 @@ class RenderController(BaseController["HexRiftApp"]):
         if not any(p.id == portal_id for p in cfg.portals):
             raise RenderError(f"Portal not found: {portal_id!r}")
         hub_node_keys = {
-            n.id: self.app.keys.load_node_keys(n.id, keys_dir)
+            n.id: self.app.keys.render_keys(n.id, keys_dir)
             for r in cfg.regions
             if r.type == RegionType.HUB
             for n in r.nodes

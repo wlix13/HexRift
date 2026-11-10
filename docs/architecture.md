@@ -144,11 +144,15 @@ encryption: "mlkem768x25519plus.rprx_vision.0rtt.{public_key_b64}"   # client ou
 |--------|-------|--------|
 | `decryption` | Xray server inbound | `{method}.{mode}.{session_time}[.{padding}].{private_key_b64}` |
 | `encryption` | Client share URL | `{method}.{mode}.0rtt.{public_key_b64}` |
+| `none` | Both, in files written while `keys.enabled` was `false` | No encryption material; rendering masks the layer anyway |
 
 File permissions are set to `0o600` (owner read/write only).
 
 !!! info "Hub key sharing"
     Hub nodes in the same region share the same keypair. `gen-keys` detects this automatically and only generates one file.
+
+!!! info "keys.enabled"
+    Key files always hold the encryption string. `keys.enabled: false` is applied when rendering, so turning the layer off or back on never needs `gen-keys --force`.
 
 ---
 

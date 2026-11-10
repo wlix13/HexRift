@@ -119,6 +119,12 @@ def resolve_exit_transport(region: ExitRegion) -> ExitTransport:
     return region.transport if region.transport is not None else ExitTransport.XHTTP
 
 
+def resolve_node_keys_enabled(node: Node, region: Region, defaults: DefaultsConfig) -> bool:
+    if node.keys is not None and node.keys.enabled is not None:
+        return node.keys.enabled
+    return defaults.exit.keys.enabled if region.type == RegionType.EXIT else defaults.hub.keys.enabled
+
+
 def resolve_xhttp_required(region: Region) -> bool:
     """True when region nodes need an xhttp path; raw TCP exits need none."""
 

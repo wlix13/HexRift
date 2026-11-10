@@ -14,7 +14,9 @@ from hexrift.components.schema.models.regions import (
     Region,
 )
 from hexrift.components.schema.models.resolve import (
+    resolve_exit_transport,
     resolve_node_hysteria,
+    resolve_node_keys_enabled,
     resolve_node_metrics,
     resolve_node_proxy_inbound,
     resolve_node_wireguard_port,
@@ -73,6 +75,18 @@ def _validate_hysteria(owner: str, hy: HysteriaConfig) -> None:
 def _reject_hub_only_enabled(owner: str, hysteria: HysteriaOverride | None) -> None:
     if hysteria is not None and hysteria.enabled is not None:
         raise ValueError(f"{owner}: hysteria.enabled is hub-only; set the exit region's protocol instead")
+
+
+def _validate_encryption_transport(region: Region, node: Node, defaults: DefaultsConfig) -> None:
+    if not isinstance(region, ExitRegion):
+        return
+    if resolve_node_keys_enabled(node, region, defaults):
+        return
+    if resolve_exit_transport(region) is not ExitTransport.TCP:
+        raise ValueError(
+            f"Exit node {node.id!r} in region {region.id!r}: keys.enabled false requires transport tcp,"
+            " XHTTP requires VLESS encryption"
+        )
 
 
 def _node_reserved_ports(
@@ -222,6 +236,7 @@ class ConglomerateConfig(BaseModel):
                 node_hysteria = resolve_node_hysteria(node, region, self.defaults)
                 if node_hysteria is not None:
                     _validate_hysteria(f"Node {node.id!r}", node_hysteria)
+                _validate_encryption_transport(region, node, self.defaults)
             if region.type == RegionType.EXIT:
                 for node in region.nodes:
                     if node.reality is None:

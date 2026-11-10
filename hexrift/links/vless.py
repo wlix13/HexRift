@@ -7,7 +7,7 @@ from typing import ClassVar
 
 from hexrift.components.derive.defaults import derive_server_names, derive_xhttp_host, resolve_node_reality
 from hexrift.components.schema.models.resolve import resolve_exit_transport, resolve_node_xhttp
-from hexrift.constants import ExitProtocol, ExitTransport, XrayNetwork, XrayProtocol, XraySecurity
+from hexrift.constants import ExitProtocol, ExitTransport, RegionType, XrayNetwork, XrayProtocol, XraySecurity
 from hexrift.links.base import LinkContext, LinkEnv, LinkSpec
 from hexrift.shared.xhttp import make_xhttp_settings
 from hexrift.shared.xray_defaults import make_sockopt
@@ -57,7 +57,7 @@ class VlessLinkSpec(LinkSpec[VlessLinkContext]):
             "server_name": derive_server_names(reality)[0],
             "short_id": env.ns.exit_short_id(env.exit_node.id),
             "transport": transport,
-            "flow": env.exit_keys.client_flow,
+            "flow": env.exit_keys.client_flow(RegionType.EXIT),
         }
         if transport is ExitTransport.TCP:
             return TcpVlessLinkContext(**common)

@@ -162,6 +162,42 @@ def test_tcp_exit_rejects_leftover_xhttp_settings(region_extra, message):
         ConglomerateConfig.model_validate(config)
 
 
+def test_tcp_exit_may_disable_vless_encryption():
+    config = copy.deepcopy(_valid_config())
+    config["regions"][0]["transport"] = "tcp"
+    del config["regions"][0]["nodes"][0]["xhttp"]
+    config["regions"][0]["nodes"][0]["keys"] = {"enabled": False}
+
+    cfg = ConglomerateConfig.model_validate(config)
+    keys = cfg.regions[0].nodes[0].keys
+    assert keys is not None and keys.enabled is False
+
+
+def test_xhttp_exit_rejects_disabled_vless_encryption():
+    config = copy.deepcopy(_valid_config())
+    config["regions"][0]["nodes"][0]["keys"] = {"enabled": False}
+
+    with pytest.raises(ValidationError, match="requires transport tcp"):
+        ConglomerateConfig.model_validate(config)
+
+
+def test_xhttp_exit_rejects_disabled_encryption_from_defaults():
+    config = copy.deepcopy(_valid_config())
+    config["defaults"]["exit"]["keys"]["enabled"] = False
+
+    with pytest.raises(ValidationError, match="requires transport tcp"):
+        ConglomerateConfig.model_validate(config)
+
+
+def test_hub_node_may_disable_vless_encryption():
+    config = copy.deepcopy(_valid_config())
+    config["defaults"]["hub"]["keys"]["enabled"] = False
+
+    cfg = ConglomerateConfig.model_validate(config)
+
+    assert cfg.defaults.hub.keys.enabled is False
+
+
 def test_exit_routing_invalid_destination():
     d = copy.deepcopy(_valid_config())
     # Exit routes can only use special destinations (direct/blocked/warp)

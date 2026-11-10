@@ -300,7 +300,7 @@ HYSTERIA_TRUNK_CONN_RECEIVE_WINDOW = 64 * 1024 * 1024
 WARP_VLESS_ROUTE = 65535
 """Warp vless route decimal"""
 
-WARP_UUID_SEGMENT = "ffff"
+WARP_UUID_SEGMENT = f"{WARP_VLESS_ROUTE:04x}"
 """Warp vless route hex"""
 
 SHORT_ID_LENGTH = 16

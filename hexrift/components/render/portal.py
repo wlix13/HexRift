@@ -11,6 +11,7 @@ from hexrift.components.schema.models.root import ConglomerateConfig
 from hexrift.constants import (
     XHTTP_TLS_ALPN,
     DomainStrategy,
+    RegionType,
     SpecialDestination,
     XrayNetwork,
     XrayProtocol,
@@ -164,7 +165,7 @@ def build_portal_config(
                     address=node.hostname,
                     port=443,
                     identity_uuid=identity,
-                    flow=keys.client_flow,
+                    flow=keys.client_flow(RegionType.HUB),
                     encryption=keys.encryption,
                     security=security,
                     security_settings=settings,

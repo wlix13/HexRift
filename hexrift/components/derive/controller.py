@@ -165,7 +165,7 @@ class DeriveController(BaseController["HexRiftApp"]):
         return [views.Group(id=g.id, short_id=ns.group_short_id(g)) for g in cfg.groups]
 
     def _share_env(self, hub_region: HubRegion, hub_node: HubNode, keys_dir: Path) -> InboundEnv:
-        keys = self.app.keys.load_node_keys(hub_node.id, keys_dir)
+        keys = self.app.keys.render_keys(hub_node.id, keys_dir)
         return InboundEnv(self.app.schema.config, hub_region, hub_node, keys)
 
     def _cdn_share_urls(

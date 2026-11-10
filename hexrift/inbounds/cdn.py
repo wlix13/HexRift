@@ -58,7 +58,7 @@ class CdnSpec(InboundSpec[CdnContext]):
                 env.hub_nodes,
                 env.exit_node,
                 env.ns,
-                flow=env.node_keys.flow,
+                flow=env.node_keys.flow(env.role),
             )
         else:
             domain = cdn.hub_domain
@@ -66,7 +66,7 @@ class CdnSpec(InboundSpec[CdnContext]):
             clients = get_hub_cdn_clients(
                 env.config.users,
                 env.ns,
-                flow=env.node_keys.flow,
+                flow=env.node_keys.flow(env.role),
             )
         return CdnContext(
             xhttp_host=xhttp_host,
@@ -103,7 +103,7 @@ class CdnSpec(InboundSpec[CdnContext]):
         )
         params = {
             "encryption": keys.encryption,
-            "flow": keys.client_flow,
+            "flow": keys.client_flow(env.role),
             "security": XraySecurity.TLS,
             "sni": ctx.domain,
             "fp": client.fingerprint,

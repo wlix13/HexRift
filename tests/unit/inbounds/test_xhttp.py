@@ -117,11 +117,26 @@ class TestGetHubUserShortIds:
 
 
 _CERT = CertificateFiles(cert_file="/c.pem", key_file="/k.pem")
-_KEYS = NodeKeys(reality_private_key="p", reality_public_key="p", decryption="none", encryption="none")
+_KEYS = NodeKeys(
+    reality_private_key="p",
+    reality_public_key="p",
+    decryption="mlkem768x25519plus.native.600s.PRIV",
+    encryption="mlkem768x25519plus.native.0rtt.PUB",
+)
+_NONE_KEYS = NodeKeys(
+    reality_private_key="p",
+    reality_public_key="p",
+    decryption="none",
+    encryption="none",
+)
 
 
 def _hub_env(
-    region: HubRegion, defaults: DefaultsConfig, users: list | None = None, portals: list | None = None
+    region: HubRegion,
+    defaults: DefaultsConfig,
+    users: list | None = None,
+    portals: list | None = None,
+    keys: NodeKeys = _KEYS,
 ) -> InboundEnv:
     cfg = cast(
         ConglomerateConfig,
@@ -133,7 +148,7 @@ def _hub_env(
             global_=SimpleNamespace(namespace="t.ns"),
         ),
     )
-    return InboundEnv(config=cfg, region=region, node=region.nodes[0], node_keys=_KEYS)
+    return InboundEnv(config=cfg, region=region, node=region.nodes[0], node_keys=keys)
 
 
 class TestResolveRegionTls:
@@ -220,7 +235,7 @@ class TestXhttpShareUrl:
         url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
         assert split_xhttp_share_url(url) == (
             "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
-            "?encryption=none&flow=&security=reality&sni=vk.com&fp=chrome&pbk=p&sid=0123456789abcdef"
+            "?encryption=mlkem768x25519plus.native.0rtt.PUB&flow=xtls-rprx-vision-udp443&security=reality&sni=vk.com&fp=chrome&pbk=p&sid=0123456789abcdef"
             "&type=xhttp&host=vk.com&path=%2Fhub%2F&mode=auto",
             XHTTP_EXTRA,
             "hub1-alice",
@@ -232,7 +247,7 @@ class TestXhttpShareUrl:
         url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
         assert split_xhttp_share_url(url) == (
             "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
-            "?encryption=none&flow=&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
+            "?encryption=mlkem768x25519plus.native.0rtt.PUB&flow=xtls-rprx-vision-udp443&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
             "&type=xhttp&host=cdn.a.com&path=%2Ft%2F&mode=auto",
             XHTTP_EXTRA,
             "hub1-alice",
@@ -244,8 +259,22 @@ class TestXhttpShareUrl:
         url = XHTTP_SPEC.share_url(XHTTP_SPEC.build_context(env), env, self._CLIENT)
         assert split_xhttp_share_url(url) == (
             "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
-            "?encryption=none&flow=&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
+            "?encryption=mlkem768x25519plus.native.0rtt.PUB&flow=xtls-rprx-vision-udp443&security=tls&sni=h.test.ns&fp=chrome&alpn=h2%2Chttp%2F1.1"
             "&type=xhttp&host=h.test.ns&path=%2Ft%2F&mode=auto",
+            XHTTP_EXTRA,
+            "hub1-alice",
+        )
+
+    def test_hub_without_vless_encryption_drops_the_flow(self):
+        env = _hub_env(make_hub_region(), make_defaults(), keys=_NONE_KEYS)
+        ctx = XHTTP_SPEC.build_context(env)
+        url = XHTTP_SPEC.share_url(ctx, env, self._CLIENT)
+
+        assert [client["flow"] for client in ctx.clients] == [""]
+        assert split_xhttp_share_url(url) == (
+            "vless://00000000-0000-0000-0000-000000000001@h.test.ns:443"
+            "?encryption=none&flow=&security=reality&sni=vk.com&fp=chrome&pbk=p&sid=0123456789abcdef"
+            "&type=xhttp&host=vk.com&path=%2Fhub%2F&mode=auto",
             XHTTP_EXTRA,
             "hub1-alice",
         )

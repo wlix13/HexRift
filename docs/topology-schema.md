@@ -69,7 +69,7 @@ Default configuration applied to all exit or hub nodes. Node-level fields overri
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `enabled` | `bool` | no | `true` | Whether encryption is active |
+| `enabled` | `bool` | no | `true` | Whether the VLESS encryption layer is rendered. `false` masks it at render time and leaves the key file intact: an exit on `transport: tcp` keeps `xtls-rprx-vision`, a hub drops vision with it, its direct inbound being XHTTP where vision requires encryption. XHTTP exits reject `false` |
 | `mode` | `str` | yes | — | Key mode string (e.g. `rprx_vision`) |
 | `session_time` | `str` | yes | — | Session duration (e.g. `12h`) |
 | `auth` | `mlkem768 \| x25519` | no | `mlkem768` | Encryption algorithm |
@@ -373,7 +373,7 @@ At least one matcher (`domains`, `ips`, `users`, or `proxy_users`) is required.
 | `type` | `exit` | yes | Region type |
 | `vless_route` | `int` | yes | Numeric route tag; must be unique across all regions |
 | `protocol` | `vless \| hysteria` | no | How hubs dial this region; default `vless` (XHTTP + Reality). `hysteria` makes every exit node render a Hysteria listener and every hub dial it over QUIC |
-|| `transport` | `xhttp \\| tcp` | no | Stream transport of the direct VLESS inbound the region's exit nodes serve, and of the hub outbounds dialing them; default `xhttp`. `tcp` serves the same Reality-secured VLESS inbound over raw TCP with `xtls-rprx-vision`, needs no `xhttp` path, and makes regenerated hub configs emit `network: tcp` links instead of XHTTP ones. The exit inbound tag names the transport: `direct-xhttp` or `direct-tcp`. |
+| `transport` | `xhttp \| tcp` | no | Stream transport of the direct VLESS inbound the region's exit nodes serve, and of the hub outbounds dialing them; default `xhttp`. `tcp` serves the same Reality-secured VLESS inbound over raw TCP with `xtls-rprx-vision`, needs no `xhttp` path, makes regenerated hub configs emit `network: tcp` links instead of XHTTP ones, and is the only transport on which an exit may drop VLESS encryption and keep vision. The exit inbound tag names the transport: `direct-xhttp` or `direct-tcp`. |
 | `hysteria` | `HysteriaOverride` | no | Region-level overlay on `defaults.exit.hysteria`. Defining it (or `node.hysteria`) makes every node in the region serve a Hysteria listener regardless of `protocol`, so an exit offers Hysteria and VLESS+Reality at once and flipping `protocol` rewrites only hub outbounds. `enabled` is not accepted here |
 | `xhttp` | `XhttpOverride` | no | Overlays `defaults.exit.xhttp` for the region's nodes |
 | `cdn_xhttp_path` | `str` | no | CDN xhttp path override for this region |
