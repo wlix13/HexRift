@@ -291,3 +291,15 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-release: true
+
+      - name: Rebase open release PRs onto main
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh pr list --state open --json number,headRefName,mergeStateStatus \
+            --jq '.[] | select(.headRefName | startswith("release-please--branches-")) | select(.mergeStateStatus == "BEHIND") | .number' |
+          while read -r pr; do
+            [ -n "$pr" ] || continue
+            gh pr update-branch "$pr" --rebase
+          done
