@@ -297,9 +297,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          gh pr list --state open --json number,headRefName,mergeStateStatus \
-            --jq '.[] | select(.headRefName | startswith("release-please--branches-")) | select(.mergeStateStatus == "BEHIND") | .number' |
+          gh pr list -R "$GITHUB_REPOSITORY" --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("release-please--branches-")) | .number' |
           while read -r pr; do
             [ -n "$pr" ] || continue
-            gh pr update-branch "$pr" --rebase
+            gh pr update-branch "$pr" -R "$GITHUB_REPOSITORY" --rebase
           done
