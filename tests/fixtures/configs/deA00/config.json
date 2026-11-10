@@ -173,8 +173,10 @@
     {
       "tag": "direct",
       "protocol": "freedom",
-      "settings": {
-        "domainStrategy": "UseIPv6v4"
+      "streamSettings": {
+        "sockopt": {
+          "domainStrategy": "UseIPv6v4"
+        }
       }
     },
     {

@@ -20,7 +20,7 @@ from hexrift.constants import (
 from hexrift.errors import RenderError
 from hexrift.links.base import LinkContext, LinkEnv, LinkSpec
 from hexrift.shared.hysteria import hysteria_trunk_dialer_quic, make_hysteria_finalmask
-from hexrift.shared.xray_defaults import make_udp_sockopt
+from hexrift.shared.xray_defaults import make_dial_sockopt
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -89,7 +89,7 @@ class HysteriaLinkSpec(LinkSpec[HysteriaLinkContext]):
                     ctx.obfs_password,
                     hysteria_trunk_dialer_quic(ctx.chrome_parrot),
                 ),
-                "sockopt": make_udp_sockopt(ipv6),
+                "sockopt": make_dial_sockopt(ipv6),
             },
         }
 

@@ -65,11 +65,15 @@ class TestExitIpv6Egress:
 
     def test_exit_direct_prefers_ipv6_on_dualstack(self):
         config = build_exit_config(_exit_ctx(shared=make_shared(ipv6=True)))
-        assert self._direct(config)["settings"]["domainStrategy"] == "UseIPv6v4"
+        assert self._direct(config)["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv6v4"
 
     def test_exit_direct_forces_ipv4_when_no_ipv6(self):
         config = build_exit_config(_exit_ctx(shared=make_shared(ipv6=False)))
-        assert self._direct(config)["settings"]["domainStrategy"] == "UseIPv4"
+        assert self._direct(config)["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv4"
+
+    def test_exit_direct_keeps_settings_free_of_deprecated_strategy(self):
+        config = build_exit_config(_exit_ctx())
+        assert "settings" not in self._direct(config)
 
     def test_exit_inbound_route_only_false_overrides_dest(self):
         # routeOnly:false lets exit re-resolve sniffed domain to pick IPv6
@@ -94,6 +98,12 @@ class TestXdnsWireguardInbounds:
         config = build_hub_config(_hub_ctx(slots=default_slots(xdns=make_xdns())))
         tags = [ib["tag"] for ib in config["inbounds"]]
         assert "xdns" in tags
+
+    def test_xdns_domains_render_as_named_groups(self):
+        config = build_hub_config(_hub_ctx(slots=default_slots(xdns=make_xdns())))
+        inbound = next(ib for ib in config["inbounds"] if ib["tag"] == "xdns")
+        mask = inbound["streamSettings"]["finalmask"]["udp"][0]
+        assert mask["settings"]["domains"] == [{"names": ["dns.google"]}]
 
     def test_wireguard_inbound_absent_without_slot(self):
         config = build_hub_config(_hub_ctx())

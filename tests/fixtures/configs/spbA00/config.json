@@ -134,7 +134,11 @@
             {
               "type": "xdns",
               "settings": {
-                "domains": ["dns.google"]
+                "domains": [
+                  {
+                    "names": ["dns.google"]
+                  }
+                ]
               }
             }
           ]

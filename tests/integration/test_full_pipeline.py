@@ -355,7 +355,7 @@ def test_hub_xdns_inbound_present():
 
     finalmask_udp = xdns_ib["streamSettings"]["finalmask"]["udp"]
     assert finalmask_udp[0]["type"] == "xdns"
-    assert finalmask_udp[0]["settings"]["domains"] == ["dns.google"]
+    assert finalmask_udp[0]["settings"]["domains"] == [{"names": ["dns.google"]}]
 
     assert "trustedXForwardedFor" not in xdns_ib["streamSettings"]["sockopt"]
 
