@@ -65,7 +65,7 @@ class XdnsSpec(InboundSpec[XdnsContext]):
                         {
                             "type": "xdns",
                             "settings": {
-                                "domains": ctx.config.domains,
+                                "domains": [{"names": ctx.config.domains}],
                             },
                         },
                     ],

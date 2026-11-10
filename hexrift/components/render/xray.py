@@ -19,6 +19,7 @@ from hexrift.inbounds.context import ExitContext, HubContext
 from hexrift.inbounds.registry import specs_for
 from hexrift.links.registry import render_link
 from hexrift.shared.xray_defaults import (
+    make_dial_sockopt,
     make_dns,
     make_dns_direct_rule,
     make_log,
@@ -111,9 +112,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
             {
                 "tag": SpecialDestination.DIRECT,
                 "protocol": XrayProtocol.FREEDOM,
-                "settings": {
-                    "domainStrategy": "UseIPv6v4" if shared.ipv6 else "UseIPv4",
-                },
+                "streamSettings": {"sockopt": make_dial_sockopt(shared.ipv6)},
             },
             {
                 "tag": SpecialDestination.BLOCKED,

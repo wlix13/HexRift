@@ -79,8 +79,8 @@ def make_sockopt(ipv6: bool | None) -> dict:
     }
 
 
-def make_udp_sockopt(ipv6: bool) -> dict:
-    """Outbound sockopt for a UDP dial."""
+def make_dial_sockopt(ipv6: bool | None) -> dict:
+    """Outbound sockopt carrying only the address family of the dialing machine."""
 
     return {"domainStrategy": SOCKOPT_DOMAIN_STRATEGY[ipv6]}
 
