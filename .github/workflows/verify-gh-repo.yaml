@@ -1,0 +1,45 @@
+name: Verify gh repo flag
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  verify:
+    name: gh needs no checkout
+    if: startsWith(github.head_ref, 'ci/verify-gh-repo')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Without -R there is no repository
+        id: norg
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --state open --json number,headRefName
+
+      - name: With -R gh resolves the repository
+        id: repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr list -R "$GITHUB_REPOSITORY" --state open --json number,headRefName,mergeStateStatus \
+            --jq '.[] | "\(.number) \(.headRefName) \(.mergeStateStatus)"'
+
+      - name: update-branch parses with -R
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr update-branch "${{ github.event.pull_request.number }}" -R "$GITHUB_REPOSITORY" --rebase
+
+      - name: Assert the failure mode is the one fixed
+        env:
+          OUTCOME: ${{ steps.norg.outcome }}
+        run: |
+          set -euo pipefail
+          echo "without -R: ${OUTCOME}"
+          test "${OUTCOME}" = "failure"
