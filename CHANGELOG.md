@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.3](https://github.com/wlix13/HexRift/compare/v0.13.2...v0.13.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **xray:** pass freedom domainStrategy via sockopt and group xdns domains ([5db41a5](https://github.com/wlix13/HexRift/commit/5db41a514849389e6342b949bcd30382b459cd02))
+
 ## [0.13.2](https://github.com/wlix13/HexRift/compare/v0.13.1...v0.13.2) (2026-11-10)
 
 
