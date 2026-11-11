@@ -63,7 +63,7 @@ jobs:
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
           pattern: '^((feat|fix|build|chore|ci|docs|refactor|perf|style|test|revert)(\([\w\/-]+\))?!?: [^\n]+(\n\n(BREAKING CHANGE: [^\n]+|.+))?)$'
-          flags: "si"
+          flags: "s"
           excludeDescription: "true"
           excludeTitle: "true"
           checkAllCommitMessages: "true"
@@ -87,7 +87,27 @@ jobs:
               BREAKING CHANGE: `extends` key in config file is now used for extending other config files
 
             Allowed types are: feat, fix, build, chore, ci, docs, refactor, perf, style, test, revert.
+            Types are case-sensitive: a mixed-case type such as Feat(api) is not a
+            feature and release-please ignores it.
             A '!' can be added after the type/scope for breaking changes (e.g., feat!:, feat(api)!:).
             Alternatively, a 'BREAKING CHANGE:' footer can be used in the commit body.
 
             Please rebase and amend the commit messages.
+
+      - name: Reject AI attribution trailers
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
+        with:
+          pattern: "^(?!.*(?:co-authored-by:[^\\n]*(?:claude|anthropic|copilot|openai|chatgpt|gemini|cursor|aider|codex)|generated with (?:claude|chatgpt|copilot|openai|gemini|cursor|aider|codex)|noreply@anthropic\\.com)).*$"
+          flags: "si"
+          excludeDescription: "true"
+          excludeTitle: "true"
+          checkAllCommitMessages: "true"
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
+          error: |
+            Commits must not carry AI-tool attribution.
+
+            Found a trailer crediting an AI tool (for example
+            "Co-Authored-By: Claude <noreply@anthropic.com>" or
+            "Generated with Claude Code"). Human co-authors are fine: a
+            "Co-Authored-By:" trailer naming a person passes this check.
+            Remove the AI trailer, amend the commit and force push the branch.
