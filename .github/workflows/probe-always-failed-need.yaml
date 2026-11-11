@@ -1,0 +1,39 @@
+name: Probe always on failed need
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/probe-always-failed-need.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  need:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - id: commit
+        run: |
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          exit 1
+
+  dependent-shipped:
+    name: dependent with shipped condition
+    needs: need
+    if: always() && needs.need.outputs.changed != 'true' && needs.need.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "ran; need.result=${{ needs.need.result }} changed=${{ needs.need.outputs.changed }}"
+
+  dependent-proposed:
+    name: dependent with proposed condition
+    needs: need
+    if: ${{ !cancelled() && needs.need.result != 'failure' && needs.need.outputs.changed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "ran; need.result=${{ needs.need.result }}"
