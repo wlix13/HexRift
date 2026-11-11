@@ -74,7 +74,7 @@ jobs:
   release-please:
     name: 🤖 Release Please
     needs: schema
-    if: always() && needs.schema.outputs.changed != 'true' && needs.schema.result != 'cancelled'
+    if: ${{ !cancelled() && needs.schema.outputs.changed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
