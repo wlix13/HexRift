@@ -63,7 +63,7 @@ jobs:
         uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
         with:
           pattern: '^((feat|fix|build|chore|ci|docs|refactor|perf|style|test|revert)(\([\w\/-]+\))?!?: [^\n]+(\n\n(BREAKING CHANGE: [^\n]+|.+))?)$'
-          flags: "si"
+          flags: "s"
           excludeDescription: "true"
           excludeTitle: "true"
           checkAllCommitMessages: "true"
@@ -87,7 +87,25 @@ jobs:
               BREAKING CHANGE: `extends` key in config file is now used for extending other config files
 
             Allowed types are: feat, fix, build, chore, ci, docs, refactor, perf, style, test, revert.
+            Types are case-sensitive: a mixed-case type such as Feat(api) is not a
+            feature and release-please ignores it.
             A '!' can be added after the type/scope for breaking changes (e.g., feat!:, feat(api)!:).
             Alternatively, a 'BREAKING CHANGE:' footer can be used in the commit body.
 
             Please rebase and amend the commit messages.
+
+      - name: Reject AI attribution trailers
+        uses: gsactions/commit-message-checker@16fa2d5de096ae0d35626443bcd24f1e756cafee # v2.0.0
+        with:
+          pattern: "^(?!.*(co-authored-by|generated with|claude code)).*$"
+          flags: "si"
+          excludeDescription: "true"
+          excludeTitle: "true"
+          checkAllCommitMessages: "true"
+          accessToken: ${{ secrets.GITHUB_TOKEN }}
+          error: |
+            Commits must not carry AI attribution.
+
+            Found an attribution trailer (Co-Authored-By, "Generated with" or
+            Claude Code) in a commit message. Remove it, amend the commit and
+            force push the branch.
