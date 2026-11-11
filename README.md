@@ -1,6 +1,8 @@
 # HexRift
 
 ![Python](https://img.shields.io/badge/python-3.13%2B-blue?logo=python&logoColor=white)
+[![PyPI](https://img.shields.io/pypi/v/hexrift?logo=pypi&logoColor=white)](https://pypi.org/project/hexrift/)
+![Release](https://img.shields.io/github/v/release/wlix13/HexRift?logo=github)
 ![Build](https://img.shields.io/github/actions/workflow/status/wlix13/hexrift/ci-code-quality.yaml?label=build&logo=github)
 [![Coverage](https://codecov.io/gh/wlix13/HexRift/graph/badge.svg)](https://codecov.io/gh/wlix13/HexRift)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -10,20 +12,22 @@
 Config generator for the **Conglomerate** distributed proxy network. Takes a topology definition and produces Xray JSON configs and HAProxy configs for every node. Hub nodes additionally support WireGuard and XDNS inbounds.
 
 > [!WARNING]
-> **HexRift is in active development.** Until the `v1.0.0` release, the CLI, topology schema, and generated config output may change at any time — breaking changes can land in **any** release, including patch versions. Pin an exact version (e.g. `hexrift==0.8.0`) and check the [release notes](https://github.com/wlix13/HexRift/releases) before upgrading.
+> **HexRift is in active development.** Until the `v1.0.0` release, the CLI, topology schema, and generated config output may change at any time - breaking changes can land in **any** release, including patch versions. Pin an exact version (`uv tool install "hexrift==<version>"`) and check the [release notes](https://github.com/wlix13/HexRift/releases) before upgrading.
 
-## Installation
+## Install
 
 ```bash
-uv sync
+uv tool install hexrift
 ```
+
+Pin a release with `uv tool install "hexrift==<version>"`. To run from a checkout instead, use `uv sync` and then `uv run hexrift`.
 
 ## Usage
 
-All commands require a topology YAML file:
+Every command reads `conglomerate.yaml` from the current directory by default. Point `--yaml` at another file:
 
 ```bash
-hexrift --yaml conglomerate.yaml <command>
+hexrift --yaml path/to/topology.yaml <command>
 ```
 
 ### Commands
