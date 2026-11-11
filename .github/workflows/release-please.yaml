@@ -186,7 +186,7 @@ jobs:
 
   publish-photon:
     name: 📤 Publish to photon-manifest
-    needs: [release-please, build, attest-artifacts]
+    needs: [release-please, build, attest-artifacts, publish-pypi]
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
