@@ -82,9 +82,11 @@ class TopologyController(BaseController["HexRiftApp"]):
         topo.check_add(region)
         hostname = hostname or self._default_hostname(topo, node_id, node_type, region_id)
         listener = None
-        if hysteria or (node_type == RegionType.EXIT and existing is not None and existing.hysteria):
+        if hysteria or (existing is not None and existing.hysteria):
             masquerade = masquerade_url(reality.dest) if reality is not None else None
             listener = spec(HysteriaOverride, obfs=True, sni=hostname, masquerade_url=masquerade)
+        elif existing is not None and existing.hysteria_opt_out:
+            listener = spec(HysteriaOverride, enabled=False)
         node_model = ExitNode if node_type == RegionType.EXIT else HubNode
         node = spec(
             node_model,

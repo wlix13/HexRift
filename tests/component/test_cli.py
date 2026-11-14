@@ -547,6 +547,35 @@ class TestShareCommand:
         exit_row = next(line for line in result.output.splitlines() if "exit1" in line)
         assert "hysteria" in exit_row
 
+    def test_show_badges_exit_mixed_hysteria_nodes(self, tmp_path):
+        topology = make_topology()
+        topology["regions"][0]["nodes"] = [
+            {
+                "id": "exitN1",
+                "hostname": "exitN1.ap.test.ns",
+                "reality": {"dest": "a.com:443"},
+                "xhttp": {"path": "/x/"},
+            },
+            {
+                "id": "exitN2",
+                "hostname": "exitN2.ap.test.ns",
+                "reality": {"dest": "b.com:443"},
+                "xhttp": {"path": "/x/"},
+                "hysteria": {"obfs": True},
+            },
+        ]
+        topo = tmp_path / "topology.yaml"
+        topo.write_text(yaml.dump(topology))
+        result = invoke("--yaml", str(topo), "show", env=WIDE)
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+        exit_row = next(line for line in lines if "exit1" in line and "exitN" not in line)
+        assert "hysteria" not in exit_row
+        node2_row = next(line for line in lines if "exitN2" in line)
+        assert "hysteria" in node2_row
+        node1_row = next(line for line in lines if "exitN1" in line)
+        assert "hysteria" not in node1_row
+
 
 class TestGenPortalCommand:
     def test_builds_portal(self, tmp_path):

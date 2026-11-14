@@ -132,7 +132,7 @@ Add `NODE_ID` to its region, creating the region when missing (exits get an unus
 | `--region ID` | leading lowercase letters of `NODE_ID` | Region to add the node to (`nlA20` → `nl`) |
 | `--hostname HOST` | derived | Exits: `<NODE_ID>.<aphelion_domain>`. Hubs: domain of the existing hub nodes |
 | `--no-ipv6` | off | Write `ipv6: false` on the node |
-| `--hysteria` | on when the region has `protocol: hysteria` or a `hysteria:` block | Write a `hysteria` block (`obfs: true`, `sni` = hostname, `masquerade_url` from the Reality dest) |
+| `--hysteria` | on when the region already renders listeners and a new node would not; a hub listening through `defaults.hub.hysteria` gets nothing unless every existing node opted out or the region serves TLS, where the node gets `enabled: false` | Write a `hysteria` block (`obfs: true`, `sni` = hostname, `masquerade_url` from the Reality dest) |
 | `--reality-dest HOST:PORT` | — | Reality `dest`, also the Hysteria masquerade target |
 | `--reality-server-names LIST` | — | Comma-separated Reality `server_names`, requires `--reality-dest` |
 | `--xhttp-path PATH` | — | XHTTP path of the node's direct inbound, written as its `xhttp.path`; omitted, the node inherits the path of its region or `defaults.<type>.xhttp`, and validation flags a node left with none |
