@@ -7,10 +7,12 @@ import pytest
 
 from hexrift.app import HexRiftApp
 from hexrift.components.schema.models.fields import validate_masquerade_url
-from hexrift.components.schema.models.regions import ExitRegion
+from hexrift.components.schema.models.regions import ExitRegion, HubRegion
+from hexrift.components.schema.models.resolve import resolve_link_protocol, resolve_node_hysteria
 from hexrift.components.schema.models.shared import RealityConfig, XhttpOverride
 from hexrift.components.topology.controller import VLESS_ROUTE_RANGE, masquerade_url, pick_vless_route, region_prefix
-from hexrift.constants import RegionType
+from hexrift.components.topology.edit import Topology
+from hexrift.constants import ExitProtocol, RegionType
 from hexrift.errors import TopologyError
 
 
@@ -126,7 +128,7 @@ class TestAddNode:
         assert result.node.hostname == "mskA20.ap.test.hexrift"
         assert result.validation_error is None
         assert [n.id for n in fixture_app.schema.get_region("msk").nodes] == ["mskA00", "mskA20"]
-        assert "      - id: mskA20\n        hostname: mskA20.ap.test.hexrift\n  - id: jp\n" in topo.read_text()
+        assert ("      - id: mskA20\n        hostname: mskA20.ap.test.hexrift\n  - id: jp\n") in topo.read_text()
 
     def test_new_exit_region_gets_unused_vless_route(self, fixture_app: HexRiftApp):
         result = fixture_app.topology.add_node(
@@ -211,6 +213,298 @@ class TestAddNode:
         before = topo.read_text()
         assert fixture_app.topology.add_node("nlA00", node_type=RegionType.HUB) is None
         assert topo.read_text() == before
+
+    def test_add_node_exit_all_nodes_have_hysteria_no_region_key(self, tmp_path: Path):
+        topo = tmp_path / "topology.yaml"
+        topo.write_text("""\
+global:
+  namespace: test.hexrift
+  aphelion_domain: ap.test.hexrift
+
+defaults:
+  exit:
+    ipv6: true
+    keys:
+      auth: mlkem768
+      mode: native
+      session_time: 600s
+  hub:
+    ipv6: true
+    keys:
+      auth: x25519
+      mode: native
+      session_time: 600s
+    exit_connections:
+      method: mlkem768x25519plus
+      fingerprint: chrome
+    reality:
+      dest: www.microsoft.com:443
+    xhttp:
+      path: /update/
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+        xhttp:
+          path: /update/
+        hysteria:
+          obfs: true
+      - id: nlA10
+        hostname: nlA10.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+        xhttp:
+          path: /update/
+        hysteria:
+          obfs: true
+
+routing:
+  hub_default: nl
+""")
+        app = HexRiftApp(yaml_path=topo)
+        app.topology.add_node(
+            "nlA20", reality=RealityConfig(dest="www.samsung.com:443"), xhttp=XhttpOverride(path="/login/")
+        )
+        assert (
+            "      - id: nlA20\n"
+            "        hostname: nlA20.ap.test.hexrift\n"
+            "        reality:\n"
+            "          dest: www.samsung.com:443\n"
+            "        xhttp:\n"
+            "          path: /login/\n"
+            "        hysteria:\n"
+            "          obfs: true\n"
+            "          sni: nlA20.ap.test.hexrift\n"
+            "          masquerade_url: https://www.samsung.com\n"
+            "\n"
+            "routing:"
+        ) in topo.read_text()
+
+    def test_add_node_exit_bare_hysteria_null_key(self, tmp_path: Path):
+        topo = tmp_path / "topology.yaml"
+        topo.write_text("""\
+global:
+  namespace: test.hexrift
+  aphelion_domain: ap.test.hexrift
+
+defaults:
+  exit:
+    ipv6: true
+    keys:
+      auth: mlkem768
+      mode: native
+      session_time: 600s
+  hub:
+    ipv6: true
+    keys:
+      auth: x25519
+      mode: native
+      session_time: 600s
+    exit_connections:
+      method: mlkem768x25519plus
+      fingerprint: chrome
+    reality:
+      dest: www.microsoft.com:443
+    xhttp:
+      path: /update/
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    hysteria:
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+        xhttp:
+          path: /update/
+
+routing:
+  hub_default: nl
+""")
+        app = HexRiftApp(yaml_path=topo)
+        app.topology.add_node(
+            "nlA20", reality=RealityConfig(dest="www.samsung.com:443"), xhttp=XhttpOverride(path="/login/")
+        )
+        assert (
+            "      - id: nlA20\n"
+            "        hostname: nlA20.ap.test.hexrift\n"
+            "        reality:\n"
+            "          dest: www.samsung.com:443\n"
+            "        xhttp:\n"
+            "          path: /login/\n"
+            "\n"
+            "routing:"
+        ) in topo.read_text()
+
+    def test_add_node_hub_region_every_node_opted_out(self, tmp_path: Path):
+        topo = tmp_path / "topology.yaml"
+        topo.write_text("""\
+global:
+  namespace: test.hexrift
+  aphelion_domain: ap.test.hexrift
+groups: []
+users: []
+
+defaults:
+  exit:
+    ipv6: true
+    keys:
+      auth: mlkem768
+      mode: native
+      session_time: 600s
+  hub:
+    ipv6: true
+    keys:
+      auth: x25519
+      mode: native
+      session_time: 600s
+    exit_connections:
+      method: mlkem768x25519plus
+      fingerprint: chrome
+    reality:
+      dest: www.microsoft.com:443
+    xhttp:
+      path: /update/
+    hysteria:
+      port: 8443
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    xhttp:
+      path: /update/
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.test.hexrift
+        reality:
+          dest: www.microsoft.com:443
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.ap.test.hexrift
+        hysteria:
+          enabled: false
+
+routing:
+  hub_default: nl
+""")
+        app = HexRiftApp(yaml_path=topo)
+        app.topology.add_node("mskA10")
+        written = topo.read_text()
+        topo_edit = Topology(written)
+        region = topo_edit.region("msk")
+        assert region is not None
+        node = next(n for n in region.nodes if n.id == "mskA10")
+        block = "\n".join(written.splitlines()[node.start : region.end])
+        assert "enabled: false" in block
+        assert app.schema.get_region("msk") is not None
+
+    def test_add_node_hub_region_nodes_carry_the_listener(self, tmp_path: Path):
+        topo = tmp_path / "topology.yaml"
+        topo.write_text("""\
+global:
+  namespace: test.hexrift
+  aphelion_domain: ap.test.hexrift
+
+defaults:
+  exit:
+    ipv6: true
+    keys:
+      auth: mlkem768
+      mode: native
+      session_time: 600s
+  hub:
+    ipv6: true
+    keys:
+      auth: x25519
+      mode: native
+      session_time: 600s
+    exit_connections:
+      method: mlkem768x25519plus
+      fingerprint: chrome
+    reality:
+      dest: www.microsoft.com:443
+    xhttp:
+      path: /update/
+
+regions:
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.ap.test.hexrift
+        hysteria:
+          obfs: true
+
+routing:
+  hub_default: msk
+""")
+        app = HexRiftApp(yaml_path=topo)
+        app.topology.add_node("mskA10")
+        written = topo.read_text()
+        assert (
+            "      - id: mskA10\n"
+            "        hostname: mskA10.ap.test.hexrift\n"
+            "        hysteria:\n"
+            "          obfs: true\n"
+            "          sni: mskA10.ap.test.hexrift\n"
+        ) in written
+
+    def test_parity_topology_yaml_edit_vs_resolve(self, fixture_app: HexRiftApp):
+        topo = Topology(FIXTURE_TOPOLOGY.read_text())
+        defaults = fixture_app.schema.config.defaults
+        for region_item in topo.regions:
+            assert region_item.id is not None
+            schema_region = fixture_app.schema.get_region(region_item.id)
+            assert schema_region is not None
+            for node_item in region_item.nodes:
+                schema_node = next((n for n in schema_region.nodes if n.id == node_item.id), None)
+                assert schema_node is not None, f"Node {node_item.id} not found in schema region {region_item.id}"
+                resolves = resolve_node_hysteria(schema_node, schema_region, defaults) is not None
+                assert node_item.hysteria == resolves, (
+                    f"Mismatch for node {node_item.id} in region {region_item.id}: "
+                    f"edit.hysteria={node_item.hysteria} vs resolve={resolves}"
+                )
+            all_listening = all(
+                resolve_node_hysteria(node, schema_region, defaults) is not None for node in schema_region.nodes
+            )
+            if isinstance(schema_region, HubRegion):
+                bare = defaults.hub.hysteria is not None
+                node_flags = [
+                    resolve_node_hysteria(n, schema_region, defaults) is not None for n in schema_region.nodes
+                ]
+                expected = (bool(node_flags) and all(node_flags)) and not bare
+            else:
+                bare = (
+                    schema_region.hysteria is not None or resolve_link_protocol(schema_region) == ExitProtocol.HYSTERIA
+                )
+                expected = bare or (bool(schema_region.nodes) and all_listening)
+            assert region_item.hysteria == expected
+
+    def test_add_node_hub_region_writes_opt_out_when_serving_tls(self, fixture_app: HexRiftApp, topo: Path):
+        fixture_app.topology.add_node("mskA20")
+        fixture_app.topology.add_node("spbA10")
+        written = topo.read_text()
+        topo_edit = Topology(written)
+        for region_id, node_id, has_hysteria in (("msk", "mskA20", False), ("spb", "spbA10", True)):
+            region = topo_edit.region(region_id)
+            assert region is not None
+            node = next(n for n in region.nodes if n.id == node_id)
+            block = "\n".join(written.splitlines()[node.start : region.end])
+            assert ("hysteria" in block) is has_hysteria
+            if has_hysteria:
+                assert "enabled: false" in block
 
 
 class TestFileHandling:

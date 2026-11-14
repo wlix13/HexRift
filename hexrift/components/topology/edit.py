@@ -8,12 +8,15 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from hexrift.components.schema.models.regions import Node, Region
+from hexrift.constants import ExitProtocol, RegionType
 from hexrift.errors import TopologyError
 
 
 REGION_INDENT = "  "
 NODE_INDENT = "      "
 NULL_TAG = "tag:yaml.org,2002:null"
+TRUE_TEXT = frozenset({"1", "on", "t", "true", "y", "yes"})
+FALSE_TEXT = frozenset({"0", "off", "f", "false", "n", "no"})
 
 
 def _natural_key(value: str) -> list[int | str]:
@@ -47,6 +50,7 @@ class NodeItem:
     id: str | None
     hostname: str | None
     backup: bool
+    hysteria: bool
     start: int
     end: int
 
@@ -64,6 +68,7 @@ class RegionItem:
     lb_fallback_line: int | None
     lb_strategy_end: int | None
     hysteria: bool
+    hysteria_opt_out: bool
     start: int
     end: int
 
@@ -155,7 +160,20 @@ class Topology:
             raise TopologyError("'regions:' must be a bare key or a block sequence to edit")
         self._empty_flow_regions = _empty_flow(regions_value)
         spans = _spans(self._lines, regions_value, items)
-        self.regions = tuple(_region_item(self._lines, item, s, e) for item, s, e in spans)
+        hub_defaults = _entry(_entry(root, "defaults"), "hub")
+        hub_hysteria_default = _non_null(hub_defaults, "hysteria") is not None
+        hub_tls_default = _non_null(hub_defaults, "tls") is not None
+        self.regions = tuple(
+            _region_item(
+                self._lines,
+                item,
+                s,
+                e,
+                hub_hysteria_default=hub_hysteria_default,
+                hub_tls_default=hub_tls_default,
+            )
+            for item, s, e in spans
+        )
         self.aphelion_domain = _scalar(_entry(root, "global"), "aphelion_domain")
         self._hub_routes_line, self._hub_routes, self._hub_routes_error = _hub_route_items(self._lines, root)
 
@@ -357,8 +375,26 @@ def _dash_line(lines: list[str], column: int, lower: int, upper: int) -> int:
     return upper
 
 
-def _region_item(lines: list[str], item: yaml.Node, start: int, end: int) -> RegionItem:
+def _region_item(
+    lines: list[str],
+    item: yaml.Node,
+    start: int,
+    end: int,
+    *,
+    hub_hysteria_default: bool,
+    hub_tls_default: bool,
+) -> RegionItem:
     owner = f"region {_scalar(item, 'id')!r}"
+    region_type = _scalar(item, "type")
+    tls_region = (
+        region_type == RegionType.HUB
+        and _non_null(item, "reality") is None
+        and (_non_null(item, "tls") is not None or hub_tls_default)
+    )
+    if region_type == RegionType.HUB:
+        bare_listens = hub_hysteria_default
+    else:
+        bare_listens = _scalar(item, "protocol") == ExitProtocol.HYSTERIA or _non_null(item, "hysteria") is not None
     nodes_value = _entry(item, "nodes")
     seq = _block_items(nodes_value)
     error = None
@@ -372,9 +408,18 @@ def _region_item(lines: list[str], item: yaml.Node, start: int, end: int) -> Reg
     nodes: tuple[NodeItem, ...] = ()
     if seq and nodes_value is not None:
         nodes = tuple(
-            NodeItem(_scalar(n, "id"), _scalar(n, "hostname"), _scalar(n, "lb_role") == "backup", s, e)
+            NodeItem(
+                _scalar(n, "id"),
+                _scalar(n, "hostname"),
+                _scalar(n, "lb_role") == "backup",
+                _listens_hysteria(region_type, n, bare_listens),
+                s,
+                e,
+            )
             for n, s, e in _spans(lines, nodes_value, seq)
         )
+    every = bool(nodes) and all(n.hysteria for n in nodes)
+    listens = every and not bare_listens if region_type == RegionType.HUB else bare_listens or every
     return RegionItem(
         id=_scalar(item, "id"),
         type=_scalar(item, "type"),
@@ -386,7 +431,12 @@ def _region_item(lines: list[str], item: yaml.Node, start: int, end: int) -> Reg
         lb_fallback=_scalar(item, "lb_fallback"),
         lb_fallback_line=_key_line(item, "lb_fallback"),
         lb_strategy_end=strategy.end_mark.line if strategy is not None else None,
-        hysteria=_scalar(item, "protocol") == "hysteria" or _entry(item, "hysteria") is not None,
+        hysteria=listens,
+        hysteria_opt_out=(
+            region_type == RegionType.HUB
+            and hub_hysteria_default
+            and (tls_region or (bool(nodes) and not any(n.hysteria for n in nodes)))
+        ),
         start=start,
         end=end,
     )
@@ -426,6 +476,42 @@ def _int_scalar(node: yaml.Node | None, key: str) -> int | None:
     except yaml.YAMLError:
         return None
     return value if isinstance(value, int) else None
+
+
+def _non_null(node: yaml.Node | None, key: str) -> yaml.Node | None:
+    """Value under `key`, None when absent or null."""
+
+    value = _entry(node, key)
+    return None if value is None or value.tag == NULL_TAG else value
+
+
+def _bool_scalar(node: yaml.Node | None, key: str) -> bool | None:
+    """Bool as pydantic reads it, None when absent or unparseable."""
+
+    raw = _scalar(node, key)
+    if raw is None:
+        return None
+    text = raw.strip().lower()
+    if text in TRUE_TEXT:
+        return True
+    if text in FALSE_TEXT:
+        return False
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+    return bool(number) if number in (0.0, 1.0) else None
+
+
+def _listens_hysteria(region_type: str | None, node: yaml.Node, region_listens: bool) -> bool:
+    """Mirror of resolve_node_hysteria over raw YAML."""
+
+    block = _non_null(node, "hysteria")
+    if block is None:
+        return region_listens
+    if region_type == RegionType.HUB:
+        return _bool_scalar(block, "enabled") is not False
+    return True
 
 
 def _routes(item: yaml.Node) -> frozenset[int]:

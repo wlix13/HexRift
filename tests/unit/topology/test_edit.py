@@ -457,3 +457,245 @@ class TestRoundtrip:
         assert result.text == strategic.replace(
             DE_A00_BLOCK, DE_A00_BLOCK + "      - id: deA10\n        hostname: deA10.ap.t.ns\n"
         )
+
+
+class TestHysteriaListenerDetection:
+    def test_exit_region_nodes_with_hysteria_blocks_no_region_key(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.t.ns
+        reality:
+          dest: a.com:443
+        xhttp:
+          path: /x/
+        hysteria:
+          obfs: true
+      - id: nlA10
+        hostname: nlA10.ap.t.ns
+        reality:
+          dest: a.com:443
+        xhttp:
+          path: /x/
+        hysteria:
+          obfs: true
+"""
+        topo = Topology(text)
+        region = topo.region("nl")
+        assert region is not None
+        assert region.hysteria is True
+        assert len(region.nodes) == 2
+        assert all(n.hysteria for n in region.nodes)
+
+    def test_exit_region_bare_hysteria_null_key(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+regions:
+  - id: nl
+    type: exit
+    vless_route: 1000
+    hysteria:
+    nodes:
+      - id: nlA00
+        hostname: nlA00.ap.t.ns
+        reality:
+          dest: a.com:443
+        xhttp:
+          path: /x/
+"""
+        topo = Topology(text)
+        region = topo.region("nl")
+        assert region is not None
+        assert region.hysteria is False
+        assert len(region.nodes) == 1
+        assert region.nodes[0].hysteria is False
+
+    def test_hub_region_defaults_hysteria_with_mixed_nodes(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+defaults:
+  hub:
+    hysteria:
+      port: 8443
+
+regions:
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+      - id: mskA10
+        hostname: mskA10.hub.t.ns
+        hysteria:
+          enabled: false
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.hysteria is False
+        assert len(region.nodes) == 2
+        assert region.nodes[0].hysteria is True
+        assert region.nodes[1].hysteria is False
+
+    def test_tls_hub_region_defaults_hysteria_with_node_disabled(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+defaults:
+  hub:
+    hysteria:
+      port: 8443
+
+regions:
+  - id: msk
+    type: hub
+    tls:
+      certificate:
+        cert_file: /etc/certs/fullchain.pem
+        key_file: /etc/certs/privkey.pem
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+        hysteria:
+          enabled: false
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.hysteria is False
+        assert region.hysteria_opt_out is True
+        assert len(region.nodes) == 1
+        assert region.nodes[0].hysteria is False
+
+    @pytest.mark.parametrize("enabled", ["no", "0", "0.0", "off", "FALSE"])
+    def test_hub_region_defaults_hysteria_lax_bool(self, enabled):
+        text = f"""\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+defaults:
+  hub:
+    hysteria:
+      port: 8443
+
+regions:
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+        hysteria:
+          enabled: {enabled}
+      - id: mskA10
+        hostname: mskA10.hub.t.ns
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.hysteria is False
+        assert len(region.nodes) == 2
+        assert region.nodes[0].hysteria is False
+        assert region.nodes[1].hysteria is True
+
+    def test_hub_region_defaults_hysteria_with_every_node_opted_out(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+defaults:
+  hub:
+    hysteria:
+      port: 8443
+
+regions:
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+        hysteria:
+          enabled: false
+      - id: mskA10
+        hostname: mskA10.hub.t.ns
+        hysteria:
+          enabled: false
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.hysteria is False
+        assert len(region.nodes) == 2
+        assert all(n.hysteria is False for n in region.nodes)
+
+    def test_hub_region_without_defaults_and_listening_nodes(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+regions:
+  - id: msk
+    type: hub
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+        hysteria:
+          obfs: true
+      - id: mskA10
+        hostname: mskA10.hub.t.ns
+        hysteria:
+          obfs: true
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.hysteria is True
+        assert len(region.nodes) == 2
+        assert all(n.hysteria for n in region.nodes)
+
+    def test_tls_hub_region_bare_node_still_listens_in_the_mirror(self):
+        text = """\
+global:
+  namespace: t.ns
+  aphelion_domain: ap.t.ns
+
+defaults:
+  hub:
+    hysteria:
+      port: 8443
+
+regions:
+  - id: msk
+    type: hub
+    tls:
+      certificate:
+        cert_file: /etc/certs/fullchain.pem
+        key_file: /etc/certs/privkey.pem
+    nodes:
+      - id: mskA00
+        hostname: mskA00.hub.t.ns
+"""
+        topo = Topology(text)
+        region = topo.region("msk")
+        assert region is not None
+        assert region.nodes[0].hysteria is True
+        assert region.hysteria is False
+        assert region.hysteria_opt_out is True

@@ -39,7 +39,11 @@ def _strict_label(strict: bool) -> str:
 
 
 def _listens_hysteria(region: Region, defaults: DefaultsConfig) -> bool:
-    return any(resolve_node_hysteria(node, region, defaults) is not None for node in region.nodes)
+    """Whether all nodes render Hysteria listeners."""
+
+    return bool(region.nodes) and all(
+        resolve_node_hysteria(node, region, defaults) is not None for node in region.nodes
+    )
 
 
 class DeriveComponent(BaseComponent["HexRiftApp", DeriveController]):
@@ -211,6 +215,7 @@ def _print_topology(app: HexRiftApp) -> None:
 
     tree = Tree("[bold cyan]Regions[/bold cyan]")
     for region in cfg.regions:
+        listens = _listens_hysteria(region, cfg.defaults)
         if region.type == RegionType.EXIT:
             extras = []
             if region.vless_route is not None:
@@ -219,13 +224,13 @@ def _print_topology(app: HexRiftApp) -> None:
             if region.warp is not None:
                 hex_warp = format(region.warp.vless_route, "04x")
                 extras.append(f"[magenta]warp={region.warp.vless_route} {hex_warp}[/magenta]")
-            if _listens_hysteria(region, cfg.defaults):
+            if listens:
                 extras.append("[red]hysteria[/red]")
             extra_str = "  " + "  ".join(extras) if extras else ""
             r_branch = tree.add(f"[green]{region.id}[/green] [dim]exit[/dim]{extra_str}")
         else:
             extras = []
-            if _listens_hysteria(region, cfg.defaults):
+            if listens:
                 extras.append("[red]hysteria[/red]")
             if resolve_region_tls(region, cfg.defaults) is not None:
                 extras.append("[blue]tls[/blue]")
@@ -235,6 +240,8 @@ def _print_topology(app: HexRiftApp) -> None:
             tags = []
             if isinstance(node, ExitNode) and node.lb_role:
                 tags.append(f"LB: [dim]{node.lb_role}[/dim]")
+            if not listens and resolve_node_hysteria(node, region, cfg.defaults) is not None:
+                tags.append("[red]hysteria[/red]")
             tag_str = "  " + " ".join(tags) if tags else ""
             r_branch.add(f"[bold]{node.id}[/bold]  [dim]{node.hostname}[/dim]{tag_str}")
     app.console.print(tree)
