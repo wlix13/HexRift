@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.4](https://github.com/wlix13/HexRift/compare/v0.13.3...v0.13.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **topology:** resolve hysteria listeners the way the render does ([6e2ddb5](https://github.com/wlix13/HexRift/commit/6e2ddb578b74e2634f4ecbd2bb91c29c6b994915))
+
+
+### Documentation
+
+* **readme:** install from pypi and fix stale usage examples ([b76de61](https://github.com/wlix13/HexRift/commit/b76de615957226149c0f09766f76c401af62a051))
+
 ## [0.13.3](https://github.com/wlix13/HexRift/compare/v0.13.2...v0.13.3) (2026-11-10)
 
 
