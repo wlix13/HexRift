@@ -59,13 +59,14 @@ def _observability_blocks(metrics: MetricsConfig) -> dict:
     }
 
 
-def _warp_outbound(ipv6: bool) -> dict:
+def _warp_outbound() -> dict:
+    # warp tunnel is dual-stack regardless of host ipv6
     return {
         "tag": SpecialDestination.WARP,
         "protocol": XrayProtocol.FREEDOM,
         "streamSettings": {
             "sockopt": {
-                **make_sockopt(ipv6),
+                **make_sockopt(True),
                 "interface": "warp",
             }
         },
@@ -119,7 +120,7 @@ def build_exit_config(ctx: ExitContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _warp_outbound(shared.ipv6),
+            _warp_outbound(),
         ]
     )
 
@@ -159,7 +160,7 @@ def build_hub_config(ctx: HubContext) -> dict:
                 "protocol": XrayProtocol.BLACKHOLE,
                 "settings": {},
             },
-            _warp_outbound(shared.ipv6),
+            _warp_outbound(),
         ]
     )
 
