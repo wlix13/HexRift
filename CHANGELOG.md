@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.5](https://github.com/wlix13/HexRift/compare/v0.13.4...v0.13.5) (2026-11-21)
+
+
+### Bug Fixes
+
+* **render:** keep warp outbound dual-stack without host ipv6 ([4b76fc3](https://github.com/wlix13/HexRift/commit/4b76fc33a1daae61d71326c3b1de4362ccb3f894))
+
 ## [0.13.4](https://github.com/wlix13/HexRift/compare/v0.13.3...v0.13.4) (2026-11-14)
 
 
