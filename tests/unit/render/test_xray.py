@@ -88,6 +88,26 @@ class TestExitIpv6Egress:
         assert reality_ib["sniffing"]["routeOnly"] is True
 
 
+class TestWarpIpv6Egress:
+    @staticmethod
+    def _warp(config: dict) -> dict:
+        return next(ob for ob in config["outbounds"] if ob["tag"] == "warp")
+
+    def test_exit_warp_stays_dualstack_without_host_ipv6(self):
+        config = build_exit_config(_exit_ctx(shared=make_shared(ipv6=False)))
+        warp = self._warp(config)
+        assert warp["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv6v4"
+        assert warp["streamSettings"]["sockopt"]["happyEyeballs"]["prioritizeIPv6"] is True
+        assert warp["streamSettings"]["sockopt"]["interface"] == "warp"
+
+    def test_hub_warp_stays_dualstack_without_host_ipv6(self):
+        config = build_hub_config(_hub_ctx(shared=make_shared(ipv6=False)))
+        warp = self._warp(config)
+        assert warp["streamSettings"]["sockopt"]["domainStrategy"] == "UseIPv6v4"
+        assert warp["streamSettings"]["sockopt"]["happyEyeballs"]["prioritizeIPv6"] is True
+        assert warp["streamSettings"]["sockopt"]["interface"] == "warp"
+
+
 class TestXdnsWireguardInbounds:
     def test_xdns_inbound_absent_without_slot(self):
         config = build_hub_config(_hub_ctx())
